@@ -155,8 +155,7 @@ export class WindowActivityService {
           // For editor events, use file or project as title
           const file = getStringProperty(e.data, 'file');
           if (file) return file;
-          const project = getStringProperty(e.data, 'project');
-          return project;
+          return getStringProperty(e.data, 'project');
         })
         .filter(title => title && title.length > 0) as string[];
 
