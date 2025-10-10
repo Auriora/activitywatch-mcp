@@ -3,33 +3,33 @@
  */
 
 export interface AWBucket {
-  id: string;
-  name?: string;
-  type: string;
-  client: string;
-  hostname: string;
-  created: string;
-  data?: Record<string, unknown>;
-  events?: AWEvent[];
+  readonly id: string;
+  readonly name?: string;
+  readonly type: string;
+  readonly client: string;
+  readonly hostname: string;
+  readonly created: string;
+  readonly data?: Readonly<Record<string, unknown>>;
+  readonly events?: readonly AWEvent[];
 }
 
 export interface AWEvent {
-  id?: number;
-  timestamp: string;
-  duration: number;
-  data: Record<string, unknown>;
+  readonly id?: number;
+  readonly timestamp: string;
+  readonly duration: number;
+  readonly data: Readonly<Record<string, unknown>>;
 }
 
 export interface AWServerInfo {
-  hostname: string;
-  version: string;
-  testing: boolean;
-  device_id: string;
+  readonly hostname: string;
+  readonly version: string;
+  readonly testing: boolean;
+  readonly device_id: string;
 }
 
 export interface AWQuery {
-  query: string[];
-  timeperiods: string[];
+  readonly query: readonly string[];
+  readonly timeperiods: readonly string[];
 }
 
 /**
@@ -37,58 +37,58 @@ export interface AWQuery {
  */
 
 export interface BucketInfo {
-  id: string;
-  type: string;
-  description: string;
-  device: string;
-  hostname: string;
-  client: string;
-  created: string;
-  dataRange?: {
-    earliest: string;
-    latest: string;
+  readonly id: string;
+  readonly type: string;
+  readonly description: string;
+  readonly device: string;
+  readonly hostname: string;
+  readonly client: string;
+  readonly created: string;
+  readonly dataRange?: {
+    readonly earliest: string;
+    readonly latest: string;
   };
 }
 
 export interface Capabilities {
-  has_window_tracking: boolean;
-  has_browser_tracking: boolean;
-  has_afk_detection: boolean;
-  has_categories: boolean;
+  readonly has_window_tracking: boolean;
+  readonly has_browser_tracking: boolean;
+  readonly has_afk_detection: boolean;
+  readonly has_categories: boolean;
 }
 
 export interface AppUsage {
-  name: string;
-  duration_seconds: number;
-  duration_hours: number;
-  percentage: number;
-  window_titles?: string[];
+  readonly name: string;
+  readonly duration_seconds: number;
+  readonly duration_hours: number;
+  readonly percentage: number;
+  readonly window_titles?: readonly string[];
 }
 
 export interface WebUsage {
-  domain: string;
-  url?: string;
-  title?: string;
-  duration_seconds: number;
-  duration_hours: number;
-  percentage: number;
+  readonly domain: string;
+  readonly url?: string;
+  readonly title?: string;
+  readonly duration_seconds: number;
+  readonly duration_hours: number;
+  readonly percentage: number;
 }
 
 export interface DailySummary {
-  date: string;
-  total_active_time_hours: number;
-  total_afk_time_hours: number;
-  top_applications: AppUsage[];
-  top_websites: WebUsage[];
-  hourly_breakdown?: HourlyActivity[];
-  insights: string[];
+  readonly date: string;
+  readonly total_active_time_hours: number;
+  readonly total_afk_time_hours: number;
+  readonly top_applications: readonly AppUsage[];
+  readonly top_websites: readonly WebUsage[];
+  readonly hourly_breakdown?: readonly HourlyActivity[];
+  readonly insights: readonly string[];
 }
 
 export interface HourlyActivity {
-  hour: number;
-  active_seconds: number;
-  top_app?: string;
-  top_website?: string;
+  readonly hour: number;
+  readonly active_seconds: number;
+  readonly top_app?: string;
+  readonly top_website?: string;
 }
 
 /**

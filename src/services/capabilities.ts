@@ -2,22 +2,38 @@
  * Service for discovering ActivityWatch capabilities
  */
 
-import { ActivityWatchClient } from '../client/activitywatch.js';
+import { IActivityWatchClient } from '../client/activitywatch.js';
 import { BucketInfo, Capabilities, AWError } from '../types.js';
 import { formatDateForAPI } from '../utils/time.js';
+import { SimpleCache } from '../utils/cache.js';
 
 export class CapabilitiesService {
-  constructor(private client: ActivityWatchClient) {}
+  private bucketsCache = new SimpleCache<BucketInfo[]>(60000); // 1 minute cache
+  private capabilitiesCache = new SimpleCache<Capabilities>(60000);
+
+  constructor(private client: IActivityWatchClient) {}
 
   /**
    * Get all available buckets with metadata
    */
   async getAvailableBuckets(): Promise<BucketInfo[]> {
+    // Check cache first
+    return this.bucketsCache.getOrSet('all-buckets', async () => {
+      return this.fetchBuckets();
+    });
+  }
+
+  /**
+   * Fetch buckets from API (bypasses cache)
+   */
+  private async fetchBuckets(): Promise<BucketInfo[]> {
     try {
       const buckets = await this.client.getBuckets();
       const bucketInfos: BucketInfo[] = [];
 
       for (const [id, bucket] of Object.entries(buckets)) {
+        let dataRange: { readonly earliest: string; readonly latest: string } | undefined;
+
         const info: BucketInfo = {
           id,
           type: bucket.type,
@@ -28,25 +44,42 @@ export class CapabilitiesService {
           created: bucket.created,
         };
 
-        // Try to get data range
+        // Try to get data range efficiently
+        // Instead of fetching ALL events, we fetch just the first and last event
         try {
-          const events = await this.client.getEvents(id, { limit: 1 });
-          if (events.length > 0) {
-            // Get first and last event
-            const allEvents = await this.client.getEvents(id);
-            if (allEvents.length > 0) {
-              const timestamps = allEvents.map(e => new Date(e.timestamp).getTime());
-              info.dataRange = {
-                earliest: new Date(Math.min(...timestamps)).toISOString(),
+          // Get the first event (oldest)
+          const firstEvents = await this.client.getEvents(id, { limit: 1 });
+
+          if (firstEvents.length > 0) {
+            // For the latest event, we need to get events in reverse order
+            // Since ActivityWatch API doesn't support reverse order directly,
+            // we'll use a large time range from now backwards with limit 1
+            const now = new Date();
+            const farFuture = new Date(now.getTime() + 86400000); // +1 day to ensure we get latest
+
+            const latestEvents = await this.client.getEvents(id, {
+              start: firstEvents[0].timestamp,
+              end: formatDateForAPI(farFuture),
+              limit: 1000, // Get recent events to find the actual latest
+            });
+
+            if (latestEvents.length > 0) {
+              // Find the actual latest timestamp from the fetched events
+              const timestamps = latestEvents.map(e => new Date(e.timestamp).getTime());
+              dataRange = {
+                earliest: firstEvents[0].timestamp,
                 latest: new Date(Math.max(...timestamps)).toISOString(),
               };
             }
           }
         } catch (error) {
-          // Ignore errors getting data range
+          // Ignore errors getting data range - bucket might be empty or inaccessible
         }
 
-        bucketInfos.push(info);
+        bucketInfos.push({
+          ...info,
+          dataRange,
+        });
       }
 
       return bucketInfos;
@@ -66,20 +99,23 @@ export class CapabilitiesService {
    * Detect what capabilities are available
    */
   async detectCapabilities(): Promise<Capabilities> {
-    const buckets = await this.getAvailableBuckets();
+    // Check cache first
+    return this.capabilitiesCache.getOrSet('capabilities', async () => {
+      const buckets = await this.getAvailableBuckets();
 
-    return {
-      has_window_tracking: buckets.some(b => 
-        b.type === 'currentwindow' || b.type.includes('window')
-      ),
-      has_browser_tracking: buckets.some(b => 
-        b.type === 'web.tab.current' || b.type.includes('web')
-      ),
-      has_afk_detection: buckets.some(b => 
-        b.type === 'afkstatus' || b.type.includes('afk')
-      ),
-      has_categories: false, // Categories are configured separately
-    };
+      return {
+        has_window_tracking: buckets.some(b =>
+          b.type === 'currentwindow' || b.type.includes('window')
+        ),
+        has_browser_tracking: buckets.some(b =>
+          b.type === 'web.tab.current' || b.type.includes('web')
+        ),
+        has_afk_detection: buckets.some(b =>
+          b.type === 'afkstatus' || b.type.includes('afk')
+        ),
+        has_categories: false, // Categories are configured separately
+      };
+    });
   }
 
   /**
@@ -165,9 +201,17 @@ export class CapabilitiesService {
    */
   async findAfkBuckets(): Promise<BucketInfo[]> {
     const buckets = await this.getAvailableBuckets();
-    return buckets.filter(b => 
+    return buckets.filter(b =>
       b.type === 'afkstatus' || b.type.includes('afk')
     );
+  }
+
+  /**
+   * Clear all caches (useful for testing or when buckets change)
+   */
+  clearCache(): void {
+    this.bucketsCache.clear();
+    this.capabilitiesCache.clear();
   }
 }
 

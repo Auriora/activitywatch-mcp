@@ -2,7 +2,6 @@
  * Service for daily activity summaries
  */
 
-import { ActivityWatchClient } from '../client/activitywatch.js';
 import { WindowActivityService } from './window-activity.js';
 import { WebActivityService } from './web-activity.js';
 import { DailySummary, DailySummaryParams, HourlyActivity } from '../types.js';
@@ -12,7 +11,6 @@ import { logger } from '../utils/logger.js';
 
 export class DailySummaryService {
   constructor(
-    private client: ActivityWatchClient,
     private windowService: WindowActivityService,
     private webService: WebActivityService
   ) {}

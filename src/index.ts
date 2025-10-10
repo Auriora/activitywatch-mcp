@@ -29,7 +29,6 @@ import {
 } from './tools/schemas.js';
 
 import { AWError } from './types.js';
-import { formatDateForAPI } from './utils/time.js';
 import { formatRawEventsConcise } from './utils/formatters.js';
 import { logger } from './utils/logger.js';
 import { performHealthCheck, logStartupDiagnostics } from './utils/health.js';
@@ -46,7 +45,7 @@ const client = new ActivityWatchClient(AW_URL);
 const capabilitiesService = new CapabilitiesService(client);
 const windowService = new WindowActivityService(client, capabilitiesService);
 const webService = new WebActivityService(client, capabilitiesService);
-const dailySummaryService = new DailySummaryService(client, windowService, webService);
+const dailySummaryService = new DailySummaryService(windowService, webService);
 
 /**
  * Create MCP server
@@ -437,7 +436,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case 'aw_get_capabilities': {
-        const params = GetCapabilitiesSchema.parse(args);
+        GetCapabilitiesSchema.parse(args); // Validate args (even though empty)
         logger.debug('Fetching capabilities');
 
         const [buckets, capabilities, suggestedTools] = await Promise.all([
@@ -549,6 +548,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           limit: params.limit,
         });
 
+        // Validate bucket exists
+        const buckets = await client.getBuckets();
+        if (!buckets[params.bucket_id]) {
+          const availableBuckets = Object.keys(buckets);
+          logger.warn('Bucket not found', {
+            requestedBucket: params.bucket_id,
+            availableBuckets,
+          });
+          throw new AWError(
+            `Bucket '${params.bucket_id}' not found.\n\n` +
+            `Available buckets:\n${availableBuckets.map(b => `  - ${b}`).join('\n')}\n\n` +
+            `Use the 'aw_get_capabilities' tool to see all available buckets with descriptions.`,
+            'BUCKET_NOT_FOUND',
+            { requestedBucket: params.bucket_id, availableBuckets }
+          );
+        }
+
         const events = await client.getEvents(params.bucket_id, {
           start: params.start_time,
           end: params.end_time,
@@ -576,7 +592,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: formatRawEventsConcise(params.bucket_id, events, params.limit || 100),
+              text: formatRawEventsConcise(params.bucket_id, events),
             },
           ],
         };

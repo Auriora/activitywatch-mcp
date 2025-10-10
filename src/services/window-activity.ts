@@ -2,7 +2,7 @@
  * Service for window/application activity analysis
  */
 
-import { ActivityWatchClient } from '../client/activitywatch.js';
+import { IActivityWatchClient } from '../client/activitywatch.js';
 import { CapabilitiesService } from './capabilities.js';
 import { AppUsage, WindowActivityParams, AWError, AWEvent } from '../types.js';
 import { getTimeRange, formatDateForAPI, secondsToHours } from '../utils/time.js';
@@ -13,15 +13,15 @@ import {
   calculatePercentage,
   sortByDuration,
   takeTop,
-  groupEvents,
   sumDurations,
 } from '../utils/filters.js';
 import { formatWindowActivityConcise } from '../utils/formatters.js';
 import { logger } from '../utils/logger.js';
+import { getStringProperty } from '../utils/type-guards.js';
 
 export class WindowActivityService {
   constructor(
-    private client: ActivityWatchClient,
+    private client: IActivityWatchClient,
     private capabilities: CapabilitiesService
   ) {}
 
@@ -109,19 +109,19 @@ export class WindowActivityService {
 
     // Convert to AppUsage format
     const applications: AppUsage[] = [];
-    
+
     for (const [appName, events] of appGroups.entries()) {
       const duration = sumDurations(events);
       const windowTitles = events
-        .map(e => e.data.title as string)
-        .filter(Boolean);
+        .map(e => getStringProperty(e.data, 'title'))
+        .filter(title => title.length > 0);
 
       applications.push({
         name: appName,
         duration_seconds: duration,
         duration_hours: secondsToHours(duration),
         percentage: calculatePercentage(duration, totalTime),
-        window_titles: params.response_format === 'detailed' 
+        window_titles: params.response_format === 'detailed'
           ? Array.from(new Set(windowTitles))
           : undefined,
       });
@@ -152,21 +152,21 @@ export class WindowActivityService {
     const groups = new Map<string, AWEvent[]>();
 
     for (const event of events) {
-      let appName = event.data.app as string;
-      
+      const appName = getStringProperty(event.data, 'app');
+
       if (!appName) continue;
 
       // Normalize app name
-      appName = normalizeAppName(appName);
+      const normalizedName = normalizeAppName(appName);
 
       // Filter system apps
-      if (excludeSystemApps && isSystemApp(appName)) {
+      if (excludeSystemApps && isSystemApp(normalizedName)) {
         continue;
       }
 
-      const group = groups.get(appName) || [];
+      const group = groups.get(normalizedName) || [];
       group.push(event);
-      groups.set(appName, group);
+      groups.set(normalizedName, group);
     }
 
     return groups;

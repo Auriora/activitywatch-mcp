@@ -2,7 +2,7 @@
  * Health check and diagnostics utilities
  */
 
-import { ActivityWatchClient } from '../client/activitywatch.js';
+import { IActivityWatchClient } from '../client/activitywatch.js';
 import { logger } from './logger.js';
 
 export interface HealthCheckResult {
@@ -21,7 +21,7 @@ export interface HealthCheckResult {
  * Perform comprehensive health check on ActivityWatch connection
  */
 export async function performHealthCheck(
-  client: ActivityWatchClient
+  client: IActivityWatchClient
 ): Promise<HealthCheckResult> {
   const result: HealthCheckResult = {
     healthy: true,

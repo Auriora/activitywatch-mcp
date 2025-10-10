@@ -2,7 +2,7 @@
  * Service for web/browser activity analysis
  */
 
-import { ActivityWatchClient } from '../client/activitywatch.js';
+import { IActivityWatchClient } from '../client/activitywatch.js';
 import { CapabilitiesService } from './capabilities.js';
 import { WebUsage, WebActivityParams, AWError, AWEvent } from '../types.js';
 import { getTimeRange, formatDateForAPI, secondsToHours } from '../utils/time.js';
@@ -19,10 +19,11 @@ import {
 } from '../utils/filters.js';
 import { formatWebActivityConcise } from '../utils/formatters.js';
 import { logger } from '../utils/logger.js';
+import { getStringProperty } from '../utils/type-guards.js';
 
 export class WebActivityService {
   constructor(
-    private client: ActivityWatchClient,
+    private client: IActivityWatchClient,
     private capabilities: CapabilitiesService
   ) {}
 
@@ -100,9 +101,9 @@ export class WebActivityService {
     // Exclude domains
     const excludeDomains = params.exclude_domains ?? DEFAULT_EXCLUDED_DOMAINS;
     const domainFilteredEvents = filteredEvents.filter(event => {
-      const url = event.data.url as string;
+      const url = getStringProperty(event.data, 'url');
       if (!url) return false;
-      
+
       const domain = extractDomain(url);
       return !shouldExcludeDomain(domain, excludeDomains);
     });
@@ -116,17 +117,17 @@ export class WebActivityService {
 
     // Convert to WebUsage format
     const websites: WebUsage[] = [];
-    
+
     for (const [key, events] of webGroups.entries()) {
       const duration = sumDurations(events);
       const firstEvent = events[0];
-      const url = firstEvent.data.url as string;
-      const title = firstEvent.data.title as string;
+      const url = getStringProperty(firstEvent.data, 'url');
+      const title = getStringProperty(firstEvent.data, 'title');
 
       websites.push({
         domain: groupBy === 'domain' ? key : extractDomain(url),
         url: groupBy === 'url' ? key : undefined,
-        title: groupBy === 'title' ? key : title,
+        title: groupBy === 'title' ? key : (title || undefined),
         duration_seconds: duration,
         duration_hours: secondsToHours(duration),
         percentage: calculatePercentage(duration, totalTime),
@@ -158,13 +159,13 @@ export class WebActivityService {
     const groups = new Map<string, AWEvent[]>();
 
     for (const event of events) {
-      const url = event.data.url as string;
-      const title = event.data.title as string;
-      
+      const url = getStringProperty(event.data, 'url');
+      const title = getStringProperty(event.data, 'title');
+
       if (!url) continue;
 
       let key: string;
-      
+
       switch (groupBy) {
         case 'domain':
           key = normalizeDomain(extractDomain(url));

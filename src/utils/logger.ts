@@ -2,6 +2,8 @@
  * Logging utility for ActivityWatch MCP Server
  */
 
+import { getErrorProperties } from './type-guards.js';
+
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -46,15 +48,8 @@ class Logger {
   }
 
   error(message: string, error?: unknown): void {
-    if (error instanceof Error) {
-      this.log(LogLevel.ERROR, message, {
-        message: error.message,
-        stack: error.stack,
-        ...(error as any),
-      });
-    } else {
-      this.log(LogLevel.ERROR, message, error);
-    }
+    const errorProps = getErrorProperties(error);
+    this.log(LogLevel.ERROR, message, errorProps);
   }
 }
 

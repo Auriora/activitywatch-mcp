@@ -97,12 +97,11 @@ export function formatDailySummaryConcise(summary: DailySummary): string {
  */
 export function formatRawEventsConcise(
   bucketId: string,
-  events: unknown[],
-  limit: number
+  events: unknown[]
 ): string {
   const preview = events.slice(0, 10);
   const hasMore = events.length > 10;
-  
+
   return `Retrieved ${events.length} events from bucket ${bucketId}\n\n` +
          JSON.stringify(preview, null, 2) +
          (hasMore ? `\n\n... and ${events.length - 10} more events` : '');
