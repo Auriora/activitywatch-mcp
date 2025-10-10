@@ -16,6 +16,7 @@ import {
 
 import { ActivityWatchClient } from './client/activitywatch.js';
 import { CapabilitiesService } from './services/capabilities.js';
+import { QueryService } from './services/query.js';
 import { WindowActivityService } from './services/window-activity.js';
 import { WebActivityService } from './services/web-activity.js';
 import { EditorActivityService } from './services/editor-activity.js';
@@ -48,12 +49,13 @@ logStartupDiagnostics(AW_URL);
 const client = new ActivityWatchClient(AW_URL);
 const capabilitiesService = new CapabilitiesService(client);
 const categoryService = new CategoryService(client);
+const queryService = new QueryService(client, capabilitiesService);
 
 // Always pass category service - it will handle the case when no categories are configured
 // Categories are loaded asynchronously in main(), so we can't check hasCategories() here
-const windowService = new WindowActivityService(client, capabilitiesService, categoryService);
-const webService = new WebActivityService(client, capabilitiesService, categoryService);
-const editorService = new EditorActivityService(client, capabilitiesService, categoryService);
+const windowService = new WindowActivityService(queryService, categoryService);
+const webService = new WebActivityService(queryService, categoryService);
+const editorService = new EditorActivityService(queryService, categoryService);
 const afkService = new AfkActivityService(client, capabilitiesService);
 
 const dailySummaryService = new DailySummaryService(
@@ -134,6 +136,7 @@ WHEN NOT TO USE:
 - If no window tracking data exists (check with aw_get_capabilities first)
 
 CAPABILITIES:
+- **AFK FILTERING**: Automatically filters events to only include active periods (when user is not AFK)
 - Automatically discovers and aggregates data from all window tracking buckets
 - Combines data across multiple devices if available
 - Filters out system applications (Finder, Dock, etc.) by default
@@ -146,11 +149,12 @@ LIMITATIONS:
 - Cannot see WHAT you did in the application (no content access)
 - Cannot determine quality or productivity of work
 - Only shows active window time (not background processes)
+- **Only counts time when user is actively working (AFK periods are excluded)**
 - Requires window watcher (aw-watcher-window) to be installed and running
 - Time periods limited to available data (check date ranges with aw_get_capabilities)
 
 RETURNS:
-- total_time_seconds: Total active time in the period
+- total_time_seconds: Total active time in the period (AFK-filtered)
 - applications: Array of {name, duration_seconds, duration_hours, percentage, window_titles?}
 - time_range: {start, end} timestamps of analyzed period
 
@@ -229,6 +233,7 @@ WHEN NOT TO USE:
 - If no browser tracking data exists (check with aw_get_capabilities first)
 
 CAPABILITIES:
+- **AFK FILTERING**: Automatically filters events to only include active periods (when user is not AFK)
 - Automatically discovers and aggregates data from all browser tracking buckets
 - Combines data across multiple browsers (Chrome, Firefox, Safari, etc.)
 - Extracts and normalizes domain names from URLs
@@ -241,12 +246,13 @@ LIMITATIONS:
 - Cannot see page CONTENT or what you read/typed
 - Cannot determine if time was productive or not
 - Only tracks active tab time (not background tabs)
+- **Only counts time when user is actively browsing (AFK periods are excluded)**
 - Requires browser extension (aw-watcher-web) to be installed
 - May not capture incognito/private browsing depending on extension settings
 - Time periods limited to available data (check date ranges with aw_get_capabilities)
 
 RETURNS:
-- total_time_seconds: Total browsing time in the period
+- total_time_seconds: Total browsing time in the period (AFK-filtered)
 - websites: Array of {domain, url?, title?, duration_seconds, duration_hours, percentage}
 - time_range: {start, end} timestamps of analyzed period
 
@@ -326,6 +332,7 @@ WHEN NOT TO USE:
 - If no editor tracking data exists (check with aw_get_capabilities first)
 
 CAPABILITIES:
+- **AFK FILTERING**: Automatically filters events to only include active periods (when user is not AFK)
 - Automatically discovers and aggregates data from all editor tracking buckets
 - Combines data across multiple IDEs (VS Code, JetBrains IDEs, Vim, etc.)
 - Groups by project, file, programming language, or editor
@@ -337,11 +344,12 @@ LIMITATIONS:
 - Cannot see CODE CONTENT or what you typed
 - Cannot determine code quality or productivity
 - Only tracks active file/editor time
+- **Only counts time when user is actively coding (AFK periods are excluded)**
 - Requires IDE plugins/watchers to be installed (e.g., JetBrains plugins, aw-watcher-vscode)
 - Time periods limited to available data (check date ranges with aw_get_capabilities)
 
 RETURNS:
-- total_time_seconds: Total editing time in the period
+- total_time_seconds: Total editing time in the period (AFK-filtered)
 - editors: Array of {name, duration_seconds, duration_hours, percentage, projects?, files?, languages?, git_info?}
 - time_range: {start, end} timestamps of analyzed period
 

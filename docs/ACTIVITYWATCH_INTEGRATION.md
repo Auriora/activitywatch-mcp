@@ -15,14 +15,31 @@ This document explains how the MCP server integrates with ActivityWatch's native
 
 ## AFK Tracking Integration
 
-### Status: ✅ Fully Integrated
+### Status: ✅ Fully Integrated with Query API
 
-The `AfkActivityService` directly integrates with ActivityWatch's AFK tracking:
+The MCP server uses ActivityWatch's **query API** to filter all activity data by AFK status:
 
+- **Primary Use**: `QueryService` uses query API to fetch AFK-filtered events
+- **Query Method**: Uses `filter_period_intersect` to only include "not-afk" periods
+- **API Endpoint**: Uses `/api/0/query/` with query language
 - **Data Source**: Reads from ActivityWatch's AFK buckets (e.g., `aw-watcher-afk_hostname`)
-- **API Endpoint**: Uses `/api/0/buckets/{bucket_id}/events`
-- **Data Format**: Processes ActivityWatch's native AFK event format
-- **Fallback**: Gracefully degrades if AFK buckets are unavailable
+- **Fallback**: Gracefully degrades if AFK buckets are unavailable (returns all events)
+
+**How It Works:**
+
+1. **QueryService** builds queries that combine activity buckets with AFK buckets
+2. Query uses `filter_keyvals` to get only "not-afk" events
+3. Query uses `filter_period_intersect` to filter activity events by AFK periods
+4. Server-side filtering ensures only active time is counted
+
+**Example Query:**
+```javascript
+events = query_bucket("aw-watcher-window_hostname");
+afk_events = query_bucket("aw-watcher-afk_hostname");
+not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);
+events = filter_period_intersect(events, not_afk);
+RETURN = events;
+```
 
 **Example AFK Event from ActivityWatch:**
 ```json
@@ -34,6 +51,12 @@ The `AfkActivityService` directly integrates with ActivityWatch's AFK tracking:
   }
 }
 ```
+
+**Services Using AFK Filtering:**
+- ✅ `WindowActivityService` - Only counts active window time
+- ✅ `WebActivityService` - Only counts active browsing time
+- ✅ `EditorActivityService` - Only counts active coding time
+- ✅ `DailySummaryService` - Uses AFK-filtered data from all services
 
 ---
 

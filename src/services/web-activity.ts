@@ -2,9 +2,8 @@
  * Service for web/browser activity analysis
  */
 
-import { IActivityWatchClient } from '../client/activitywatch.js';
-import { CapabilitiesService } from './capabilities.js';
 import { CategoryService } from './category.js';
+import { QueryService } from './query.js';
 import { WebUsage, WebActivityParams, AWError, AWEvent } from '../types.js';
 import { getTimeRange, formatDateForAPI, secondsToHours } from '../utils/time.js';
 import {
@@ -24,8 +23,7 @@ import { getStringProperty } from '../utils/type-guards.js';
 
 export class WebActivityService {
   constructor(
-    private client: IActivityWatchClient,
-    private capabilities: CapabilitiesService,
+    private queryService: QueryService,
     private categoryService?: CategoryService
   ) {}
 
@@ -51,12 +49,15 @@ export class WebActivityService {
       end: timeRange.end.toISOString(),
     });
 
-    // Find browser tracking buckets
-    const browserBuckets = await this.capabilities.findBrowserBuckets();
-    logger.info(`Found ${browserBuckets.length} browser tracking buckets`);
-
-    if (browserBuckets.length === 0) {
-      logger.warn('No browser tracking buckets available');
+    // Use query service to get AFK-filtered browser events
+    let queryResult;
+    try {
+      queryResult = await this.queryService.getBrowserEventsFiltered(
+        timeRange.start,
+        timeRange.end
+      );
+    } catch (error) {
+      logger.error('Failed to get AFK-filtered browser events', error);
       throw new AWError(
         'No browser activity buckets found. This usually means:\n' +
         '1. Browser watchers are not installed (aw-watcher-web)\n' +
@@ -66,24 +67,8 @@ export class WebActivityService {
       );
     }
 
-    // Collect events from all browser buckets
-    let allEvents: AWEvent[] = [];
-
-    for (const bucket of browserBuckets) {
-      try {
-        logger.debug(`Fetching events from bucket: ${bucket.id}`);
-        const events = await this.client.getEvents(bucket.id, {
-          start: formatDateForAPI(timeRange.start),
-          end: formatDateForAPI(timeRange.end),
-        });
-        logger.debug(`Retrieved ${events.length} events from ${bucket.id}`);
-        allEvents = allEvents.concat(events);
-      } catch (error) {
-        logger.error(`Failed to get events from bucket ${bucket.id}`, error);
-      }
-    }
-
-    logger.info(`Total events collected: ${allEvents.length}`);
+    const allEvents = queryResult.events as AWEvent[];
+    logger.info(`Total AFK-filtered browser events collected: ${allEvents.length}`);
 
     if (allEvents.length === 0) {
       return {

@@ -14,8 +14,10 @@ This MCP server provides LLM agents with 5 focused tools to query and analyze Ac
 ├─────────────────────────────────────┤
 │      Services Layer                 │  ← Business logic & data processing
 │  - CapabilitiesService              │
+│  - QueryService (AFK filtering)     │  ← NEW: Uses ActivityWatch query API
 │  - WindowActivityService            │
 │  - WebActivityService               │
+│  - EditorActivityService            │
 │  - DailySummaryService              │
 ├─────────────────────────────────────┤
 │      Client Layer                   │  ← ActivityWatch API client
@@ -37,8 +39,10 @@ src/
 │   └── activitywatch.ts       # ActivityWatch API client
 ├── services/
 │   ├── capabilities.ts        # Bucket discovery & capabilities detection
+│   ├── query.ts               # AFK-filtered query service (NEW)
 │   ├── window-activity.ts     # Window/app activity analysis
 │   ├── web-activity.ts        # Browser/web activity analysis
+│   ├── editor-activity.ts     # Editor/IDE activity analysis
 │   └── daily-summary.ts       # Daily summary generation
 ├── tools/
 │   └── schemas.ts             # Zod schemas for tool parameters
@@ -108,6 +112,31 @@ src/
 - Events < 5 seconds filtered out
 - App name normalization (e.g., "Code" → "VS Code")
 
+### 7. AFK Filtering (NEW)
+
+**Problem**: Raw events include time when the user is away from keyboard (AFK), which inflates activity metrics.
+
+**Solution**: Use ActivityWatch's query API to filter events by AFK status:
+- **QueryService** uses ActivityWatch's query language to fetch only "not-afk" events
+- Queries use `filter_period_intersect` to intersect activity events with AFK periods
+- All activity tools (window, web, editor) automatically use AFK-filtered data
+- Only counts time when user is actively working/browsing/coding
+
+**Query Structure**:
+```javascript
+events = query_bucket("aw-watcher-window_hostname");
+afk_events = query_bucket("aw-watcher-afk_hostname");
+not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);
+events = filter_period_intersect(events, not_afk);
+RETURN = events;
+```
+
+**Benefits**:
+- More accurate activity metrics (only active time)
+- Consistent with ActivityWatch web UI behavior
+- Server-side filtering (efficient)
+- Graceful degradation if AFK tracking unavailable
+
 ## Tool Implementations
 
 ### 1. aw_get_capabilities
@@ -130,8 +159,8 @@ src/
 
 **Implementation**:
 1. Parse time period to exact timestamps
-2. Find all window tracking buckets
-3. Fetch events from all buckets
+2. **Use QueryService to fetch AFK-filtered events from all window/editor buckets**
+3. **Query API automatically filters events to only include "not-afk" periods**
 4. Filter by duration and system apps
 5. Group by application name
 6. Normalize app names
@@ -139,7 +168,9 @@ src/
 8. Sort and limit to top N
 9. Format response
 
-**Key Code**: `src/services/window-activity.ts`
+**Key Code**: `src/services/window-activity.ts`, `src/services/query.ts`
+
+**AFK Filtering**: Uses ActivityWatch's query API with `filter_period_intersect` to only count time when user is actively working.
 
 ---
 
@@ -149,8 +180,8 @@ src/
 
 **Implementation**:
 1. Parse time period to exact timestamps
-2. Find all browser tracking buckets
-3. Fetch events from all buckets
+2. **Use QueryService to fetch AFK-filtered events from all browser buckets**
+3. **Query API automatically filters events to only include "not-afk" periods**
 4. Extract and normalize domains
 5. Filter excluded domains (localhost, etc.)
 6. Group by domain/url/title
@@ -158,24 +189,49 @@ src/
 8. Sort and limit to top N
 9. Format response
 
-**Key Code**: `src/services/web-activity.ts`
+**Key Code**: `src/services/web-activity.ts`, `src/services/query.ts`
+
+**AFK Filtering**: Uses ActivityWatch's query API with `filter_period_intersect` to only count time when user is actively browsing.
 
 ---
 
-### 4. aw_get_daily_summary
+### 4. aw_get_editor_activity
+
+**Purpose**: IDE/editor activity analysis
+
+**Implementation**:
+1. Parse time period to exact timestamps
+2. **Use QueryService to fetch AFK-filtered events from all editor buckets**
+3. **Query API automatically filters events to only include "not-afk" periods**
+4. Filter by duration
+5. Group by project/file/language/editor
+6. Extract git metadata (if requested)
+7. Calculate totals and percentages
+8. Sort and limit to top N
+9. Format response
+
+**Key Code**: `src/services/editor-activity.ts`, `src/services/query.ts`
+
+**AFK Filtering**: Uses ActivityWatch's query API with `filter_period_intersect` to only count time when user is actively coding.
+
+---
+
+### 5. aw_get_daily_summary
 
 **Purpose**: Comprehensive daily overview
 
 **Implementation**:
 1. Parse date (default to today)
-2. Get window activity for the day
-3. Get web activity for the day
-4. Calculate AFK time (total day - active time)
+2. **Get AFK-filtered window activity for the day**
+3. **Get AFK-filtered web activity for the day**
+4. Get AFK statistics from AFK tracking buckets
 5. Generate hourly breakdown (optional)
 6. Generate insights based on patterns
 7. Format comprehensive summary
 
 **Key Code**: `src/services/daily-summary.ts`
+
+**Note**: All activity data is already AFK-filtered by the underlying services.
 
 ---
 

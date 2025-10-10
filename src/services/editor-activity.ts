@@ -2,9 +2,8 @@
  * Service for editor/IDE activity analysis
  */
 
-import { IActivityWatchClient } from '../client/activitywatch.js';
-import { CapabilitiesService } from './capabilities.js';
 import { CategoryService } from './category.js';
+import { QueryService } from './query.js';
 import { EditorActivityParams, EditorUsage, AWEvent, AWError } from '../types.js';
 import { getTimeRange, formatDateForAPI, secondsToHours } from '../utils/time.js';
 import {
@@ -19,8 +18,7 @@ import { getStringProperty } from '../utils/type-guards.js';
 
 export class EditorActivityService {
   constructor(
-    private client: IActivityWatchClient,
-    private capabilities: CapabilitiesService,
+    private queryService: QueryService,
     private categoryService?: CategoryService
   ) {}
 
@@ -46,12 +44,15 @@ export class EditorActivityService {
       end: timeRange.end.toISOString(),
     });
 
-    // Find editor tracking buckets
-    const editorBuckets = await this.capabilities.findEditorBuckets();
-    logger.info(`Found ${editorBuckets.length} editor tracking buckets`);
-
-    if (editorBuckets.length === 0) {
-      logger.warn('No editor tracking buckets available');
+    // Use query service to get AFK-filtered editor events
+    let queryResult;
+    try {
+      queryResult = await this.queryService.getEditorEventsFiltered(
+        timeRange.start,
+        timeRange.end
+      );
+    } catch (error) {
+      logger.error('Failed to get AFK-filtered editor events', error);
       throw new AWError(
         'No editor activity buckets found. This usually means:\n' +
         '1. IDE/editor watchers are not installed (e.g., aw-watcher-vscode, JetBrains plugins)\n' +
@@ -61,24 +62,8 @@ export class EditorActivityService {
       );
     }
 
-    // Collect events from all editor buckets
-    let allEvents: AWEvent[] = [];
-
-    for (const bucket of editorBuckets) {
-      try {
-        logger.debug(`Fetching events from bucket: ${bucket.id}`);
-        const events = await this.client.getEvents(bucket.id, {
-          start: formatDateForAPI(timeRange.start),
-          end: formatDateForAPI(timeRange.end),
-        });
-        logger.debug(`Retrieved ${events.length} events from ${bucket.id}`);
-        allEvents = allEvents.concat(events);
-      } catch (error) {
-        logger.error(`Failed to get events from bucket ${bucket.id}`, error);
-      }
-    }
-
-    logger.info(`Total events collected: ${allEvents.length}`);
+    const allEvents = queryResult.events as AWEvent[];
+    logger.info(`Total AFK-filtered editor events collected: ${allEvents.length}`);
 
     if (allEvents.length === 0) {
       return {

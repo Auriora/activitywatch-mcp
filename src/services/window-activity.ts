@@ -2,9 +2,8 @@
  * Service for window/application activity analysis
  */
 
-import { IActivityWatchClient } from '../client/activitywatch.js';
-import { CapabilitiesService } from './capabilities.js';
 import { CategoryService } from './category.js';
+import { QueryService } from './query.js';
 import { AppUsage, WindowActivityParams, AWError, AWEvent } from '../types.js';
 import { getTimeRange, formatDateForAPI, secondsToHours } from '../utils/time.js';
 import {
@@ -22,38 +21,17 @@ import { getStringProperty } from '../utils/type-guards.js';
 
 export class WindowActivityService {
   constructor(
-    private client: IActivityWatchClient,
-    private capabilities: CapabilitiesService,
+    private queryService: QueryService,
     private categoryService?: CategoryService
   ) {}
 
   /**
    * Get all window and editor events for a time period (for categorization)
+   * Uses AFK-filtered queries to only return events during active periods
    */
   async getAllEvents(startTime: Date, endTime: Date): Promise<AWEvent[]> {
-    const windowBuckets = await this.capabilities.findWindowBuckets();
-    const editorBuckets = await this.capabilities.findEditorBuckets();
-    const allBuckets = [...windowBuckets, ...editorBuckets];
-
-    if (allBuckets.length === 0) {
-      return [];
-    }
-
-    let allEvents: AWEvent[] = [];
-
-    for (const bucket of allBuckets) {
-      try {
-        const events = await this.client.getEvents(bucket.id, {
-          start: formatDateForAPI(startTime),
-          end: formatDateForAPI(endTime),
-        });
-        allEvents = allEvents.concat(events);
-      } catch (error) {
-        logger.error(`Failed to get events from bucket ${bucket.id}`, error);
-      }
-    }
-
-    return allEvents;
+    // Use query service to get AFK-filtered events
+    return this.queryService.getAllEventsFiltered(startTime, endTime);
   }
 
 
@@ -79,15 +57,15 @@ export class WindowActivityService {
       end: timeRange.end.toISOString(),
     });
 
-    // Find window tracking buckets (including editor buckets for IDE activity)
-    const windowBuckets = await this.capabilities.findWindowBuckets();
-    const editorBuckets = await this.capabilities.findEditorBuckets();
-    const allBuckets = [...windowBuckets, ...editorBuckets];
-
-    logger.info(`Found ${windowBuckets.length} window tracking buckets and ${editorBuckets.length} editor tracking buckets`);
-
-    if (allBuckets.length === 0) {
-      logger.warn('No window or editor tracking buckets available');
+    // Use query service to get AFK-filtered window and editor events
+    let queryResult;
+    try {
+      queryResult = await this.queryService.getWindowEventsFiltered(
+        timeRange.start,
+        timeRange.end
+      );
+    } catch (error) {
+      logger.error('Failed to get AFK-filtered window events', error);
       throw new AWError(
         'No window activity buckets found. This usually means:\n' +
         '1. ActivityWatch is not running\n' +
@@ -98,25 +76,8 @@ export class WindowActivityService {
       );
     }
 
-    // Collect events from all window and editor buckets
-    let allEvents: AWEvent[] = [];
-
-    for (const bucket of allBuckets) {
-      try {
-        logger.debug(`Fetching events from bucket: ${bucket.id}`);
-        const events = await this.client.getEvents(bucket.id, {
-          start: formatDateForAPI(timeRange.start),
-          end: formatDateForAPI(timeRange.end),
-        });
-        logger.debug(`Retrieved ${events.length} events from ${bucket.id}`);
-        allEvents = allEvents.concat(events);
-      } catch (error) {
-        // Continue with other buckets if one fails
-        logger.error(`Failed to get events from bucket ${bucket.id}`, error);
-      }
-    }
-
-    logger.info(`Total events collected: ${allEvents.length}`);
+    const allEvents = queryResult.events as AWEvent[];
+    logger.info(`Total AFK-filtered events collected: ${allEvents.length}`);
 
     if (allEvents.length === 0) {
       return {
