@@ -49,19 +49,18 @@ const client = new ActivityWatchClient(AW_URL);
 const capabilitiesService = new CapabilitiesService(client);
 const categoryService = new CategoryService(client);
 
-// Pass category service to activity services if categories are configured
-const categoryServiceOrUndefined = categoryService.hasCategories() ? categoryService : undefined;
-
-const windowService = new WindowActivityService(client, capabilitiesService, categoryServiceOrUndefined);
-const webService = new WebActivityService(client, capabilitiesService, categoryServiceOrUndefined);
-const editorService = new EditorActivityService(client, capabilitiesService, categoryServiceOrUndefined);
+// Always pass category service - it will handle the case when no categories are configured
+// Categories are loaded asynchronously in main(), so we can't check hasCategories() here
+const windowService = new WindowActivityService(client, capabilitiesService, categoryService);
+const webService = new WebActivityService(client, capabilitiesService, categoryService);
+const editorService = new EditorActivityService(client, capabilitiesService, categoryService);
 const afkService = new AfkActivityService(client, capabilitiesService);
 
 const dailySummaryService = new DailySummaryService(
   windowService,
   webService,
   afkService,
-  categoryServiceOrUndefined
+  categoryService
 );
 
 /**

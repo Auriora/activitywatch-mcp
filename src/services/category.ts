@@ -156,7 +156,7 @@ export class CategoryService {
       if (category.rule.type === 'regex' && category.rule.regex) {
         try {
           const regex = new RegExp(category.rule.regex, 'i'); // Case-insensitive
-          
+
           if (regex.test(searchText)) {
             // Prefer deeper categories (more specific)
             const depth = category.name.length;
