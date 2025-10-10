@@ -10,6 +10,8 @@ A Model Context Protocol (MCP) server that enables LLM agents to query and analy
 - **Built-in Filtering**: Removes noise (system apps, localhost, short events)
 - **Multi-Device Support**: Aggregates data across multiple devices
 - **Comprehensive Analysis**: Window activity, web browsing, and daily summaries
+- **Category Management**: LLM-assisted category creation, updates, and organization
+- **ActivityWatch Integration**: Full read/write access to ActivityWatch categories
 - **Health Checks**: Automatic startup diagnostics and capability detection
 - **Comprehensive Logging**: Configurable logging for debugging and monitoring
 - **Production Ready**: Error handling, graceful degradation, and operational visibility
@@ -191,6 +193,80 @@ LLM calls: aw_get_raw_events({
 })
 ```
 
+---
+
+### 6. `aw_list_categories`
+
+List all configured categories in ActivityWatch.
+
+**Returns:**
+- Array of categories with IDs, names, and regex patterns
+- Total category count
+
+**Example:**
+```
+User: "What categories do I have configured?"
+LLM calls: aw_list_categories()
+```
+
+---
+
+### 7. `aw_add_category`
+
+Create a new category for activity classification.
+
+**Parameters:**
+- `name`: Array of strings for hierarchical name (e.g., ["Work", "Email"])
+- `regex`: Regular expression pattern to match activities
+
+**Example:**
+```
+User: "Create a category for my gaming activities"
+LLM calls: aw_add_category({
+  name: ["Entertainment", "Gaming"],
+  regex: "steam|epic|gog|game"
+})
+```
+
+---
+
+### 8. `aw_update_category`
+
+Update an existing category's name or regex pattern.
+
+**Parameters:**
+- `id`: Category ID to update
+- `name`: (Optional) New hierarchical name
+- `regex`: (Optional) New regex pattern
+
+**Example:**
+```
+User: "Add Thunderbird to my email category"
+LLM calls: aw_update_category({
+  id: 1,
+  regex: "gmail|outlook|mail|thunderbird"
+})
+```
+
+---
+
+### 9. `aw_delete_category`
+
+Delete a category from ActivityWatch.
+
+**Parameters:**
+- `id`: Category ID to delete
+
+**Example:**
+```
+User: "Remove the gaming category"
+LLM calls: aw_delete_category({ id: 5 })
+```
+
+**⚠️ Warning**: This permanently removes the category from ActivityWatch.
+
+---
+
 ## Example Queries
 
 Here are some example questions LLM agents can answer:
@@ -219,6 +295,13 @@ Here are some example questions LLM agents can answer:
 - "When am I most active during the day?"
 - "What's my typical work pattern?"
 - "How much time do I spend in meetings vs coding?"
+
+**Category Management:**
+- "What categories do I have configured?"
+- "Create a category for my gaming activities"
+- "Add Slack to my communication category"
+- "Show me time spent by category today"
+- "Organize my activities into work and personal categories"
 
 ## Architecture
 

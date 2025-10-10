@@ -74,12 +74,21 @@ export interface WebUsage {
   readonly percentage: number;
 }
 
+export interface CategoryUsage {
+  readonly category_name: string;
+  readonly duration_seconds: number;
+  readonly duration_hours: number;
+  readonly percentage: number;
+  readonly event_count: number;
+}
+
 export interface DailySummary {
   readonly date: string;
   readonly total_active_time_hours: number;
   readonly total_afk_time_hours: number;
   readonly top_applications: readonly AppUsage[];
   readonly top_websites: readonly WebUsage[];
+  readonly top_categories?: readonly CategoryUsage[];
   readonly hourly_breakdown?: readonly HourlyActivity[];
   readonly insights: readonly string[];
 }

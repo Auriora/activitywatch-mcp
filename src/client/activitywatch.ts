@@ -29,6 +29,8 @@ export interface IActivityWatchClient {
     }
   ): Promise<number>;
   query(timeperiods: string[], query: string[]): Promise<unknown[]>;
+  getSettings(key?: string): Promise<Record<string, any>>;
+  updateSettings(key: string, value: any): Promise<void>;
 }
 
 export class ActivityWatchClient implements IActivityWatchClient {
@@ -209,6 +211,27 @@ export class ActivityWatchClient implements IActivityWatchClient {
         { error }
       );
     }
+  }
+
+  /**
+   * Get settings from ActivityWatch server
+   * @param key - Optional specific setting key to retrieve
+   */
+  async getSettings(key?: string): Promise<Record<string, any>> {
+    const path = key ? `/api/0/settings/${key}` : '/api/0/settings';
+    return this.request<Record<string, any>>(path);
+  }
+
+  /**
+   * Update a setting on the ActivityWatch server
+   * @param key - Setting key to update
+   * @param value - New value for the setting
+   */
+  async updateSettings(key: string, value: any): Promise<void> {
+    await this.request<void>(`/api/0/settings/${key}`, {
+      method: 'POST',
+      body: JSON.stringify(value),
+    });
   }
 }
 

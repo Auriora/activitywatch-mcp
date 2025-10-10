@@ -10,8 +10,19 @@ import { SimpleCache } from '../utils/cache.js';
 export class CapabilitiesService {
   private bucketsCache = new SimpleCache<BucketInfo[]>(60000); // 1 minute cache
   private capabilitiesCache = new SimpleCache<Capabilities>(60000);
+  private hasCategoriesConfigured = false;
 
   constructor(private client: IActivityWatchClient) {}
+
+  /**
+   * Set whether categories are configured
+   * This should be called by the main application after loading categories
+   */
+  setCategoriesConfigured(configured: boolean): void {
+    this.hasCategoriesConfigured = configured;
+    // Clear capabilities cache so it gets recalculated
+    this.capabilitiesCache.clear();
+  }
 
   /**
    * Get all available buckets with metadata
@@ -113,7 +124,7 @@ export class CapabilitiesService {
         has_afk_detection: buckets.some(b =>
           b.type === 'afkstatus' || b.type.includes('afk')
         ),
-        has_categories: false, // Categories are configured separately
+        has_categories: this.hasCategoriesConfigured,
       };
     });
   }

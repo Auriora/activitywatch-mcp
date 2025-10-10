@@ -26,6 +26,34 @@ export class WindowActivityService {
   ) {}
 
   /**
+   * Get all window events for a time period (for categorization)
+   */
+  async getAllEvents(startTime: Date, endTime: Date): Promise<AWEvent[]> {
+    const windowBuckets = await this.capabilities.findWindowBuckets();
+
+    if (windowBuckets.length === 0) {
+      return [];
+    }
+
+    let allEvents: AWEvent[] = [];
+
+    for (const bucket of windowBuckets) {
+      try {
+        const events = await this.client.getEvents(bucket.id, {
+          start: formatDateForAPI(startTime),
+          end: formatDateForAPI(endTime),
+        });
+        allEvents = allEvents.concat(events);
+      } catch (error) {
+        logger.error(`Failed to get events from bucket ${bucket.id}`, error);
+      }
+    }
+
+    return allEvents;
+  }
+
+
+  /**
    * Get window/application activity for a time period
    */
   async getWindowActivity(params: WindowActivityParams): Promise<{

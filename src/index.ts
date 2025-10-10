@@ -18,6 +18,8 @@ import { ActivityWatchClient } from './client/activitywatch.js';
 import { CapabilitiesService } from './services/capabilities.js';
 import { WindowActivityService } from './services/window-activity.js';
 import { WebActivityService } from './services/web-activity.js';
+import { AfkActivityService } from './services/afk-activity.js';
+import { CategoryService } from './services/category.js';
 import { DailySummaryService } from './services/daily-summary.js';
 
 import {
@@ -45,7 +47,15 @@ const client = new ActivityWatchClient(AW_URL);
 const capabilitiesService = new CapabilitiesService(client);
 const windowService = new WindowActivityService(client, capabilitiesService);
 const webService = new WebActivityService(client, capabilitiesService);
-const dailySummaryService = new DailySummaryService(windowService, webService);
+const afkService = new AfkActivityService(client, capabilitiesService);
+const categoryService = new CategoryService(client);
+
+const dailySummaryService = new DailySummaryService(
+  windowService,
+  webService,
+  afkService,
+  categoryService.hasCategories() ? categoryService : undefined
+);
 
 /**
  * Create MCP server
@@ -415,6 +425,160 @@ IMPORTANT: This is a low-level tool. For most user queries, the high-level analy
       required: ['bucket_id', 'start_time', 'end_time'],
     },
   },
+  {
+    name: 'aw_list_categories',
+    description: `List all configured categories in ActivityWatch.
+
+WHEN TO USE:
+- User asks "what categories do I have?" or "show me my categories"
+- Before adding/updating categories to see what exists
+- To understand the current category structure
+- To get category IDs for updates/deletions
+
+CAPABILITIES:
+- Lists all categories with their IDs, names, and rules
+- Shows hierarchical category structure (e.g., "Work > Email")
+- Displays regex patterns used for matching
+- Returns categories from ActivityWatch server settings
+
+RETURNS:
+- Array of categories with id, name (hierarchical), and rule (regex pattern)
+
+NO PARAMETERS REQUIRED - just call it to see all categories.`,
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'aw_add_category',
+    description: `Add a new category to ActivityWatch.
+
+WHEN TO USE:
+- User wants to create a new category for tracking specific activities
+- To classify activities that aren't currently categorized
+- To add subcategories to existing categories
+
+CAPABILITIES:
+- Creates a new category with a regex rule
+- Supports hierarchical categories (e.g., ["Work", "Email"])
+- Automatically assigns a unique ID
+- Saves to ActivityWatch server settings
+- Makes category immediately available for classification
+
+PARAMETERS:
+- name: Array of strings for hierarchical name (e.g., ["Work", "Email"])
+- regex: Regular expression pattern to match app names, window titles, or URLs
+  - Example: "gmail|outlook|mail" matches Gmail, Outlook, or Mail apps
+  - Case-insensitive matching
+  - Use | for OR, .* for wildcards
+
+EXAMPLES:
+- Add "Work > Email": name=["Work", "Email"], regex="gmail|outlook|mail"
+- Add "Entertainment": name=["Entertainment"], regex="youtube|netflix|spotify"
+- Add "Development > Python": name=["Development", "Python"], regex="python|pycharm|jupyter"
+
+RETURNS:
+- The newly created category with its assigned ID`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Hierarchical category name (e.g., ["Work", "Email"])',
+        },
+        regex: {
+          type: 'string',
+          description: 'Regular expression pattern to match activities',
+        },
+      },
+      required: ['name', 'regex'],
+    },
+  },
+  {
+    name: 'aw_update_category',
+    description: `Update an existing category in ActivityWatch.
+
+WHEN TO USE:
+- User wants to modify a category's name or regex pattern
+- To fix or improve category matching rules
+- To reorganize category hierarchy
+
+CAPABILITIES:
+- Updates category name and/or regex pattern
+- Preserves category ID
+- Saves changes to ActivityWatch server settings
+- Changes take effect immediately
+
+PARAMETERS:
+- id: Category ID (get from aw_list_categories)
+- name: (Optional) New hierarchical name
+- regex: (Optional) New regex pattern
+
+EXAMPLES:
+- Update regex: id=5, regex="gmail|outlook|mail|thunderbird"
+- Rename category: id=3, name=["Work", "Meetings"]
+- Update both: id=7, name=["Entertainment", "Gaming"], regex="steam|epic|gog"
+
+RETURNS:
+- The updated category`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'number',
+          description: 'Category ID to update',
+        },
+        name: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'New hierarchical category name (optional)',
+        },
+        regex: {
+          type: 'string',
+          description: 'New regular expression pattern (optional)',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'aw_delete_category',
+    description: `Delete a category from ActivityWatch.
+
+WHEN TO USE:
+- User wants to remove a category they no longer need
+- To clean up unused or duplicate categories
+- To reorganize category structure
+
+CAPABILITIES:
+- Permanently deletes a category by ID
+- Saves changes to ActivityWatch server settings
+- Cannot be undone (category is removed from server)
+
+PARAMETERS:
+- id: Category ID to delete (get from aw_list_categories)
+
+WARNING:
+- This permanently removes the category from ActivityWatch
+- Historical data is not affected, but future classification won't use this category
+- Cannot be undone
+
+RETURNS:
+- Success message with deleted category name`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'number',
+          description: 'Category ID to delete',
+        },
+      },
+      required: ['id'],
+    },
+  },
 
 ];
 
@@ -598,6 +762,162 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case 'aw_list_categories': {
+        logger.debug('Listing categories');
+
+        const categories = categoryService.getCategories();
+
+        logger.info('Categories listed', {
+          categoryCount: categories.length,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  categories: categories.map((cat) => ({
+                    id: cat.id,
+                    name: cat.name.join(' > '),
+                    name_array: cat.name,
+                    rule: cat.rule,
+                  })),
+                  total_count: categories.length,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'aw_add_category': {
+        const params = args as { name: string[]; regex: string };
+
+        logger.debug('Adding category', {
+          name: params.name,
+          regex: params.regex,
+        });
+
+        const newCategory = await categoryService.addCategory(params.name, {
+          type: 'regex',
+          regex: params.regex,
+        });
+
+        logger.info('Category added', {
+          id: newCategory.id,
+          name: newCategory.name.join(' > '),
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  category: {
+                    id: newCategory.id,
+                    name: newCategory.name.join(' > '),
+                    name_array: newCategory.name,
+                    rule: newCategory.rule,
+                  },
+                  message: `Category "${newCategory.name.join(' > ')}" created successfully`,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'aw_update_category': {
+        const params = args as { id: number; name?: string[]; regex?: string };
+
+        logger.debug('Updating category', {
+          id: params.id,
+          name: params.name,
+          regex: params.regex,
+        });
+
+        const updates: Partial<{ name: string[]; rule: { type: 'regex'; regex: string } }> = {};
+        if (params.name) {
+          updates.name = params.name;
+        }
+        if (params.regex) {
+          updates.rule = { type: 'regex', regex: params.regex };
+        }
+
+        const updatedCategory = await categoryService.updateCategory(params.id, updates);
+
+        logger.info('Category updated', {
+          id: updatedCategory.id,
+          name: updatedCategory.name.join(' > '),
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  category: {
+                    id: updatedCategory.id,
+                    name: updatedCategory.name.join(' > '),
+                    name_array: updatedCategory.name,
+                    rule: updatedCategory.rule,
+                  },
+                  message: `Category ${params.id} updated successfully`,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'aw_delete_category': {
+        const params = args as { id: number };
+
+        logger.debug('Deleting category', {
+          id: params.id,
+        });
+
+        const category = categoryService.getCategoryById(params.id);
+        if (!category) {
+          throw new Error(`Category with id ${params.id} not found`);
+        }
+
+        const categoryName = category.name.join(' > ');
+        await categoryService.deleteCategory(params.id);
+
+        logger.info('Category deleted', {
+          id: params.id,
+          name: categoryName,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  message: `Category "${categoryName}" (id: ${params.id}) deleted successfully`,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -646,6 +966,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  */
 async function main() {
   try {
+    // Load categories from ActivityWatch server (with fallback to environment variable)
+    logger.info('Loading categories...');
+    await categoryService.loadFromActivityWatch();
+    if (categoryService.hasCategories()) {
+      capabilitiesService.setCategoriesConfigured(true);
+      logger.info(`Categories configured: ${categoryService.getCategories().length} categories available`);
+    }
+
     // Perform health check on startup
     logger.info('Performing startup health check...');
     const healthCheck = await performHealthCheck(client);

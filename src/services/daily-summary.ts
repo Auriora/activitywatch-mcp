@@ -4,6 +4,8 @@
 
 import { WindowActivityService } from './window-activity.js';
 import { WebActivityService } from './web-activity.js';
+import { AfkActivityService } from './afk-activity.js';
+import { CategoryService } from './category.js';
 import { DailySummary, DailySummaryParams, HourlyActivity } from '../types.js';
 import { formatDate, getStartOfDay, getEndOfDay, secondsToHours } from '../utils/time.js';
 import { formatDailySummaryConcise } from '../utils/formatters.js';
@@ -12,7 +14,9 @@ import { logger } from '../utils/logger.js';
 export class DailySummaryService {
   constructor(
     private windowService: WindowActivityService,
-    private webService: WebActivityService
+    private webService: WebActivityService,
+    private afkService: AfkActivityService,
+    private categoryService?: CategoryService
   ) {}
 
   /**
@@ -69,10 +73,23 @@ export class DailySummaryService {
       };
     }
 
-    // Calculate AFK time (simplified - would need AFK bucket data)
-    const totalActiveTime = windowActivity.total_time_seconds;
-    const totalDaySeconds = (endOfDay.getTime() - startOfDay.getTime()) / 1000;
-    const afkTime = Math.max(0, totalDaySeconds - totalActiveTime);
+    // Get actual AFK time from AFK tracking buckets
+    let afkTime = 0;
+    let totalActiveTime = windowActivity.total_time_seconds;
+
+    try {
+      const afkStats = await this.afkService.getAfkStats(startOfDay, endOfDay);
+      afkTime = afkStats.afk_seconds;
+      // Use actual active time from AFK tracking if available
+      if (afkStats.active_seconds > 0) {
+        totalActiveTime = afkStats.active_seconds;
+      }
+    } catch (error) {
+      // Fallback to calculated AFK time if AFK tracking not available
+      logger.debug('AFK tracking not available, using calculated AFK time');
+      const totalDaySeconds = (endOfDay.getTime() - startOfDay.getTime()) / 1000;
+      afkTime = Math.max(0, totalDaySeconds - totalActiveTime);
+    }
 
     // Generate insights
     const insights = this.generateInsights(
@@ -80,6 +97,19 @@ export class DailySummaryService {
       webActivity.websites,
       totalActiveTime
     );
+
+    // Get category breakdown if categories are configured
+    let topCategories;
+    if (this.categoryService && this.categoryService.hasCategories()) {
+      try {
+        // Get all window events for categorization
+        const allEvents = await this.windowService.getAllEvents(startOfDay, endOfDay);
+        topCategories = this.categoryService.categorizeEvents(allEvents).slice(0, 5);
+        logger.debug(`Categorized ${allEvents.length} events into ${topCategories.length} categories`);
+      } catch (error) {
+        logger.warn('Failed to categorize events', error);
+      }
+    }
 
     // Build hourly breakdown if requested
     let hourlyBreakdown: HourlyActivity[] | undefined;
@@ -93,6 +123,7 @@ export class DailySummaryService {
       total_afk_time_hours: secondsToHours(afkTime),
       top_applications: windowActivity.applications,
       top_websites: webActivity.websites,
+      top_categories: topCategories,
       hourly_breakdown: hourlyBreakdown,
       insights,
     };
