@@ -8,7 +8,7 @@
 
 import { IActivityWatchClient } from '../client/activitywatch.js';
 import { CapabilitiesService } from './capabilities.js';
-import { AWEvent } from '../types.js';
+import { AWEvent, CanonicalQueryResult } from '../types.js';
 import { formatDateForAPI } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
 
@@ -16,6 +16,57 @@ export interface QueryResult {
   readonly events: readonly AWEvent[];
   readonly total_duration_seconds: number;
 }
+
+/**
+ * Browser app names for matching window events
+ * Based on ActivityWatch's canonical implementation
+ */
+const BROWSER_APP_NAMES: Record<string, string[]> = {
+  chrome: [
+    'Google Chrome',
+    'Google-chrome',
+    'chrome.exe',
+    'google-chrome-stable',
+    'Chromium',
+    'Chromium-browser',
+    'Chromium-browser-chromium',
+    'chromium.exe',
+    'Google-chrome-beta',
+    'Google-chrome-unstable',
+    'Brave-browser',
+  ],
+  firefox: [
+    'Firefox',
+    'Firefox.exe',
+    'firefox',
+    'firefox.exe',
+    'Firefox Developer Edition',
+    'firefoxdeveloperedition',
+    'Firefox-esr',
+    'Firefox Beta',
+    'Nightly',
+    'org.mozilla.firefox',
+  ],
+  opera: ['opera.exe', 'Opera'],
+  brave: ['brave.exe'],
+  edge: ['msedge.exe', 'Microsoft Edge'],
+  vivaldi: ['Vivaldi-stable', 'Vivaldi-snapshot', 'vivaldi.exe'],
+  safari: ['Safari'],
+};
+
+/**
+ * Editor app names for matching window events
+ */
+const EDITOR_APP_NAMES: Record<string, string[]> = {
+  vscode: ['Code', 'code.exe', 'Visual Studio Code', 'VSCode'],
+  vim: ['vim', 'nvim', 'gvim'],
+  emacs: ['emacs', 'Emacs'],
+  sublime: ['sublime_text', 'Sublime Text'],
+  atom: ['atom', 'Atom'],
+  intellij: ['idea', 'IntelliJ IDEA'],
+  pycharm: ['pycharm', 'PyCharm'],
+  webstorm: ['webstorm', 'WebStorm'],
+};
 
 /**
  * Service for executing AFK-filtered queries
@@ -291,10 +342,282 @@ export class QueryService {
 
     // Combine events
     const allEvents = [...windowResult.events, ...editorResult.events];
-    
+
     logger.info(`Combined ${allEvents.length} events from window and editor buckets`);
-    
+
     return allEvents;
+  }
+
+  /**
+   * Get canonical events - window events enriched with browser/editor data
+   *
+   * This implements ActivityWatch's canonical events approach:
+   * 1. Window events are the base (AFK-filtered)
+   * 2. Browser events are filtered to only when browser window was active
+   * 3. Editor events are filtered to only when editor window was active
+   *
+   * This ensures browser/editor activity is only counted when those windows
+   * were actually active, preventing double-counting.
+   */
+  async getCanonicalEvents(
+    startTime: Date,
+    endTime: Date
+  ): Promise<CanonicalQueryResult> {
+    logger.debug('Getting canonical events (window + browser + editor)', {
+      start: startTime.toISOString(),
+      end: endTime.toISOString(),
+    });
+
+    // Find all bucket types
+    const [windowBuckets, browserBuckets, editorBuckets, afkBuckets] = await Promise.all([
+      this.capabilities.findWindowBuckets(),
+      this.capabilities.findBrowserBuckets(),
+      this.capabilities.findEditorBuckets(),
+      this.capabilities.findAfkBuckets(),
+    ]);
+
+    const hasAfk = afkBuckets.length > 0;
+    const afkBucketId = afkBuckets[0]?.id;
+
+    // Get window events (base layer, AFK-filtered)
+    const windowEvents: AWEvent[] = [];
+    let totalDuration = 0;
+
+    for (const bucket of windowBuckets) {
+      const query = this.buildWindowQuery(bucket.id, afkBucketId, hasAfk);
+      const result = await this.executeQuery(startTime, endTime, query);
+      windowEvents.push(...result.events);
+      totalDuration += result.total_duration_seconds;
+    }
+
+    logger.info(`Got ${windowEvents.length} window events`);
+
+    // Get browser events filtered by active browser windows
+    const browserEvents: AWEvent[] = [];
+
+    for (const browserBucket of browserBuckets) {
+      // Determine which browser this is (chrome, firefox, etc.)
+      const browserType = this.detectBrowserType(browserBucket.id);
+      const appNames = browserType ? BROWSER_APP_NAMES[browserType] : [];
+
+      if (appNames.length === 0) {
+        logger.warn(`Could not detect browser type for bucket ${browserBucket.id}`);
+        continue;
+      }
+
+      // Build query that filters browser events by active window
+      const query = this.buildCanonicalBrowserQuery(
+        browserBucket.id,
+        windowBuckets[0]?.id, // Use first window bucket
+        appNames,
+        afkBucketId,
+        hasAfk
+      );
+
+      const result = await this.executeQuery(startTime, endTime, query);
+      browserEvents.push(...result.events);
+    }
+
+    logger.info(`Got ${browserEvents.length} browser events (filtered by active window)`);
+
+    // Get editor events filtered by active editor windows
+    const editorEvents: AWEvent[] = [];
+
+    for (const editorBucket of editorBuckets) {
+      // Determine which editor this is (vscode, vim, etc.)
+      const editorType = this.detectEditorType(editorBucket.id);
+      const appNames = editorType ? EDITOR_APP_NAMES[editorType] : [];
+
+      if (appNames.length === 0) {
+        logger.warn(`Could not detect editor type for bucket ${editorBucket.id}`);
+        continue;
+      }
+
+      // Build query that filters editor events by active window
+      const query = this.buildCanonicalEditorQuery(
+        editorBucket.id,
+        windowBuckets[0]?.id, // Use first window bucket
+        appNames,
+        afkBucketId,
+        hasAfk
+      );
+
+      const result = await this.executeQuery(startTime, endTime, query);
+      editorEvents.push(...result.events);
+    }
+
+    logger.info(`Got ${editorEvents.length} editor events (filtered by active window)`);
+
+    return {
+      window_events: windowEvents,
+      browser_events: browserEvents,
+      editor_events: editorEvents,
+      total_duration_seconds: totalDuration,
+    };
+  }
+
+  /**
+   * Build canonical browser query - filters browser events by active browser window
+   */
+  private buildCanonicalBrowserQuery(
+    browserBucketId: string,
+    windowBucketId: string | undefined,
+    browserAppNames: string[],
+    afkBucketId?: string,
+    hasAfk: boolean = false
+  ): string[] {
+    const query: string[] = [];
+
+    if (!windowBucketId) {
+      // No window tracking, just return browser events with AFK filter
+      query.push(`events = query_bucket("${browserBucketId}");`);
+      if (hasAfk && afkBucketId) {
+        query.push(`afk_events = query_bucket("${afkBucketId}");`);
+        query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
+        query.push(`events = filter_period_intersect(events, not_afk);`);
+      }
+      query.push(`RETURN = events;`);
+      return query;
+    }
+
+    // Get window events
+    query.push(`window_events = query_bucket("${windowBucketId}");`);
+
+    // Apply AFK filtering to window events
+    if (hasAfk && afkBucketId) {
+      query.push(`afk_events = query_bucket("${afkBucketId}");`);
+      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
+      query.push(`window_events = filter_period_intersect(window_events, not_afk);`);
+    }
+
+    // Filter window events to only browser windows
+    const appNamesJson = JSON.stringify(browserAppNames);
+    query.push(`browser_windows = filter_keyvals(window_events, "app", ${appNamesJson});`);
+
+    // Get browser events
+    query.push(`browser_events = query_bucket("${browserBucketId}");`);
+
+    // Filter browser events to only when browser window was active
+    query.push(`events = filter_period_intersect(browser_events, browser_windows);`);
+
+    query.push(`RETURN = events;`);
+    return query;
+  }
+
+  /**
+   * Build canonical editor query - filters editor events by active editor window
+   */
+  private buildCanonicalEditorQuery(
+    editorBucketId: string,
+    windowBucketId: string | undefined,
+    editorAppNames: string[],
+    afkBucketId?: string,
+    hasAfk: boolean = false
+  ): string[] {
+    const query: string[] = [];
+
+    if (!windowBucketId) {
+      // No window tracking, just return editor events with AFK filter
+      query.push(`events = query_bucket("${editorBucketId}");`);
+      if (hasAfk && afkBucketId) {
+        query.push(`afk_events = query_bucket("${afkBucketId}");`);
+        query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
+        query.push(`events = filter_period_intersect(events, not_afk);`);
+      }
+      query.push(`RETURN = events;`);
+      return query;
+    }
+
+    // Get window events
+    query.push(`window_events = query_bucket("${windowBucketId}");`);
+
+    // Apply AFK filtering to window events
+    if (hasAfk && afkBucketId) {
+      query.push(`afk_events = query_bucket("${afkBucketId}");`);
+      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
+      query.push(`window_events = filter_period_intersect(window_events, not_afk);`);
+    }
+
+    // Filter window events to only editor windows
+    const appNamesJson = JSON.stringify(editorAppNames);
+    query.push(`editor_windows = filter_keyvals(window_events, "app", ${appNamesJson});`);
+
+    // Get editor events
+    query.push(`editor_events = query_bucket("${editorBucketId}");`);
+
+    // Filter editor events to only when editor window was active
+    query.push(`events = filter_period_intersect(editor_events, editor_windows);`);
+
+    query.push(`RETURN = events;`);
+    return query;
+  }
+
+  /**
+   * Detect browser type from bucket ID
+   */
+  private detectBrowserType(bucketId: string): string | null {
+    const lowerBucketId = bucketId.toLowerCase();
+
+    if (lowerBucketId.includes('chrome') && !lowerBucketId.includes('chromium')) {
+      return 'chrome';
+    }
+    if (lowerBucketId.includes('chromium')) {
+      return 'chrome'; // Chromium uses same app names
+    }
+    if (lowerBucketId.includes('firefox')) {
+      return 'firefox';
+    }
+    if (lowerBucketId.includes('opera')) {
+      return 'opera';
+    }
+    if (lowerBucketId.includes('brave')) {
+      return 'brave';
+    }
+    if (lowerBucketId.includes('edge')) {
+      return 'edge';
+    }
+    if (lowerBucketId.includes('vivaldi')) {
+      return 'vivaldi';
+    }
+    if (lowerBucketId.includes('safari')) {
+      return 'safari';
+    }
+
+    return null;
+  }
+
+  /**
+   * Detect editor type from bucket ID
+   */
+  private detectEditorType(bucketId: string): string | null {
+    const lowerBucketId = bucketId.toLowerCase();
+
+    if (lowerBucketId.includes('vscode') || lowerBucketId.includes('code')) {
+      return 'vscode';
+    }
+    if (lowerBucketId.includes('vim')) {
+      return 'vim';
+    }
+    if (lowerBucketId.includes('emacs')) {
+      return 'emacs';
+    }
+    if (lowerBucketId.includes('sublime')) {
+      return 'sublime';
+    }
+    if (lowerBucketId.includes('atom')) {
+      return 'atom';
+    }
+    if (lowerBucketId.includes('intellij') || lowerBucketId.includes('idea')) {
+      return 'intellij';
+    }
+    if (lowerBucketId.includes('pycharm')) {
+      return 'pycharm';
+    }
+    if (lowerBucketId.includes('webstorm')) {
+      return 'webstorm';
+    }
+
+    return null;
   }
 }
 

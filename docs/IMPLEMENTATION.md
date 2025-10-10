@@ -2,7 +2,19 @@
 
 ## Overview
 
-This MCP server provides LLM agents with 5 focused tools to query and analyze ActivityWatch time tracking data. The implementation follows best practices for MCP tool design, minimizing LLM cognitive load by handling complex logic in code.
+This MCP server provides LLM agents with tools to query and analyze ActivityWatch time tracking data. The implementation follows best practices for MCP tool design, minimizing LLM cognitive load by handling complex logic in code.
+
+### Canonical Events Approach
+
+The server implements ActivityWatch's **canonical events** pattern for accurate activity tracking:
+
+1. **Window events are the base** - Define when each application was active (AFK-filtered)
+2. **Browser events enrich the data** - Only counted when browser window was active
+3. **Editor events enrich the data** - Only counted when editor window was active
+
+This prevents double-counting and ensures browser/editor activity is only attributed when those windows were actually active.
+
+**Key Tool**: `aw_get_activity` - Unified tool that returns enriched activity data with browser/editor details when available.
 
 ## Architecture
 
@@ -14,10 +26,11 @@ This MCP server provides LLM agents with 5 focused tools to query and analyze Ac
 ├─────────────────────────────────────┤
 │      Services Layer                 │  ← Business logic & data processing
 │  - CapabilitiesService              │
-│  - QueryService (AFK filtering)     │  ← NEW: Uses ActivityWatch query API
-│  - WindowActivityService            │
-│  - WebActivityService               │
-│  - EditorActivityService            │
+│  - QueryService (canonical queries) │  ← Uses ActivityWatch query API
+│  - UnifiedActivityService (NEW)    │  ← Canonical events implementation
+│  - WindowActivityService            │  ← Legacy (still available)
+│  - WebActivityService               │  ← Legacy (still available)
+│  - EditorActivityService            │  ← Legacy (still available)
 │  - DailySummaryService              │
 ├─────────────────────────────────────┤
 │      Client Layer                   │  ← ActivityWatch API client
@@ -34,15 +47,16 @@ This MCP server provides LLM agents with 5 focused tools to query and analyze Ac
 ```
 src/
 ├── index.ts                    # MCP server entry point
-├── types.ts                    # TypeScript type definitions
+├── types.ts                    # TypeScript type definitions (includes canonical event types)
 ├── client/
 │   └── activitywatch.ts       # ActivityWatch API client
 ├── services/
 │   ├── capabilities.ts        # Bucket discovery & capabilities detection
-│   ├── query.ts               # AFK-filtered query service (NEW)
-│   ├── window-activity.ts     # Window/app activity analysis
-│   ├── web-activity.ts        # Browser/web activity analysis
-│   ├── editor-activity.ts     # Editor/IDE activity analysis
+│   ├── query.ts               # Canonical query service (window-based filtering)
+│   ├── unified-activity.ts    # Unified activity service (NEW - canonical events)
+│   ├── window-activity.ts     # Window/app activity analysis (legacy)
+│   ├── web-activity.ts        # Browser/web activity analysis (legacy)
+│   ├── editor-activity.ts     # Editor/IDE activity analysis (legacy)
 │   └── daily-summary.ts       # Daily summary generation
 ├── tools/
 │   └── schemas.ts             # Zod schemas for tool parameters

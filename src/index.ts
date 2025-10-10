@@ -23,6 +23,7 @@ import { EditorActivityService } from './services/editor-activity.js';
 import { AfkActivityService } from './services/afk-activity.js';
 import { CategoryService } from './services/category.js';
 import { DailySummaryService } from './services/daily-summary.js';
+import { UnifiedActivityService } from './services/unified-activity.js';
 
 import {
   GetCapabilitiesSchema,
@@ -57,6 +58,7 @@ const windowService = new WindowActivityService(queryService, categoryService);
 const webService = new WebActivityService(queryService, categoryService);
 const editorService = new EditorActivityService(queryService, categoryService);
 const afkService = new AfkActivityService(client, capabilitiesService);
+const unifiedService = new UnifiedActivityService(queryService, categoryService);
 
 const dailySummaryService = new DailySummaryService(
   windowService,
@@ -115,6 +117,146 @@ NO PARAMETERS REQUIRED - just call it to discover what's available.`,
     inputSchema: {
       type: 'object',
       properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'aw_get_activity',
+    description: `Analyzes computer activity with unified window, browser, and editor data.
+
+**RECOMMENDED TOOL**: This is the primary tool for activity analysis. It provides accurate, enriched data by combining:
+- Window activity (base layer - which apps were active)
+- Browser activity (enrichment - only when browser window was active)
+- Editor activity (enrichment - only when editor window was active)
+
+WHEN TO USE:
+- User asks about time spent on applications, websites, or coding
+- Questions like "What did I work on today?" or "How much time on GitHub?"
+- Productivity analysis across apps, browsing, and coding
+- When you need context about what was done in each application
+- Any general activity analysis question
+
+WHEN NOT TO USE:
+- For comprehensive daily overview → use aw_get_daily_summary instead
+- For exact event timestamps → use aw_get_raw_events instead
+- If no window tracking data exists (check with aw_get_capabilities first)
+
+CAPABILITIES:
+- **CANONICAL EVENTS**: Uses ActivityWatch's canonical events approach for accurate data
+- **AFK FILTERING**: Automatically filters to only active periods (when user is not AFK)
+- **WINDOW-BASED FILTERING**: Browser/editor data only counted when those windows were active
+- **NO DOUBLE-COUNTING**: Prevents inflated metrics by proper event intersection
+- Combines data across multiple devices if available
+- Filters out system applications by default
+- Removes very short events (< 5 seconds by default)
+- Groups by application or window title
+- Enriches with browser URLs/domains when browsing
+- Enriches with editor files/projects when coding
+- Calculates total time, percentages, and rankings
+
+HOW IT WORKS:
+1. Gets window events (defines when each app was active) - AFK filtered
+2. Gets browser events filtered to only when browser window was active
+3. Gets editor events filtered to only when editor window was active
+4. Merges browser/editor data into window events for enriched results
+
+EXAMPLE OUTPUT:
+{
+  "app": "Google Chrome",
+  "duration_hours": 2.5,
+  "percentage": 50,
+  "browser": {
+    "domain": "github.com",
+    "url": "https://github.com/ActivityWatch/activitywatch"
+  }
+}
+
+LIMITATIONS:
+- Cannot see page CONTENT or code CONTENT
+- Cannot determine quality or productivity of work
+- Only shows active window time (not background processes)
+- **Only counts time when user is actively working (AFK periods excluded)**
+- **Browser activity only counted when browser window was active**
+- **Editor activity only counted when editor window was active**
+- Requires window watcher to be installed and running
+- Time periods limited to available data (check date ranges with aw_get_capabilities)
+
+RETURNS:
+- total_time_seconds: Total active time in the period (AFK-filtered)
+- activities: Array of enriched activity events with:
+  - app: Application name
+  - title: Window title
+  - duration_seconds, duration_hours, percentage
+  - browser: {url, domain, title} (only when browsing)
+  - editor: {file, project, language, git} (only when coding)
+  - category: Category name (if categorization enabled)
+  - event_count, first_seen, last_seen
+- time_range: {start, end} timestamps of analyzed period
+
+Default response is human-readable summary. Use response_format='detailed' for structured data.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        time_period: {
+          type: 'string',
+          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
+          default: 'today',
+          description: 'Time period to analyze. Options: "today" (since midnight), "yesterday" (previous day), "this_week" (Monday to now), "last_week" (previous Monday-Sunday), "last_7_days" (rolling 7 days), "last_30_days" (rolling 30 days), "custom" (requires custom_start and custom_end). Use natural periods unless user specifies exact dates.',
+        },
+        custom_start: {
+          type: 'string',
+          description: 'Start date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T09:00:00Z") or simple date ("2025-01-14" assumes 00:00:00). Examples: "2025-01-14", "2025-01-14T14:30:00Z"',
+        },
+        custom_end: {
+          type: 'string',
+          description: 'End date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T17:00:00Z") or simple date ("2025-01-14" assumes 23:59:59). Must be after custom_start. Examples: "2025-01-14", "2025-01-14T17:00:00Z"',
+        },
+        top_n: {
+          type: 'number',
+          default: 10,
+          minimum: 1,
+          maximum: 100,
+          description: 'Number of top activities to return, ranked by time spent. Default: 10. Use 5 for quick overview, 20+ for comprehensive analysis. Maximum: 100.',
+        },
+        group_by: {
+          type: 'string',
+          enum: ['application', 'title'],
+          default: 'application',
+          description: 'How to group results. "application": Group by app name only (e.g., all Chrome windows together) - recommended for overview. "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub") - use for detailed analysis.',
+        },
+        response_format: {
+          type: 'string',
+          enum: ['concise', 'detailed'],
+          default: 'concise',
+          description: 'Output format. "concise": Human-readable text summary optimized for user presentation (recommended for most queries). "detailed": Full JSON with all fields including browser/editor enrichment and precise timestamps (use when user needs technical data or export).',
+        },
+        exclude_system_apps: {
+          type: 'boolean',
+          default: true,
+          description: 'Whether to exclude system/OS applications from results. true (default): Filters out Finder, Dock, Window Server, explorer.exe, etc. false: Include all applications. Set to false only if user specifically asks about system apps.',
+        },
+        min_duration_seconds: {
+          type: 'number',
+          default: 5,
+          minimum: 0,
+          description: 'Minimum event duration to include. Events shorter than this are filtered out as likely accidental window switches. Default: 5 seconds. Use 0 to include all events, 30+ to focus on sustained usage. Recommended: keep default unless user requests otherwise.',
+        },
+        include_categories: {
+          type: 'boolean',
+          default: false,
+          description: 'Include category information for each activity. Shows which category each activity matches based on configured rules. Requires categories to be configured in ActivityWatch.',
+        },
+        include_browser_details: {
+          type: 'boolean',
+          default: true,
+          description: 'Include browser enrichment (URLs, domains) when available. Set to false to exclude browser details and only show application usage.',
+        },
+        include_editor_details: {
+          type: 'boolean',
+          default: true,
+          description: 'Include editor enrichment (files, projects, languages) when available. Set to false to exclude editor details and only show application usage.',
+        },
+      },
       required: [],
     },
   },
@@ -770,6 +912,74 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 null,
                 2
               ),
+            },
+          ],
+        };
+      }
+
+      case 'aw_get_activity': {
+        const params = args as any; // Will create proper schema later
+        const result = await unifiedService.getActivity(params);
+
+        logger.info('Unified activity retrieved', {
+          totalTime: result.total_time_seconds,
+          activityCount: result.activities.length,
+        });
+
+        if (params.response_format === 'concise') {
+          // Format concise output
+          const lines: string[] = [];
+          lines.push(`# Activity Summary`);
+          lines.push(`**Period**: ${params.time_period || 'today'}`);
+          lines.push(`**Total Active Time**: ${(result.total_time_seconds / 3600).toFixed(2)} hours`);
+          lines.push('');
+          lines.push(`## Top ${result.activities.length} Activities`);
+          lines.push('');
+
+          for (const activity of result.activities) {
+            lines.push(`### ${activity.app}`);
+            lines.push(`- **Time**: ${activity.duration_hours.toFixed(2)}h (${activity.percentage.toFixed(1)}%)`);
+
+            if (activity.browser) {
+              lines.push(`- **Browser**: ${activity.browser.domain}`);
+              if (activity.browser.url && !activity.browser.url.includes(' URLs')) {
+                lines.push(`  - URL: ${activity.browser.url}`);
+              }
+            }
+
+            if (activity.editor) {
+              lines.push(`- **Editor**: ${activity.editor.file}`);
+              if (activity.editor.project) {
+                lines.push(`  - Project: ${activity.editor.project}`);
+              }
+              if (activity.editor.language) {
+                lines.push(`  - Language: ${activity.editor.language}`);
+              }
+            }
+
+            if (activity.category) {
+              lines.push(`- **Category**: ${activity.category}`);
+            }
+
+            lines.push(`- **Events**: ${activity.event_count}`);
+            lines.push('');
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: lines.join('\n'),
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };

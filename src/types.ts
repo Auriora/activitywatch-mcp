@@ -217,3 +217,72 @@ export class AWError extends Error {
   }
 }
 
+/**
+ * Canonical Events - Unified activity data
+ *
+ * These types represent the canonical events approach where window events
+ * are the base and browser/editor data enriches them when those windows
+ * are active.
+ */
+
+export interface BrowserEnrichment {
+  readonly url: string;
+  readonly domain: string;
+  readonly title?: string;
+  readonly audible?: boolean;
+  readonly incognito?: boolean;
+  readonly tab_count?: number;
+}
+
+export interface EditorEnrichment {
+  readonly file: string;
+  readonly project?: string;
+  readonly language?: string;
+  readonly git?: {
+    readonly branch?: string;
+    readonly commit?: string;
+    readonly repository?: string;
+  };
+}
+
+export interface CanonicalEvent {
+  // Base fields (always present from window tracking)
+  readonly app: string;
+  readonly title: string;
+  readonly duration_seconds: number;
+  readonly duration_hours: number;
+  readonly percentage: number;
+
+  // Browser enrichment (only when app is a browser AND window was active)
+  readonly browser?: BrowserEnrichment;
+
+  // Editor enrichment (only when app is an editor AND window was active)
+  readonly editor?: EditorEnrichment;
+
+  // Category (if categorization enabled)
+  readonly category?: string;
+
+  // Metadata
+  readonly event_count: number;
+  readonly first_seen: string; // ISO 8601 timestamp
+  readonly last_seen: string;  // ISO 8601 timestamp
+}
+
+export interface CanonicalQueryResult {
+  readonly window_events: readonly AWEvent[];
+  readonly browser_events: readonly AWEvent[];
+  readonly editor_events: readonly AWEvent[];
+  readonly total_duration_seconds: number;
+}
+
+export interface UnifiedActivityParams extends TimeRangeParams {
+  top_n?: number;
+  group_by?: 'application' | 'title';
+  response_format?: ResponseFormat;
+  exclude_system_apps?: boolean;
+  min_duration_seconds?: number;
+  include_categories?: boolean;
+  include_browser_details?: boolean;
+  include_editor_details?: boolean;
+}
+
