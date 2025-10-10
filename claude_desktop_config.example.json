@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "activitywatch": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/activitywatcher-mcp/dist/index.js"
+      ],
+      "env": {
+        "AW_URL": "http://localhost:5600"
+      }
+    }
+  }
+}
+

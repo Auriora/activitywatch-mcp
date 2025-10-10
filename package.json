@@ -1,0 +1,24 @@
+{
+  "name": "activitywatcher-mcp",
+  "version": "1.0.0",
+  "description": "ActivityWatch MCP Server - Query and analyze activity data with LLM agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "activitywatch-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.20",
+    "typescript": "^5.5.3"
+  },
+  "private": true
+}
