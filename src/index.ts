@@ -18,6 +18,7 @@ import { ActivityWatchClient } from './client/activitywatch.js';
 import { CapabilitiesService } from './services/capabilities.js';
 import { WindowActivityService } from './services/window-activity.js';
 import { WebActivityService } from './services/web-activity.js';
+import { EditorActivityService } from './services/editor-activity.js';
 import { AfkActivityService } from './services/afk-activity.js';
 import { CategoryService } from './services/category.js';
 import { DailySummaryService } from './services/daily-summary.js';
@@ -26,6 +27,7 @@ import {
   GetCapabilitiesSchema,
   GetWindowActivitySchema,
   GetWebActivitySchema,
+  GetEditorActivitySchema,
   GetDailySummarySchema,
   GetRawEventsSchema,
 } from './tools/schemas.js';
@@ -45,16 +47,21 @@ logStartupDiagnostics(AW_URL);
 
 const client = new ActivityWatchClient(AW_URL);
 const capabilitiesService = new CapabilitiesService(client);
-const windowService = new WindowActivityService(client, capabilitiesService);
-const webService = new WebActivityService(client, capabilitiesService);
-const afkService = new AfkActivityService(client, capabilitiesService);
 const categoryService = new CategoryService(client);
+
+// Pass category service to activity services if categories are configured
+const categoryServiceOrUndefined = categoryService.hasCategories() ? categoryService : undefined;
+
+const windowService = new WindowActivityService(client, capabilitiesService, categoryServiceOrUndefined);
+const webService = new WebActivityService(client, capabilitiesService, categoryServiceOrUndefined);
+const editorService = new EditorActivityService(client, capabilitiesService, categoryServiceOrUndefined);
+const afkService = new AfkActivityService(client, capabilitiesService);
 
 const dailySummaryService = new DailySummaryService(
   windowService,
   webService,
   afkService,
-  categoryService.hasCategories() ? categoryService : undefined
+  categoryServiceOrUndefined
 );
 
 /**
@@ -196,6 +203,11 @@ Default response is human-readable summary. Use response_format='detailed' for s
           minimum: 0,
           description: 'Minimum event duration to include. Events shorter than this are filtered out as likely accidental window switches. Default: 5 seconds. Use 0 to include all events, 30+ to focus on sustained usage. Recommended: keep default unless user requests otherwise.',
         },
+        include_categories: {
+          type: 'boolean',
+          default: false,
+          description: 'Include category information for each application. Shows which category each app matches based on configured rules. Requires categories to be configured in ActivityWatch.',
+        },
       },
       required: [],
     },
@@ -287,6 +299,105 @@ Default response is human-readable summary. Use response_format='detailed' for s
           default: 5,
           minimum: 0,
           description: 'Minimum visit duration to include. Visits shorter than this are filtered out as likely accidental clicks or quick tab switches. Default: 5 seconds. Use 0 to include all visits, 30+ to focus on sustained reading/usage. Recommended: keep default unless user requests otherwise.',
+        },
+        include_categories: {
+          type: 'boolean',
+          default: false,
+          description: 'Include category information for each website. Shows which category each site matches based on configured rules. Requires categories to be configured in ActivityWatch.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'aw_get_editor_activity',
+    description: `Analyzes IDE and editor activity over a time period.
+
+WHEN TO USE:
+- User asks about coding/development time or what code was written
+- Questions about time spent in specific projects or files
+- Identifying most-used programming languages
+- Analyzing development patterns across IDEs/editors
+- Questions like "What did I code today?" or "How much time in project X?"
+
+WHEN NOT TO USE:
+- For general application usage → use aw_get_window_activity instead
+- For browser-based coding (e.g., CodePen, Replit) → use aw_get_web_activity instead
+- For comprehensive daily overview → use aw_get_daily_summary instead
+- If no editor tracking data exists (check with aw_get_capabilities first)
+
+CAPABILITIES:
+- Automatically discovers and aggregates data from all editor tracking buckets
+- Combines data across multiple IDEs (VS Code, JetBrains IDEs, Vim, etc.)
+- Groups by project, file, programming language, or editor
+- Includes rich metadata: file paths, git branches, commits, repositories
+- Filters out very short events (< 5 seconds by default) to filter noise
+- Calculates total time, percentages, and rankings
+
+LIMITATIONS:
+- Cannot see CODE CONTENT or what you typed
+- Cannot determine code quality or productivity
+- Only tracks active file/editor time
+- Requires IDE plugins/watchers to be installed (e.g., JetBrains plugins, aw-watcher-vscode)
+- Time periods limited to available data (check date ranges with aw_get_capabilities)
+
+RETURNS:
+- total_time_seconds: Total editing time in the period
+- editors: Array of {name, duration_seconds, duration_hours, percentage, projects?, files?, languages?, git_info?}
+- time_range: {start, end} timestamps of analyzed period
+
+Default response is human-readable summary. Use response_format='detailed' with include_git_info=true for git metadata.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        time_period: {
+          type: 'string',
+          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
+          default: 'today',
+          description: 'Time period to analyze. Options: "today" (since midnight), "yesterday" (previous day), "this_week" (Monday to now), "last_week" (previous Monday-Sunday), "last_7_days" (rolling 7 days), "last_30_days" (rolling 30 days), "custom" (requires custom_start and custom_end). Use natural periods unless user specifies exact dates.',
+        },
+        custom_start: {
+          type: 'string',
+          description: 'Start date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T09:00:00Z") or simple date ("2025-01-14" assumes 00:00:00). Examples: "2025-01-14", "2025-01-14T14:30:00Z"',
+        },
+        custom_end: {
+          type: 'string',
+          description: 'End date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T17:00:00Z") or simple date ("2025-01-14" assumes 23:59:59). Must be after custom_start. Examples: "2025-01-14", "2025-01-14T17:00:00Z"',
+        },
+        top_n: {
+          type: 'number',
+          default: 10,
+          minimum: 1,
+          maximum: 100,
+          description: 'Number of top items to return, ranked by time spent. Default: 10. Use 5 for quick overview, 20+ for comprehensive analysis. Maximum: 100.',
+        },
+        group_by: {
+          type: 'string',
+          enum: ['project', 'file', 'language', 'editor'],
+          default: 'project',
+          description: 'How to group results. "project": Group by project name (recommended for overview). "file": Group by filename - use for detailed file-level analysis. "language": Group by programming language - use to see language distribution. "editor": Group by IDE/editor - use to compare tool usage.',
+        },
+        response_format: {
+          type: 'string',
+          enum: ['concise', 'detailed'],
+          default: 'concise',
+          description: 'Output format. "concise": Human-readable text summary optimized for user presentation (recommended for most queries). "detailed": Full JSON with all fields including file lists, languages, and git info (use when user needs technical data or export).',
+        },
+        min_duration_seconds: {
+          type: 'number',
+          default: 5,
+          minimum: 0,
+          description: 'Minimum event duration to include. Events shorter than this are filtered out as likely accidental file switches. Default: 5 seconds. Use 0 to include all events, 30+ to focus on sustained editing. Recommended: keep default unless user requests otherwise.',
+        },
+        include_git_info: {
+          type: 'boolean',
+          default: false,
+          description: 'Include git branch/commit information in detailed view. Only works with response_format="detailed". Shows branch, commit hash, and repository URL when available.',
+        },
+        include_categories: {
+          type: 'boolean',
+          default: false,
+          description: 'Include category information for each project/file/language. Shows which category each item matches based on configured rules. Requires categories to be configured in ActivityWatch.',
         },
       },
       required: [],
@@ -436,6 +547,7 @@ WHEN TO USE:
 - To get category IDs for updates/deletions
 
 CAPABILITIES:
+- Automatically reloads categories from server to ensure latest data
 - Lists all categories with their IDs, names, and rules
 - Shows hierarchical category structure (e.g., "Work > Email")
 - Displays regex patterns used for matching
@@ -463,6 +575,7 @@ WHEN TO USE:
 CAPABILITIES:
 - Creates a new category with a regex rule
 - Supports hierarchical categories (e.g., ["Work", "Email"])
+- Supports custom colors and productivity scores
 - Automatically assigns a unique ID
 - Saves to ActivityWatch server settings
 - Makes category immediately available for classification
@@ -473,11 +586,13 @@ PARAMETERS:
   - Example: "gmail|outlook|mail" matches Gmail, Outlook, or Mail apps
   - Case-insensitive matching
   - Use | for OR, .* for wildcards
+- color: (Optional) Hex color code for dashboard visualization (e.g., "#FF5733")
+- score: (Optional) Productivity score for the category (e.g., 10 for high productivity)
 
 EXAMPLES:
-- Add "Work > Email": name=["Work", "Email"], regex="gmail|outlook|mail"
-- Add "Entertainment": name=["Entertainment"], regex="youtube|netflix|spotify"
-- Add "Development > Python": name=["Development", "Python"], regex="python|pycharm|jupyter"
+- Add "Work > Email": name=["Work", "Email"], regex="gmail|outlook|mail", color="#4285F4"
+- Add "Entertainment": name=["Entertainment"], regex="youtube|netflix|spotify", color="#FF0000", score=-5
+- Add "Development > Python": name=["Development", "Python"], regex="python|pycharm|jupyter", color="#3776AB"
 
 RETURNS:
 - The newly created category with its assigned ID`,
@@ -493,6 +608,14 @@ RETURNS:
           type: 'string',
           description: 'Regular expression pattern to match activities',
         },
+        color: {
+          type: 'string',
+          description: 'Hex color code for visualization (e.g., "#FF5733")',
+        },
+        score: {
+          type: 'number',
+          description: 'Productivity score (positive for productive, negative for distracting)',
+        },
       },
       required: ['name', 'regex'],
     },
@@ -502,12 +625,13 @@ RETURNS:
     description: `Update an existing category in ActivityWatch.
 
 WHEN TO USE:
-- User wants to modify a category's name or regex pattern
+- User wants to modify a category's name, regex pattern, color, or score
 - To fix or improve category matching rules
 - To reorganize category hierarchy
+- To change category colors for better visualization
 
 CAPABILITIES:
-- Updates category name and/or regex pattern
+- Updates category name, regex pattern, color, and/or score
 - Preserves category ID
 - Saves changes to ActivityWatch server settings
 - Changes take effect immediately
@@ -516,11 +640,14 @@ PARAMETERS:
 - id: Category ID (get from aw_list_categories)
 - name: (Optional) New hierarchical name
 - regex: (Optional) New regex pattern
+- color: (Optional) New hex color code (e.g., "#FF5733")
+- score: (Optional) New productivity score
 
 EXAMPLES:
 - Update regex: id=5, regex="gmail|outlook|mail|thunderbird"
 - Rename category: id=3, name=["Work", "Meetings"]
-- Update both: id=7, name=["Entertainment", "Gaming"], regex="steam|epic|gog"
+- Update color: id=7, color="#FF5733"
+- Update all: id=7, name=["Entertainment", "Gaming"], regex="steam|epic|gog", color="#9B59B6", score=-3
 
 RETURNS:
 - The updated category`,
@@ -539,6 +666,14 @@ RETURNS:
         regex: {
           type: 'string',
           description: 'New regular expression pattern (optional)',
+        },
+        color: {
+          type: 'string',
+          description: 'New hex color code (optional, e.g., "#FF5733")',
+        },
+        score: {
+          type: 'number',
+          description: 'New productivity score (optional)',
         },
       },
       required: ['id'],
@@ -688,6 +823,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case 'aw_get_editor_activity': {
+        const params = GetEditorActivitySchema.parse(args);
+        const result = await editorService.getEditorActivity(params);
+
+        if (params.response_format === 'concise') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: editorService.formatConcise(result),
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
       case 'aw_get_daily_summary': {
         const params = GetDailySummarySchema.parse(args);
         const result = await dailySummaryService.getDailySummary(params);
@@ -765,6 +925,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'aw_list_categories': {
         logger.debug('Listing categories');
 
+        // Reload categories from server to ensure we have the latest
+        await categoryService.reloadCategories();
+
         const categories = categoryService.getCategories();
 
         logger.info('Categories listed', {
@@ -782,6 +945,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     name: cat.name.join(' > '),
                     name_array: cat.name,
                     rule: cat.rule,
+                    ...(cat.data && {
+                      color: cat.data.color,
+                      score: cat.data.score,
+                    }),
                   })),
                   total_count: categories.length,
                 },
@@ -794,17 +961,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'aw_add_category': {
-        const params = args as { name: string[]; regex: string };
+        const params = args as { name: string[]; regex: string; color?: string; score?: number };
 
         logger.debug('Adding category', {
           name: params.name,
           regex: params.regex,
+          color: params.color,
+          score: params.score,
         });
 
-        const newCategory = await categoryService.addCategory(params.name, {
-          type: 'regex',
-          regex: params.regex,
-        });
+        const data = params.color || params.score !== undefined
+          ? {
+              ...(params.color && { color: params.color }),
+              ...(params.score !== undefined && { score: params.score }),
+            }
+          : undefined;
+
+        const newCategory = await categoryService.addCategory(
+          params.name,
+          {
+            type: 'regex',
+            regex: params.regex,
+          },
+          data
+        );
 
         logger.info('Category added', {
           id: newCategory.id,
@@ -823,6 +1003,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     name: newCategory.name.join(' > '),
                     name_array: newCategory.name,
                     rule: newCategory.rule,
+                    ...(newCategory.data && {
+                      color: newCategory.data.color,
+                      score: newCategory.data.score,
+                    }),
                   },
                   message: `Category "${newCategory.name.join(' > ')}" created successfully`,
                 },
@@ -835,20 +1019,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'aw_update_category': {
-        const params = args as { id: number; name?: string[]; regex?: string };
+        const params = args as {
+          id: number;
+          name?: string[];
+          regex?: string;
+          color?: string;
+          score?: number
+        };
 
         logger.debug('Updating category', {
           id: params.id,
           name: params.name,
           regex: params.regex,
+          color: params.color,
+          score: params.score,
         });
 
-        const updates: Partial<{ name: string[]; rule: { type: 'regex'; regex: string } }> = {};
+        const updates: Partial<{
+          name: string[];
+          rule: { type: 'regex'; regex: string };
+          data: { color?: string; score?: number }
+        }> = {};
+
         if (params.name) {
           updates.name = params.name;
         }
         if (params.regex) {
           updates.rule = { type: 'regex', regex: params.regex };
+        }
+        if (params.color || params.score !== undefined) {
+          updates.data = {
+            ...(params.color && { color: params.color }),
+            ...(params.score !== undefined && { score: params.score }),
+          };
         }
 
         const updatedCategory = await categoryService.updateCategory(params.id, updates);
@@ -870,6 +1073,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     name: updatedCategory.name.join(' > '),
                     name_array: updatedCategory.name,
                     rule: updatedCategory.rule,
+                    ...(updatedCategory.data && {
+                      color: updatedCategory.data.color,
+                      score: updatedCategory.data.score,
+                    }),
                   },
                   message: `Category ${params.id} updated successfully`,
                 },

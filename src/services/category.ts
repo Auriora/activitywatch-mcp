@@ -16,12 +16,19 @@ import { IActivityWatchClient } from '../client/activitywatch.js';
 export interface CategoryRule {
   readonly type: 'regex' | 'none';
   readonly regex?: string;
+  readonly ignore_case?: boolean;
+}
+
+export interface CategoryData {
+  readonly color?: string; // Hex color code like "#FF0000"
+  readonly score?: number; // Productivity score (optional)
 }
 
 export interface Category {
   readonly id: number;
   readonly name: readonly string[]; // Hierarchical name like ["Work", "Email"]
   readonly rule: CategoryRule;
+  readonly data?: CategoryData; // Optional metadata like color and score
 }
 
 export interface CategoryUsage {
@@ -101,6 +108,15 @@ export class CategoryService {
   }
 
   /**
+   * Reload categories from ActivityWatch server
+   * This is useful when categories may have been modified externally
+   */
+  async reloadCategories(): Promise<void> {
+    logger.debug('Reloading categories from ActivityWatch server');
+    await this.loadFromActivityWatch();
+  }
+
+  /**
    * Check if categories are configured
    */
   hasCategories(): boolean {
@@ -110,18 +126,24 @@ export class CategoryService {
   /**
    * Categorize a single event
    * Returns the most specific (deepest) matching category
+   * Handles window events (app/title), web events (url), and editor events (editor/project/file/language)
    */
   categorizeEvent(event: AWEvent): string | null {
     if (this.categories.length === 0) {
       return null;
     }
 
+    // Extract fields from different event types
     const app = getStringProperty(event.data, 'app');
     const title = getStringProperty(event.data, 'title');
     const url = getStringProperty(event.data, 'url');
+    const editor = getStringProperty(event.data, 'editor');
+    const project = getStringProperty(event.data, 'project');
+    const file = getStringProperty(event.data, 'file');
+    const language = getStringProperty(event.data, 'language');
 
-    // Combine app, title, and URL for matching
-    const searchText = `${app} ${title} ${url}`.toLowerCase();
+    // Combine all fields for matching
+    const searchText = `${app} ${title} ${url} ${editor} ${project} ${file} ${language}`.toLowerCase();
 
     let bestMatch: Category | null = null;
     let bestMatchDepth = -1;
@@ -259,13 +281,18 @@ export class CategoryService {
   /**
    * Add a new category
    */
-  async addCategory(name: string[], rule: CategoryRule): Promise<Category> {
+  async addCategory(
+    name: string[],
+    rule: CategoryRule,
+    data?: CategoryData
+  ): Promise<Category> {
     // Find the next available ID
     const maxId = this.categories.reduce((max, cat) => Math.max(max, cat.id), 0);
     const newCategory: Category = {
       id: maxId + 1,
       name,
       rule,
+      ...(data && { data }),
     };
 
     this.categories.push(newCategory);

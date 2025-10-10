@@ -4,6 +4,7 @@
 
 import { IActivityWatchClient } from '../client/activitywatch.js';
 import { CapabilitiesService } from './capabilities.js';
+import { CategoryService } from './category.js';
 import { WebUsage, WebActivityParams, AWError, AWEvent } from '../types.js';
 import { getTimeRange, formatDateForAPI, secondsToHours } from '../utils/time.js';
 import {
@@ -24,7 +25,8 @@ import { getStringProperty } from '../utils/type-guards.js';
 export class WebActivityService {
   constructor(
     private client: IActivityWatchClient,
-    private capabilities: CapabilitiesService
+    private capabilities: CapabilitiesService,
+    private categoryService?: CategoryService
   ) {}
 
   /**
@@ -124,6 +126,34 @@ export class WebActivityService {
       const url = getStringProperty(firstEvent.data, 'url');
       const title = getStringProperty(firstEvent.data, 'title');
 
+      // Determine category if requested
+      let category: string | undefined;
+      if (params.include_categories && this.categoryService) {
+        category = this.categoryService.categorizeEvent(firstEvent) || undefined;
+      }
+
+      // Extract timestamps
+      const timestamps = events.map(e => new Date(e.timestamp).getTime());
+      const firstSeen = new Date(Math.min(...timestamps)).toISOString();
+      const lastSeen = new Date(Math.max(...timestamps)).toISOString();
+
+      // Extract web-specific metadata
+      let audible = false;
+      let incognito = false;
+      let tabCountSum = 0;
+      let tabCountCount = 0;
+
+      for (const event of events) {
+        if (event.data.audible === true) audible = true;
+        if (event.data.incognito === true) incognito = true;
+        if (typeof event.data.tabCount === 'number') {
+          tabCountSum += event.data.tabCount;
+          tabCountCount++;
+        }
+      }
+
+      const tabCountAvg = tabCountCount > 0 ? tabCountSum / tabCountCount : undefined;
+
       websites.push({
         domain: groupBy === 'domain' ? key : extractDomain(url),
         url: groupBy === 'url' ? key : undefined,
@@ -131,6 +161,13 @@ export class WebActivityService {
         duration_seconds: duration,
         duration_hours: secondsToHours(duration),
         percentage: calculatePercentage(duration, totalTime),
+        category,
+        event_count: events.length,
+        first_seen: params.response_format === 'detailed' ? firstSeen : undefined,
+        last_seen: params.response_format === 'detailed' ? lastSeen : undefined,
+        audible: params.response_format === 'detailed' ? audible : undefined,
+        incognito: params.response_format === 'detailed' ? incognito : undefined,
+        tab_count_avg: params.response_format === 'detailed' ? tabCountAvg : undefined,
       });
     }
 

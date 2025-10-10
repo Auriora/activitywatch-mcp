@@ -54,6 +54,7 @@ export interface Capabilities {
   readonly has_window_tracking: boolean;
   readonly has_browser_tracking: boolean;
   readonly has_afk_detection: boolean;
+  readonly has_editor_tracking: boolean;
   readonly has_categories: boolean;
 }
 
@@ -63,6 +64,10 @@ export interface AppUsage {
   readonly duration_hours: number;
   readonly percentage: number;
   readonly window_titles?: readonly string[];
+  readonly category?: string;
+  readonly event_count?: number;
+  readonly first_seen?: string; // ISO 8601 timestamp
+  readonly last_seen?: string;  // ISO 8601 timestamp
 }
 
 export interface WebUsage {
@@ -72,6 +77,36 @@ export interface WebUsage {
   readonly duration_seconds: number;
   readonly duration_hours: number;
   readonly percentage: number;
+  readonly category?: string;
+  readonly event_count?: number;
+  readonly first_seen?: string; // ISO 8601 timestamp
+  readonly last_seen?: string;  // ISO 8601 timestamp
+  readonly audible?: boolean;   // Whether any visits had audio
+  readonly incognito?: boolean; // Whether any visits were incognito
+  readonly tab_count_avg?: number; // Average number of tabs open
+}
+
+export interface EditorUsage {
+  readonly name: string; // project, file, language, or editor name depending on group_by
+  readonly duration_seconds: number;
+  readonly duration_hours: number;
+  readonly percentage: number;
+  readonly projects?: readonly string[]; // When grouped by language/editor
+  readonly files?: readonly string[]; // When grouped by project
+  readonly languages?: readonly string[]; // When grouped by project
+  readonly git_info?: {
+    readonly branch?: string;
+    readonly commit?: string;
+    readonly repository?: string;
+  };
+  readonly category?: string;
+  readonly event_count?: number;
+  readonly first_seen?: string; // ISO 8601 timestamp
+  readonly last_seen?: string;  // ISO 8601 timestamp
+  readonly editor_version?: string; // IDE version
+  readonly state_breakdown?: {
+    readonly [state: string]: number; // seconds per state (CODING, DEBUGGING, etc.)
+  };
 }
 
 export interface CategoryUsage {
@@ -133,6 +168,7 @@ export interface WindowActivityParams extends TimeRangeParams {
   response_format?: ResponseFormat;
   exclude_system_apps?: boolean;
   min_duration_seconds?: number;
+  include_categories?: boolean;
 }
 
 export interface WebActivityParams extends TimeRangeParams {
@@ -141,6 +177,16 @@ export interface WebActivityParams extends TimeRangeParams {
   response_format?: ResponseFormat;
   exclude_domains?: string[];
   min_duration_seconds?: number;
+  include_categories?: boolean;
+}
+
+export interface EditorActivityParams extends TimeRangeParams {
+  top_n?: number;
+  group_by?: 'project' | 'file' | 'language' | 'editor';
+  response_format?: ResponseFormat;
+  min_duration_seconds?: number;
+  include_git_info?: boolean;
+  include_categories?: boolean;
 }
 
 export interface DailySummaryParams {

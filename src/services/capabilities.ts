@@ -124,6 +124,9 @@ export class CapabilitiesService {
         has_afk_detection: buckets.some(b =>
           b.type === 'afkstatus' || b.type.includes('afk')
         ),
+        has_editor_tracking: buckets.some(b =>
+          b.type === 'app.editor.activity' || b.type.includes('editor')
+        ),
         has_categories: this.hasCategoriesConfigured,
       };
     });
@@ -144,7 +147,11 @@ export class CapabilitiesService {
       tools.push('aw_get_web_activity');
     }
 
-    if (capabilities.has_window_tracking || capabilities.has_browser_tracking) {
+    if (capabilities.has_editor_tracking) {
+      tools.push('aw_get_editor_activity');
+    }
+
+    if (capabilities.has_window_tracking || capabilities.has_browser_tracking || capabilities.has_editor_tracking) {
       tools.push('aw_get_daily_summary');
     }
 
@@ -202,8 +209,18 @@ export class CapabilitiesService {
    */
   async findBrowserBuckets(): Promise<BucketInfo[]> {
     const buckets = await this.getAvailableBuckets();
-    return buckets.filter(b => 
+    return buckets.filter(b =>
       b.type === 'web.tab.current' || b.type.includes('web')
+    );
+  }
+
+  /**
+   * Find editor/IDE tracking buckets
+   */
+  async findEditorBuckets(): Promise<BucketInfo[]> {
+    const buckets = await this.getAvailableBuckets();
+    return buckets.filter(b =>
+      b.type === 'app.editor.activity' || b.type.includes('editor')
     );
   }
 

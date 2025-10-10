@@ -4,6 +4,7 @@
 
 import { IActivityWatchClient } from '../client/activitywatch.js';
 import { CapabilitiesService } from './capabilities.js';
+import { CategoryService } from './category.js';
 import { AppUsage, WindowActivityParams, AWError, AWEvent } from '../types.js';
 import { getTimeRange, formatDateForAPI, secondsToHours } from '../utils/time.js';
 import {
@@ -22,22 +23,25 @@ import { getStringProperty } from '../utils/type-guards.js';
 export class WindowActivityService {
   constructor(
     private client: IActivityWatchClient,
-    private capabilities: CapabilitiesService
+    private capabilities: CapabilitiesService,
+    private categoryService?: CategoryService
   ) {}
 
   /**
-   * Get all window events for a time period (for categorization)
+   * Get all window and editor events for a time period (for categorization)
    */
   async getAllEvents(startTime: Date, endTime: Date): Promise<AWEvent[]> {
     const windowBuckets = await this.capabilities.findWindowBuckets();
+    const editorBuckets = await this.capabilities.findEditorBuckets();
+    const allBuckets = [...windowBuckets, ...editorBuckets];
 
-    if (windowBuckets.length === 0) {
+    if (allBuckets.length === 0) {
       return [];
     }
 
     let allEvents: AWEvent[] = [];
 
-    for (const bucket of windowBuckets) {
+    for (const bucket of allBuckets) {
       try {
         const events = await this.client.getEvents(bucket.id, {
           start: formatDateForAPI(startTime),
@@ -75,12 +79,15 @@ export class WindowActivityService {
       end: timeRange.end.toISOString(),
     });
 
-    // Find window tracking buckets
+    // Find window tracking buckets (including editor buckets for IDE activity)
     const windowBuckets = await this.capabilities.findWindowBuckets();
-    logger.info(`Found ${windowBuckets.length} window tracking buckets`);
+    const editorBuckets = await this.capabilities.findEditorBuckets();
+    const allBuckets = [...windowBuckets, ...editorBuckets];
 
-    if (windowBuckets.length === 0) {
-      logger.warn('No window tracking buckets available');
+    logger.info(`Found ${windowBuckets.length} window tracking buckets and ${editorBuckets.length} editor tracking buckets`);
+
+    if (allBuckets.length === 0) {
+      logger.warn('No window or editor tracking buckets available');
       throw new AWError(
         'No window activity buckets found. This usually means:\n' +
         '1. ActivityWatch is not running\n' +
@@ -91,10 +98,10 @@ export class WindowActivityService {
       );
     }
 
-    // Collect events from all window buckets
+    // Collect events from all window and editor buckets
     let allEvents: AWEvent[] = [];
 
-    for (const bucket of windowBuckets) {
+    for (const bucket of allBuckets) {
       try {
         logger.debug(`Fetching events from bucket: ${bucket.id}`);
         const events = await this.client.getEvents(bucket.id, {
@@ -140,9 +147,31 @@ export class WindowActivityService {
 
     for (const [appName, events] of appGroups.entries()) {
       const duration = sumDurations(events);
+      // Get titles from window events or file/project from editor events
       const windowTitles = events
-        .map(e => getStringProperty(e.data, 'title'))
-        .filter(title => title.length > 0);
+        .map(e => {
+          const title = getStringProperty(e.data, 'title');
+          if (title) return title;
+          // For editor events, use file or project as title
+          const file = getStringProperty(e.data, 'file');
+          if (file) return file;
+          const project = getStringProperty(e.data, 'project');
+          return project;
+        })
+        .filter(title => title && title.length > 0) as string[];
+
+      // Determine category if requested
+      let category: string | undefined;
+      if (params.include_categories && this.categoryService) {
+        // Use the first event as representative for categorization
+        const representativeEvent = events[0];
+        category = this.categoryService.categorizeEvent(representativeEvent) || undefined;
+      }
+
+      // Extract timestamps
+      const timestamps = events.map(e => new Date(e.timestamp).getTime());
+      const firstSeen = new Date(Math.min(...timestamps)).toISOString();
+      const lastSeen = new Date(Math.max(...timestamps)).toISOString();
 
       applications.push({
         name: appName,
@@ -152,6 +181,10 @@ export class WindowActivityService {
         window_titles: params.response_format === 'detailed'
           ? Array.from(new Set(windowTitles))
           : undefined,
+        category,
+        event_count: events.length,
+        first_seen: params.response_format === 'detailed' ? firstSeen : undefined,
+        last_seen: params.response_format === 'detailed' ? lastSeen : undefined,
       });
     }
 
@@ -172,6 +205,7 @@ export class WindowActivityService {
 
   /**
    * Group events by application name
+   * Handles both window events (app field) and editor events (editor field)
    */
   private groupByApplication(
     events: AWEvent[],
@@ -180,7 +214,11 @@ export class WindowActivityService {
     const groups = new Map<string, AWEvent[]>();
 
     for (const event of events) {
-      const appName = getStringProperty(event.data, 'app');
+      // Try 'app' field first (window events), then 'editor' field (editor events)
+      let appName = getStringProperty(event.data, 'app');
+      if (!appName) {
+        appName = getStringProperty(event.data, 'editor');
+      }
 
       if (!appName) continue;
 
