@@ -245,6 +245,23 @@ export interface EditorEnrichment {
   };
 }
 
+export interface TerminalEnrichment {
+  readonly username: string;
+  readonly hostname: string;
+  readonly directory: string;
+  readonly isRemote: boolean;
+  readonly isSSH: boolean;
+}
+
+export interface IDEEnrichment {
+  // Only used when editor bucket data is NOT available
+  // Primarily for detecting dialogs/modals that should be filtered
+  readonly isDialog: boolean;
+  readonly dialogType?: string;
+  readonly project?: string;  // Fallback if no editor bucket
+  readonly file?: string;      // Fallback if no editor bucket
+}
+
 export interface CanonicalEvent {
   // Base fields (always present from window tracking)
   readonly app: string;
@@ -258,6 +275,12 @@ export interface CanonicalEvent {
 
   // Editor enrichment (only when app is an editor AND window was active)
   readonly editor?: EditorEnrichment;
+
+  // Terminal enrichment (only when app is a terminal)
+  readonly terminal?: TerminalEnrichment;
+
+  // IDE enrichment (only when app is an IDE)
+  readonly ide?: IDEEnrichment;
 
   // Category (if categorization enabled)
   readonly category?: string;

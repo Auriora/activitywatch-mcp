@@ -20,6 +20,16 @@ import {
 } from '../types.js';
 import { getTimeRange } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
+import {
+  parseTerminalTitle,
+  parseIDETitle,
+  isTerminalApp,
+  isIDEApp,
+  setTitleParserConfig,
+  TerminalInfo,
+  IDEInfo
+} from '../utils/title-parser.js';
+import { getParsingConfig } from '../config/app-names.js';
 
 interface EnrichedEvent {
   app: string;
@@ -28,6 +38,8 @@ interface EnrichedEvent {
   timestamp: string;
   browser?: BrowserEnrichment;
   editor?: EditorEnrichment;
+  terminal?: TerminalInfo;
+  ide?: IDEInfo;
   category?: string;
 }
 
@@ -35,7 +47,11 @@ export class UnifiedActivityService {
   constructor(
     private queryService: QueryService,
     private categoryService: CategoryService
-  ) {}
+  ) {
+    // Initialize title parser with config
+    const parsingConfig = getParsingConfig();
+    setTitleParserConfig(parsingConfig);
+  }
 
   /**
    * Get unified activity data with browser/editor enrichment
@@ -171,6 +187,22 @@ export class UnifiedActivityService {
         }
       }
 
+      // Parse terminal title if it's a terminal app
+      // This provides unique information (hostname, directory, SSH status)
+      // that is NOT available from any other bucket
+      let terminalInfo: TerminalInfo | undefined;
+      if (isTerminalApp(app)) {
+        terminalInfo = parseTerminalTitle(title) || undefined;
+      }
+
+      // Parse IDE title ONLY if editor enrichment is not available
+      // This helps detect dialogs/modals which should be filtered out
+      // If editor bucket has data, we already have file/project info
+      let ideInfo: IDEInfo | undefined;
+      if (isIDEApp(app) && !editorEnrichment) {
+        ideInfo = parseIDETitle(title);
+      }
+
       enriched.push({
         app,
         title,
@@ -178,6 +210,8 @@ export class UnifiedActivityService {
         timestamp: windowEvent.timestamp,
         browser: browserEnrichment,
         editor: editorEnrichment,
+        terminal: terminalInfo,
+        ide: ideInfo,
       });
     }
 

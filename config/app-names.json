@@ -181,6 +181,54 @@
       "kate": ["kate"],
       "nano": ["nano"]
     }
+  },
+  "parsing": {
+    "localHostname": "bruce-5560",
+    "terminalApps": [
+      "kgx",
+      "gnome-terminal",
+      "konsole",
+      "Terminal",
+      "iTerm2",
+      "Alacritty",
+      "kitty",
+      "Hyper",
+      "Terminator",
+      "xterm",
+      "rxvt",
+      "urxvt"
+    ],
+    "ideApps": [
+      "jetbrains-webstorm",
+      "jetbrains-pycharm",
+      "jetbrains-idea",
+      "jetbrains-goland",
+      "jetbrains-rider",
+      "jetbrains-clion",
+      "jetbrains-phpstorm",
+      "jetbrains-rubymine",
+      "jetbrains-rustrover",
+      "jetbrains-datagrip",
+      "jetbrains-dataspell",
+      "Code",
+      "Visual Studio Code",
+      "VSCode",
+      "code"
+    ],
+    "dialogPatterns": [
+      "Confirm Exit",
+      "Accept All Changes?",
+      "Rename",
+      "Delete",
+      "Move",
+      "Tip of the Day",
+      "New Agent Session",
+      "Commit:",
+      "Push",
+      "Pull",
+      "Merge",
+      "Rebase"
+    ]
   }
 }
 

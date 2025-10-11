@@ -19,6 +19,12 @@ interface AppNamesConfig {
     browsers: Record<string, string[]>;
     editors: Record<string, string[]>;
   };
+  parsing?: {
+    localHostname: string;
+    terminalApps: string[];
+    ideApps: string[];
+    dialogPatterns: string[];
+  };
 }
 
 // Load configuration from JSON file
@@ -91,5 +97,17 @@ export function detectEditorType(bucketId: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Get parsing configuration
+ */
+export function getParsingConfig() {
+  return config.parsing || {
+    localHostname: 'unknown',
+    terminalApps: [],
+    ideApps: [],
+    dialogPatterns: []
+  };
 }
 
