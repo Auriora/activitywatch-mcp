@@ -296,7 +296,7 @@ export class UnifiedActivityService {
     if (!url) return undefined;
 
     // Extract domain from URL
-    let domain: string;
+    let domain: string = "";
     try {
       const urlObj = new URL(url);
       domain = urlObj.hostname;
