@@ -34,7 +34,46 @@ npm install
 
 # Build the project
 npm run build
+
+# Run tests
+npm test
 ```
+
+## Testing
+
+The project includes a comprehensive test suite using Vitest:
+
+```bash
+# Run all tests
+npm test
+
+# Run unit tests only
+npm run test:unit
+
+# Run integration tests only
+npm run test:integration
+
+# Run E2E tests only (requires ActivityWatch running)
+npm run test:e2e
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests with UI
+npm run test:ui
+```
+
+**Test Structure:**
+- `tests/unit/` - Unit tests for utilities and individual functions
+- `tests/integration/` - Integration tests for service interactions
+- `tests/e2e/` - End-to-end tests for complete workflows (requires ActivityWatch)
+- `tests/helpers/` - Test utilities and mock implementations
+- `tests/fixtures/` - Test data and mock responses
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
 
 ## Configuration
 
@@ -100,7 +139,24 @@ LLM calls: aw_get_capabilities()
 
 ---
 
-### 2. `aw_get_window_activity`
+### 2. `aw_get_activity`
+
+Recommended unified analysis combining window, browser, and editor data with AFK filtering and canonical events. Prevents double-counting and enriches app usage with browsing/editor details when available.
+
+**Parameters (common):**
+- `time_period`, `custom_start`, `custom_end`, `top_n`, `group_by` (application/title)
+- `include_browser_details`, `include_editor_details`, `include_categories`
+- `exclude_system_apps`, `min_duration_seconds`, `response_format`
+
+**Example:**
+```
+User: "What did I work on today?"
+LLM calls: aw_get_activity({ time_period: "today", include_categories: true })
+```
+
+---
+
+### 3. `aw_get_window_activity`
 
 Get application/window activity for a time period.
 
@@ -113,6 +169,7 @@ Get application/window activity for a time period.
 - `response_format`: "concise" | "detailed" (default: "concise")
 - `exclude_system_apps`: boolean (default: true)
 - `min_duration_seconds`: Filter short events (default: 5)
+- `include_categories`: boolean (default: false)
 
 **Example:**
 ```
@@ -122,7 +179,7 @@ LLM calls: aw_get_window_activity({ time_period: "this_week" })
 
 ---
 
-### 3. `aw_get_web_activity`
+### 4. `aw_get_web_activity`
 
 Get browser/website activity for a time period.
 
@@ -135,6 +192,7 @@ Get browser/website activity for a time period.
 - `response_format`: "concise" | "detailed" (default: "concise")
 - `exclude_domains`: Array of domains to exclude (default: ["localhost", "127.0.0.1"])
 - `min_duration_seconds`: Filter short visits (default: 5)
+- `include_categories`: boolean (default: false)
 
 **Example:**
 ```
@@ -144,7 +202,24 @@ LLM calls: aw_get_web_activity({ time_period: "yesterday", top_n: 5 })
 
 ---
 
-### 4. `aw_get_daily_summary`
+### 5. `aw_get_editor_activity`
+
+Analyze IDE/editor activity over a time period.
+
+**Parameters:**
+- `time_period`, `custom_start`, `custom_end`, `top_n`
+- `group_by`: "project" | "file" | "language" | "editor"
+- `include_git_info`, `include_categories`, `min_duration_seconds`, `response_format`
+
+**Example:**
+```
+User: "What did I code today?"
+LLM calls: aw_get_editor_activity({ time_period: "today", group_by: "project" })
+```
+
+---
+
+### 6. `aw_get_daily_summary`
 
 Get a comprehensive summary of activity for a specific day.
 
@@ -167,7 +242,36 @@ LLM calls: aw_get_daily_summary({ date: "2025-01-13" })
 
 ---
 
-### 5. `aw_get_raw_events`
+### 7. `aw_query_events`
+
+Build and execute custom queries with flexible filtering.
+
+**Use this when:**
+- You need to filter events by specific apps, domains, or titles
+- You want to combine multiple filtering criteria
+- Standard tools don't provide the exact filtering needed
+
+**Parameters:**
+- `query_type`, `start_time`, `end_time`
+- Filtering: `filter_afk`, `filter_apps`, `exclude_apps`, `filter_domains`, `filter_titles`
+- Aggregation: `merge_events`, `min_duration_seconds`
+- Custom: `custom_query`, `bucket_ids`
+- Output: `limit`, `response_format`
+
+**Examples:**
+```
+User: "Show me all my GitHub activity today"
+LLM calls: aw_query_events({
+  query_type: "browser",
+  start_time: "2025-01-14T00:00:00Z",
+  end_time: "2025-01-14T23:59:59Z",
+  filter_domains: ["github.com"]
+})
+```
+
+---
+
+### 8. `aw_get_raw_events`
 
 Retrieve raw events from a specific bucket.
 
@@ -181,12 +285,12 @@ Retrieve raw events from a specific bucket.
 - `start_time`: ISO 8601 format
 - `end_time`: ISO 8601 format
 - `limit`: Max events to return (default: 100, max: 10000)
-- `response_format`: "concise" | "detailed" | "raw" (default: "concise")
+- `response_format`: "concise" | "detailed" | "raw"
 
 **Example:**
 ```
 User: "Show me raw window events from 2pm to 3pm today"
-LLM calls: aw_get_raw_events({ 
+LLM calls: aw_get_raw_events({
   bucket_id: "aw-watcher-window_hostname",
   start_time: "2025-01-14T14:00:00Z",
   end_time: "2025-01-14T15:00:00Z"
@@ -195,7 +299,7 @@ LLM calls: aw_get_raw_events({
 
 ---
 
-### 6. `aw_list_categories`
+### 9. `aw_list_categories`
 
 List all configured categories in ActivityWatch.
 
@@ -211,7 +315,7 @@ LLM calls: aw_list_categories()
 
 ---
 
-### 7. `aw_add_category`
+### 10. `aw_add_category`
 
 Create a new category for activity classification.
 
@@ -230,7 +334,7 @@ LLM calls: aw_add_category({
 
 ---
 
-### 8. `aw_update_category`
+### 11. `aw_update_category`
 
 Update an existing category's name or regex pattern.
 
@@ -250,7 +354,7 @@ LLM calls: aw_update_category({
 
 ---
 
-### 9. `aw_delete_category`
+### 12. `aw_delete_category`
 
 Delete a category from ActivityWatch.
 
@@ -266,42 +370,6 @@ LLM calls: aw_delete_category({ id: 5 })
 **⚠️ Warning**: This permanently removes the category from ActivityWatch.
 
 ---
-
-## Example Queries
-
-Here are some example questions LLM agents can answer:
-
-**Time-Based Analysis:**
-- "How much time did I spend on VS Code this week?"
-- "What were my top 5 apps yesterday?"
-- "Show me my activity for last Monday"
-
-**Productivity Analysis:**
-- "How productive was I this week?"
-- "What percentage of time did I spend on development tools?"
-- "Compare my activity this week vs last week"
-
-**Web Browsing:**
-- "What websites did I visit most today?"
-- "How much time did I spend on GitHub this month?"
-- "Show me my browsing patterns for yesterday"
-
-**Daily Summaries:**
-- "Summarize my activity for today"
-- "Give me an overview of what I did yesterday"
-- "What was my most productive day this week?"
-
-**Patterns & Insights:**
-- "When am I most active during the day?"
-- "What's my typical work pattern?"
-- "How much time do I spend in meetings vs coding?"
-
-**Category Management:**
-- "What categories do I have configured?"
-- "Create a category for my gaming activities"
-- "Add Slack to my communication category"
-- "Show me time spent by category today"
-- "Organize my activities into work and personal categories"
 
 ## Architecture
 
@@ -401,11 +469,11 @@ Check the logs after starting to see the health check results.
 
 ## Documentation
 
-- **[QUICKSTART.md](QUICKSTART.md)**: 5-minute setup guide
-- **[IMPLEMENTATION.md](IMPLEMENTATION.md)**: Technical architecture and design decisions
-- **[MCP_BEST_PRACTICES.md](MCP_BEST_PRACTICES.md)**: MCP tool design best practices
-- **[PARAMETER_DESCRIPTIONS.md](PARAMETER_DESCRIPTIONS.md)**: Parameter design guidelines
-- **[IMPROVEMENTS.md](IMPROVEMENTS.md)**: Code quality improvements and logging details
+- Documentation landing page: docs/index.md
+- Quickstart: docs/getting-started/quickstart.md
+- Implementation details: docs/architecture/implementation.md
+- Developer best practices: docs/developer/best-practices.md
+- Tools reference (API): docs/reference/tools.md
 
 ## License
 
@@ -414,4 +482,3 @@ MIT
 ## Contributing
 
 Contributions welcome! Please open an issue or PR.
-

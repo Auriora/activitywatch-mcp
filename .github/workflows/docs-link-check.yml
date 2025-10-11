@@ -1,0 +1,29 @@
+name: Docs Link Check
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+      - 'scripts/check-doc-links.mjs'
+      - '.github/workflows/docs-link-check.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'scripts/check-doc-links.mjs'
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run docs link checker
+        run: |
+          node scripts/check-doc-links.mjs
+

@@ -133,34 +133,43 @@ export class UnifiedActivityService {
   ): EnrichedEvent[] {
     const enriched: EnrichedEvent[] = [];
 
-    // Index browser events by timestamp for fast lookup
-    const browserByTime = new Map<string, AWEvent>();
-    if (params.include_browser_details !== false) {
-      for (const event of browserEvents) {
-        browserByTime.set(event.timestamp, event);
-      }
-    }
-
-    // Index editor events by timestamp for fast lookup
-    const editorByTime = new Map<string, AWEvent>();
-    if (params.include_editor_details !== false) {
-      for (const event of editorEvents) {
-        editorByTime.set(event.timestamp, event);
-      }
-    }
-
     // Enrich each window event
     for (const windowEvent of windowEvents) {
       const app = windowEvent.data.app as string || 'Unknown';
       const title = windowEvent.data.title as string || '';
 
-      // Check if there's a matching browser event
-      const browserEvent = browserByTime.get(windowEvent.timestamp);
-      const browserEnrichment = browserEvent ? this.extractBrowserData(browserEvent) : undefined;
+      const windowStart = new Date(windowEvent.timestamp).getTime();
+      const windowEnd = windowStart + (windowEvent.duration * 1000);
 
-      // Check if there's a matching editor event
-      const editorEvent = editorByTime.get(windowEvent.timestamp);
-      const editorEnrichment = editorEvent ? this.extractEditorData(editorEvent) : undefined;
+      // Find overlapping browser events
+      let browserEnrichment: BrowserEnrichment | undefined;
+      if (params.include_browser_details !== false) {
+        for (const browserEvent of browserEvents) {
+          const browserStart = new Date(browserEvent.timestamp).getTime();
+          const browserEnd = browserStart + (browserEvent.duration * 1000);
+
+          // Check if events overlap
+          if (this.eventsOverlap(windowStart, windowEnd, browserStart, browserEnd)) {
+            browserEnrichment = this.extractBrowserData(browserEvent);
+            break; // Use first matching browser event
+          }
+        }
+      }
+
+      // Find overlapping editor events
+      let editorEnrichment: EditorEnrichment | undefined;
+      if (params.include_editor_details !== false) {
+        for (const editorEvent of editorEvents) {
+          const editorStart = new Date(editorEvent.timestamp).getTime();
+          const editorEnd = editorStart + (editorEvent.duration * 1000);
+
+          // Check if events overlap
+          if (this.eventsOverlap(windowStart, windowEnd, editorStart, editorEnd)) {
+            editorEnrichment = this.extractEditorData(editorEvent);
+            break; // Use first matching editor event
+          }
+        }
+      }
 
       enriched.push({
         app,
@@ -173,6 +182,19 @@ export class UnifiedActivityService {
     }
 
     return enriched;
+  }
+
+  /**
+   * Check if two time periods overlap
+   */
+  private eventsOverlap(
+    start1: number,
+    end1: number,
+    start2: number,
+    end2: number
+  ): boolean {
+    // Events overlap if one starts before the other ends
+    return start1 < end2 && start2 < end1;
   }
 
   /**

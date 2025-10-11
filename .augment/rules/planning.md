@@ -41,6 +41,7 @@ ask for clarification.
     - Deliver the final plan and executive summary (mapping back to Desired Outcome)
     - Restate any questions or assumptions in a structured reference block for confirmation
     - Limit: max **200 words** in summary
+    - Reminder: upon completion, add/update a `docs/updates` entry (see `docs/updates/README.md`) when applicable
 
 <<AWAIT_CONFIRM: Plan acceptable or revise?>>
 
@@ -61,3 +62,4 @@ If at any step something deviates (missing info, failed assumption, test failure
 - Brief rationales only: ≤3 bullets each.
 - Stop tokens: `<<AWAIT_CONFIRM: ...?>>`; model should not continue past unless confirmation is given.
 - No free-form chain-of-thought beyond rationale bullets.
+- On completion of EXECUTE, add/update a `docs/updates` entry summarizing what was implemented and link it from `docs/updates/index.md`.

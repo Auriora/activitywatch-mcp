@@ -17,6 +17,7 @@ import {
 import { ActivityWatchClient } from './client/activitywatch.js';
 import { CapabilitiesService } from './services/capabilities.js';
 import { QueryService } from './services/query.js';
+import { QueryBuilderService } from './services/query-builder.js';
 import { WindowActivityService } from './services/window-activity.js';
 import { WebActivityService } from './services/web-activity.js';
 import { EditorActivityService } from './services/editor-activity.js';
@@ -32,10 +33,15 @@ import {
   GetEditorActivitySchema,
   GetDailySummarySchema,
   GetRawEventsSchema,
+  QueryEventsSchema,
 } from './tools/schemas.js';
 
 import { AWError } from './types.js';
-import { formatRawEventsConcise } from './utils/formatters.js';
+import {
+  formatRawEventsConcise,
+  formatQueryResultsConcise,
+  formatQueryResultsDetailed,
+} from './utils/formatters.js';
 import { logger } from './utils/logger.js';
 import { performHealthCheck, logStartupDiagnostics } from './utils/health.js';
 
@@ -51,6 +57,7 @@ const client = new ActivityWatchClient(AW_URL);
 const capabilitiesService = new CapabilitiesService(client);
 const categoryService = new CategoryService(client);
 const queryService = new QueryService(client, capabilitiesService);
+const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
 
 // Always pass category service - it will handle the case when no categories are configured
 // Categories are loaded asynchronously in main(), so we can't check hasCategories() here
@@ -686,6 +693,152 @@ IMPORTANT: This is a low-level tool. For most user queries, the high-level analy
     },
   },
   {
+    name: 'aw_query_events',
+    description: `Build and execute custom queries to retrieve ActivityWatch events with flexible filtering.
+
+WHEN TO USE:
+- Need to filter events by specific applications, domains, or titles
+- Want to combine multiple filtering criteria (e.g., "Chrome activity on github.com")
+- Need custom time-based queries beyond standard tools
+- Advanced analysis requiring specific event filtering
+- Building complex queries with AFK filtering and event merging
+- When standard tools don't provide the exact filtering needed
+
+WHEN NOT TO USE:
+- For general activity overview → use aw_get_activity, aw_get_window_activity, or aw_get_web_activity
+- For daily summaries → use aw_get_daily_summary
+- When you need aggregated statistics → high-level tools are more efficient
+- For simple queries → standard tools are easier to use
+
+CAPABILITIES:
+- **Flexible Query Types**: window, browser, editor, afk, or custom queries
+- **Advanced Filtering**: Filter by apps, domains, titles, or exclude specific items
+- **AFK Filtering**: Automatically filter out away-from-keyboard periods
+- **Event Merging**: Combine consecutive similar events for cleaner results
+- **Custom Queries**: Full control with ActivityWatch query language
+- **Multi-bucket Support**: Automatically queries relevant buckets
+- **Duration Filtering**: Filter out short events (noise reduction)
+
+QUERY TYPES:
+- "window": Query application/window events
+- "browser": Query web browsing events
+- "editor": Query code editor events
+- "afk": Query AFK (away from keyboard) events
+- "custom": Build custom query with full control
+
+FILTERING OPTIONS:
+- filter_afk: Remove AFK periods (default: true)
+- filter_apps: Include only specific applications
+- exclude_apps: Exclude specific applications
+- filter_domains: Include only specific domains (browser queries)
+- filter_titles: Filter by window/page title patterns
+- min_duration_seconds: Filter out short events
+
+EXAMPLES:
+1. Chrome activity on GitHub:
+   query_type: "browser"
+   filter_domains: ["github.com"]
+
+2. VS Code excluding system files:
+   query_type: "window"
+   filter_apps: ["Code", "Visual Studio Code"]
+   exclude_apps: ["Finder"]
+
+3. All coding activity:
+   query_type: "editor"
+   merge_events: true
+
+RETURNS:
+- events: Array of filtered events
+- total_duration_seconds: Total time in filtered events
+- query_used: The actual query executed (for debugging)
+- buckets_queried: Which buckets were queried
+
+LIMITATIONS:
+- Requires understanding of query parameters
+- Custom queries require knowledge of ActivityWatch query language
+- Time range must be specified in ISO 8601 format
+- Results limited by limit parameter (default: 1000)`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query_type: {
+          type: 'string',
+          enum: ['window', 'browser', 'editor', 'afk', 'custom'],
+          description: 'Type of query to build. "window": Query window/application events. "browser": Query web browsing events. "editor": Query code editor events. "afk": Query AFK (away from keyboard) events. "custom": Build a custom query with full control.',
+        },
+        start_time: {
+          type: 'string',
+          description: 'Start timestamp in ISO 8601 format. Examples: "2025-01-14T09:00:00Z", "2025-01-14T09:00:00-05:00". Must be before end_time.',
+        },
+        end_time: {
+          type: 'string',
+          description: 'End timestamp in ISO 8601 format. Examples: "2025-01-14T17:00:00Z", "2025-01-14T17:00:00-05:00". Must be after start_time.',
+        },
+        filter_afk: {
+          type: 'boolean',
+          default: true,
+          description: 'Whether to filter out AFK (away from keyboard) periods. Default: true (only include active time). Set to false to include all time regardless of AFK status.',
+        },
+        filter_apps: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Filter to only include specific applications. Example: ["Chrome", "Firefox", "Safari"]. Leave empty to include all apps.',
+        },
+        exclude_apps: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Exclude specific applications. Example: ["Finder", "Dock"]. Leave empty to not exclude any apps.',
+        },
+        filter_domains: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Filter to only include specific domains (for browser queries). Example: ["github.com", "stackoverflow.com"]. Leave empty to include all domains.',
+        },
+        filter_titles: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Filter to only include events with titles matching these patterns (regex). Example: ["Gmail", "GitHub.*Pull Request"]. Leave empty to include all titles.',
+        },
+        merge_events: {
+          type: 'boolean',
+          default: true,
+          description: 'Whether to merge consecutive similar events. Default: true (combines events with same app/title). Set to false to keep all events separate.',
+        },
+        min_duration_seconds: {
+          type: 'number',
+          minimum: 0,
+          default: 0,
+          description: 'Minimum event duration to include. Events shorter than this are filtered out. Default: 0 (include all). Use 5+ to filter noise.',
+        },
+        custom_query: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Custom ActivityWatch query language statements. Only used when query_type="custom". Example: ["events = query_bucket(\\"aw-watcher-window_hostname\\");", "RETURN = events;"]. Allows full control over query logic.',
+        },
+        bucket_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Specific bucket IDs to query. Only used when query_type="custom". Get bucket IDs from aw_get_capabilities. Example: ["aw-watcher-window_my-laptop", "aw-watcher-web-chrome_my-laptop"].',
+        },
+        limit: {
+          type: 'number',
+          minimum: 1,
+          maximum: 10000,
+          default: 1000,
+          description: 'Maximum number of events to return. Default: 1000. Use lower values for quick queries, higher for comprehensive analysis.',
+        },
+        response_format: {
+          type: 'string',
+          enum: ['concise', 'detailed', 'raw'],
+          default: 'detailed',
+          description: 'Output format. "concise": Summary with first 10 events. "detailed": Full event list with key fields. "raw": Complete unprocessed JSON.',
+        },
+      },
+      required: ['query_type', 'start_time', 'end_time'],
+    },
+  },
+  {
     name: 'aw_list_categories',
     description: `List all configured categories in ActivityWatch.
 
@@ -1134,6 +1287,62 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: formatRawEventsConcise(params.bucket_id, events),
+            },
+          ],
+        };
+      }
+
+      case 'aw_query_events': {
+        const params = QueryEventsSchema.parse(args);
+
+        logger.debug('Building custom query', {
+          queryType: params.query_type,
+          startTime: params.start_time,
+          endTime: params.end_time,
+          filterAfk: params.filter_afk,
+        });
+
+        const result = await queryBuilderService.queryEvents(params);
+
+        logger.info('Query executed', {
+          eventCount: result.events.length,
+          totalDuration: result.total_duration_seconds,
+          bucketsQueried: result.buckets_queried.length,
+        });
+
+        if (params.response_format === 'raw') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  events: result.events,
+                  total_duration_seconds: result.total_duration_seconds,
+                  query_used: result.query_used,
+                  buckets_queried: result.buckets_queried,
+                }, null, 2),
+              },
+            ],
+          };
+        }
+
+        if (params.response_format === 'detailed') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: formatQueryResultsDetailed(result),
+              },
+            ],
+          };
+        }
+
+        // Concise format
+        return {
+          content: [
+            {
+              type: 'text',
+              text: formatQueryResultsConcise(result),
             },
           ],
         };

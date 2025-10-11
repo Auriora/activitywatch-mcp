@@ -23,8 +23,8 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Skip E2E tests if explicitly disabled or ActivityWatch not available
-const SKIP_E2E = process.env.SKIP_E2E === 'true';
+// Skip E2E tests by default (set SKIP_E2E=false to enable)
+const SKIP_E2E = process.env.SKIP_E2E !== 'false';
 const AW_URL = process.env.AW_URL || 'http://localhost:5600';
 
 describe.skipIf(SKIP_E2E)('MCP Server E2E', () => {

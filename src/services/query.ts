@@ -11,62 +11,19 @@ import { CapabilitiesService } from './capabilities.js';
 import { AWEvent, CanonicalQueryResult } from '../types.js';
 import { formatDateForAPI } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
+import {
+  getBrowserAppNames,
+  getEditorAppNames,
+  detectBrowserType,
+  detectEditorType,
+} from '../config/app-names.js';
 
 export interface QueryResult {
   readonly events: readonly AWEvent[];
   readonly total_duration_seconds: number;
 }
 
-/**
- * Browser app names for matching window events
- * Based on ActivityWatch's canonical implementation
- */
-const BROWSER_APP_NAMES: Record<string, string[]> = {
-  chrome: [
-    'Google Chrome',
-    'Google-chrome',
-    'chrome.exe',
-    'google-chrome-stable',
-    'Chromium',
-    'Chromium-browser',
-    'Chromium-browser-chromium',
-    'chromium.exe',
-    'Google-chrome-beta',
-    'Google-chrome-unstable',
-    'Brave-browser',
-  ],
-  firefox: [
-    'Firefox',
-    'Firefox.exe',
-    'firefox',
-    'firefox.exe',
-    'Firefox Developer Edition',
-    'firefoxdeveloperedition',
-    'Firefox-esr',
-    'Firefox Beta',
-    'Nightly',
-    'org.mozilla.firefox',
-  ],
-  opera: ['opera.exe', 'Opera'],
-  brave: ['brave.exe'],
-  edge: ['msedge.exe', 'Microsoft Edge'],
-  vivaldi: ['Vivaldi-stable', 'Vivaldi-snapshot', 'vivaldi.exe'],
-  safari: ['Safari'],
-};
 
-/**
- * Editor app names for matching window events
- */
-const EDITOR_APP_NAMES: Record<string, string[]> = {
-  vscode: ['Code', 'code.exe', 'Visual Studio Code', 'VSCode'],
-  vim: ['vim', 'nvim', 'gvim'],
-  emacs: ['emacs', 'Emacs'],
-  sublime: ['sublime_text', 'Sublime Text'],
-  atom: ['atom', 'Atom'],
-  intellij: ['idea', 'IntelliJ IDEA'],
-  pycharm: ['pycharm', 'PyCharm'],
-  webstorm: ['webstorm', 'WebStorm'],
-};
 
 /**
  * Service for executing AFK-filtered queries
@@ -397,8 +354,8 @@ export class QueryService {
 
     for (const browserBucket of browserBuckets) {
       // Determine which browser this is (chrome, firefox, etc.)
-      const browserType = this.detectBrowserType(browserBucket.id);
-      const appNames = browserType ? BROWSER_APP_NAMES[browserType] : [];
+      const browserType = detectBrowserType(browserBucket.id);
+      const appNames = browserType ? getBrowserAppNames(browserType) : [];
 
       if (appNames.length === 0) {
         logger.warn(`Could not detect browser type for bucket ${browserBucket.id}`);
@@ -425,8 +382,8 @@ export class QueryService {
 
     for (const editorBucket of editorBuckets) {
       // Determine which editor this is (vscode, vim, etc.)
-      const editorType = this.detectEditorType(editorBucket.id);
-      const appNames = editorType ? EDITOR_APP_NAMES[editorType] : [];
+      const editorType = detectEditorType(editorBucket.id);
+      const appNames = editorType ? getEditorAppNames(editorType) : [];
 
       if (appNames.length === 0) {
         logger.warn(`Could not detect editor type for bucket ${editorBucket.id}`);
@@ -552,72 +509,5 @@ export class QueryService {
     return query;
   }
 
-  /**
-   * Detect browser type from bucket ID
-   */
-  private detectBrowserType(bucketId: string): string | null {
-    const lowerBucketId = bucketId.toLowerCase();
-
-    if (lowerBucketId.includes('chrome') && !lowerBucketId.includes('chromium')) {
-      return 'chrome';
-    }
-    if (lowerBucketId.includes('chromium')) {
-      return 'chrome'; // Chromium uses same app names
-    }
-    if (lowerBucketId.includes('firefox')) {
-      return 'firefox';
-    }
-    if (lowerBucketId.includes('opera')) {
-      return 'opera';
-    }
-    if (lowerBucketId.includes('brave')) {
-      return 'brave';
-    }
-    if (lowerBucketId.includes('edge')) {
-      return 'edge';
-    }
-    if (lowerBucketId.includes('vivaldi')) {
-      return 'vivaldi';
-    }
-    if (lowerBucketId.includes('safari')) {
-      return 'safari';
-    }
-
-    return null;
-  }
-
-  /**
-   * Detect editor type from bucket ID
-   */
-  private detectEditorType(bucketId: string): string | null {
-    const lowerBucketId = bucketId.toLowerCase();
-
-    if (lowerBucketId.includes('vscode') || lowerBucketId.includes('code')) {
-      return 'vscode';
-    }
-    if (lowerBucketId.includes('vim')) {
-      return 'vim';
-    }
-    if (lowerBucketId.includes('emacs')) {
-      return 'emacs';
-    }
-    if (lowerBucketId.includes('sublime')) {
-      return 'sublime';
-    }
-    if (lowerBucketId.includes('atom')) {
-      return 'atom';
-    }
-    if (lowerBucketId.includes('intellij') || lowerBucketId.includes('idea')) {
-      return 'intellij';
-    }
-    if (lowerBucketId.includes('pycharm')) {
-      return 'pycharm';
-    }
-    if (lowerBucketId.includes('webstorm')) {
-      return 'webstorm';
-    }
-
-    return null;
-  }
 }
 

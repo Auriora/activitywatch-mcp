@@ -28,6 +28,7 @@ The server uses ActivityWatch's canonical events pattern and AFK filtering acros
 │  - WebActivityService               │  ← Legacy (still supported)
 │  - EditorActivityService            │  ← Legacy (still supported)
 │  - DailySummaryService              │
+│  - QueryBuilderService              │  ← Custom query builder powering aw_query_events
 ├─────────────────────────────────────┤
 │      Client Layer                   │  ← ActivityWatch API client
 │  - ActivityWatchClient              │
@@ -53,7 +54,8 @@ src/
 │   ├── window-activity.ts     # Window/app activity analysis (legacy)
 │   ├── web-activity.ts        # Browser/web activity analysis (legacy)
 │   ├── editor-activity.ts     # Editor/IDE activity analysis (legacy)
-│   └── daily-summary.ts       # Daily summary generation
+│   ├── daily-summary.ts       # Daily summary generation
+│   └── query-builder.ts       # Custom query builder for aw_query_events
 ├── tools/
 │   └── schemas.ts             # Zod schemas for tool parameters
 └── utils/
@@ -225,6 +227,16 @@ AFK filtering is implemented across all activity tools using ActivityWatch's que
 
 **Key Code**: `src/client/activitywatch.ts`
 
+---
+
+### 7. aw_query_events
+
+**Purpose**: Advanced custom queries with flexible filtering and aggregation
+
+This tool provides a query builder for constructing custom ActivityWatch queries with AFK filtering, app/domain/title filters, event merging, and optional raw/detailed output. See the full reference and examples: ../reference/query-tool.md
+
+**Key Code**: `src/services/query-builder.ts`, `src/tools/schemas.ts`
+
 ## Utility Functions
 
 ### Time Utilities (`src/utils/time.ts`)
@@ -324,7 +336,6 @@ Suggestion: Use the "aw_get_capabilities" tool to see what data sources are avai
 
 ### Advanced Features
 
-- Custom queries using ActivityWatch query language (see ../reference/query-tool.md)
 - Export functionality
 - Caching for frequently accessed data
 
