@@ -61,7 +61,11 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
   const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
   const calendarService = new CalendarService(client, capabilitiesService);
   const afkService = new AfkActivityService(client, capabilitiesService);
-  const unifiedService = new UnifiedActivityService(queryService, categoryService);
+  const unifiedService = new UnifiedActivityService(
+    queryService,
+    categoryService,
+    calendarService
+  );
   const periodSummaryService = new PeriodSummaryService(
     unifiedService,
     queryService,
