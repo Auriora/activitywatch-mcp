@@ -185,13 +185,13 @@ RETURNS:
   - app: Application name
   - title: Window title
   - duration_seconds, duration_hours, percentage
-  - browser: {url, domain, title} (only when browsing)
-  - editor: {file, project, language, git} (only when coding)
-  - category: Category name (if categorization enabled)
+  - browser: {url, domain, title} (only in detailed format when browsing)
+  - editor: {file, project, language, git} (only in detailed format when coding)
+  - category: Category name (always included when categories are configured)
   - event_count, first_seen, last_seen
 - time_range: {start, end} timestamps of analyzed period
 
-Default response is human-readable summary. Use response_format='detailed' for structured data.`,
+Default response is human-readable summary. Use response_format='detailed' for full structured data with browser/editor enrichment.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -218,15 +218,15 @@ Default response is human-readable summary. Use response_format='detailed' for s
         },
         group_by: {
           type: 'string',
-          enum: ['application', 'title'],
+          enum: ['application', 'title', 'category'],
           default: 'application',
-          description: 'How to group results. "application": Group by app name only (e.g., all Chrome windows together) - recommended for overview. "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub") - use for detailed analysis.',
+          description: 'How to group results. "application": Group by app name only (e.g., all Chrome windows together) - recommended for overview. "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub") - use for detailed analysis. "category": Group by category (events can appear in multiple categories if they match multiple rules).',
         },
         response_format: {
           type: 'string',
           enum: ['concise', 'detailed'],
           default: 'concise',
-          description: 'Output format. "concise": Human-readable text summary optimized for user presentation (recommended for most queries). "detailed": Full JSON with all fields including browser/editor enrichment and precise timestamps (use when user needs technical data or export).',
+          description: 'Output format. "concise": Human-readable text summary optimized for user presentation (recommended for most queries). "detailed": Full JSON with all fields including browser/editor enrichment, categories, and precise timestamps (use when user needs technical data or export).',
         },
         exclude_system_apps: {
           type: 'boolean',
@@ -238,21 +238,6 @@ Default response is human-readable summary. Use response_format='detailed' for s
           default: 5,
           minimum: 0,
           description: 'Minimum event duration to include. Events shorter than this are filtered out as likely accidental window switches. Default: 5 seconds. Use 0 to include all events, 30+ to focus on sustained usage. Recommended: keep default unless user requests otherwise.',
-        },
-        include_categories: {
-          type: 'boolean',
-          default: false,
-          description: 'Include category information for each activity. Shows which category each activity matches based on configured rules. Requires categories to be configured in ActivityWatch.',
-        },
-        include_browser_details: {
-          type: 'boolean',
-          default: true,
-          description: 'Include browser enrichment (URLs, domains) when available. Set to false to exclude browser details and only show application usage.',
-        },
-        include_editor_details: {
-          type: 'boolean',
-          default: true,
-          description: 'Include editor enrichment (files, projects, languages) when available. Set to false to exclude editor details and only show application usage.',
         },
       },
       required: [],
@@ -778,7 +763,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
 
         if (params.response_format === 'concise') {
-          // Format concise output
+          // Format concise output - no browser/editor details
           const lines: string[] = [];
           lines.push(`# Activity Summary`);
           lines.push(`**Period**: ${params.time_period || 'today'}`);
@@ -790,23 +775,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           for (const activity of result.activities) {
             lines.push(`### ${activity.app}`);
             lines.push(`- **Time**: ${activity.duration_hours.toFixed(2)}h (${activity.percentage.toFixed(1)}%)`);
-
-            if (activity.browser) {
-              lines.push(`- **Browser**: ${activity.browser.domain}`);
-              if (activity.browser.url && !activity.browser.url.includes(' URLs')) {
-                lines.push(`  - URL: ${activity.browser.url}`);
-              }
-            }
-
-            if (activity.editor) {
-              lines.push(`- **Editor**: ${activity.editor.file}`);
-              if (activity.editor.project) {
-                lines.push(`  - Project: ${activity.editor.project}`);
-              }
-              if (activity.editor.language) {
-                lines.push(`  - Language: ${activity.editor.language}`);
-              }
-            }
 
             if (activity.category) {
               lines.push(`- **Category**: ${activity.category}`);

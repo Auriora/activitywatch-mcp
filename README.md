@@ -141,17 +141,20 @@ LLM calls: aw_get_capabilities()
 
 ### 2. `aw_get_activity`
 
-Recommended unified analysis combining window, browser, and editor data with AFK filtering and canonical events. Prevents double-counting and enriches app usage with browsing/editor details when available.
+Recommended unified analysis combining window, browser, and editor data with AFK filtering and canonical events. Prevents double-counting and enriches app usage with browsing/editor details when available. Categories are always included when configured.
 
 **Parameters (common):**
-- `time_period`, `custom_start`, `custom_end`, `top_n`, `group_by` (application/title)
-- `include_browser_details`, `include_editor_details`, `include_categories`
-- `exclude_system_apps`, `min_duration_seconds`, `response_format`
+- `time_period`, `custom_start`, `custom_end`, `top_n`, `group_by` (application/title/category)
+- `exclude_system_apps`, `min_duration_seconds`, `response_format` (concise/detailed)
+- Browser/editor details shown in detailed format only
 
 **Example:**
 ```
 User: "What did I work on today?"
-LLM calls: aw_get_activity({ time_period: "today", include_categories: true })
+LLM calls: aw_get_activity({ time_period: "today" })
+
+User: "Show me detailed activity grouped by category"
+LLM calls: aw_get_activity({ time_period: "today", group_by: "category", response_format: "detailed" })
 ```
 
 ---

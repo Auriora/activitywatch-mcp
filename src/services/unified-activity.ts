@@ -37,7 +37,8 @@ interface EnrichedEvent {
   terminal?: Record<string, any>;
   ide?: Record<string, any>;
   custom?: Record<string, any>;
-  category?: string;
+  category?: string; // Deprecated: kept for backward compatibility
+  categories?: string[]; // Array of all matching categories
 }
 
 export class UnifiedActivityService {
@@ -97,20 +98,18 @@ export class UnifiedActivityService {
 
     logger.debug(`Filtered to ${filteredEvents.length} events (min duration: ${minDuration}s)`);
 
-    // Group and aggregate
-    const grouped = this.groupEvents(filteredEvents, params.group_by ?? 'application');
-
-    // Exclude system apps if requested
-    let activities = grouped;
+    // Exclude system apps if requested (before grouping)
+    let eventsToGroup = filteredEvents;
     if (params.exclude_system_apps) {
       const systemApps = ['Finder', 'Dock', 'Window Server', 'explorer.exe', 'dwm.exe'];
-      activities = grouped.filter(a => !systemApps.includes(a.app));
+      eventsToGroup = filteredEvents.filter(e => !systemApps.includes(e.app));
     }
 
-    // Apply categorization if requested
-    if (params.include_categories) {
-      activities = await this.applyCategories(activities);
-    }
+    // Always apply categorization
+    const categorizedEvents = await this.applyCategoriestoEvents(eventsToGroup);
+
+    // Group and aggregate
+    const activities = this.groupEvents(categorizedEvents, params.group_by ?? 'application');
 
     // Sort by duration and limit
     const topN = params.top_n ?? 10;
@@ -154,33 +153,29 @@ export class UnifiedActivityService {
       const windowStart = new Date(windowEvent.timestamp).getTime();
       const windowEnd = windowStart + (windowEvent.duration * 1000);
 
-      // Find overlapping browser events
+      // Find overlapping browser events (always collect, display controlled by response_format)
       let browserEnrichment: BrowserEnrichment | undefined;
-      if (params.include_browser_details !== false) {
-        for (const browserEvent of browserEvents) {
-          const browserStart = new Date(browserEvent.timestamp).getTime();
-          const browserEnd = browserStart + (browserEvent.duration * 1000);
+      for (const browserEvent of browserEvents) {
+        const browserStart = new Date(browserEvent.timestamp).getTime();
+        const browserEnd = browserStart + (browserEvent.duration * 1000);
 
-          // Check if events overlap
-          if (this.eventsOverlap(windowStart, windowEnd, browserStart, browserEnd)) {
-            browserEnrichment = this.extractBrowserData(browserEvent);
-            break; // Use first matching browser event
-          }
+        // Check if events overlap
+        if (this.eventsOverlap(windowStart, windowEnd, browserStart, browserEnd)) {
+          browserEnrichment = this.extractBrowserData(browserEvent);
+          break; // Use first matching browser event
         }
       }
 
-      // Find overlapping editor events
+      // Find overlapping editor events (always collect, display controlled by response_format)
       let editorEnrichment: EditorEnrichment | undefined;
-      if (params.include_editor_details !== false) {
-        for (const editorEvent of editorEvents) {
-          const editorStart = new Date(editorEvent.timestamp).getTime();
-          const editorEnd = editorStart + (editorEvent.duration * 1000);
+      for (const editorEvent of editorEvents) {
+        const editorStart = new Date(editorEvent.timestamp).getTime();
+        const editorEnd = editorStart + (editorEvent.duration * 1000);
 
-          // Check if events overlap
-          if (this.eventsOverlap(windowStart, windowEnd, editorStart, editorEnd)) {
-            editorEnrichment = this.extractEditorData(editorEvent);
-            break; // Use first matching editor event
-          }
+        // Check if events overlap
+        if (this.eventsOverlap(windowStart, windowEnd, editorStart, editorEnd)) {
+          editorEnrichment = this.extractEditorData(editorEvent);
+          break; // Use first matching editor event
         }
       }
 
@@ -281,27 +276,53 @@ export class UnifiedActivityService {
   }
 
   /**
-   * Group events by application or title
+   * Group events by application, title, or category
    */
   private groupEvents(
     events: EnrichedEvent[],
-    groupBy: 'application' | 'title'
+    groupBy: 'application' | 'title' | 'category'
   ): CanonicalEvent[] {
     const groups = new Map<string, EnrichedEvent[]>();
 
     // Group events
     for (const event of events) {
-      const key = groupBy === 'application' ? event.app : `${event.app}|${event.title}`;
-      const existing = groups.get(key) || [];
-      existing.push(event);
-      groups.set(key, existing);
+      if (groupBy === 'category') {
+        // For category grouping, an event can appear in multiple groups
+        const categories = event.categories || [];
+        if (categories.length === 0) {
+          // Uncategorized events go into a special group
+          const key = 'Uncategorized';
+          const existing = groups.get(key) || [];
+          existing.push(event);
+          groups.set(key, existing);
+        } else {
+          // Add event to each category it matches
+          for (const category of categories) {
+            const existing = groups.get(category) || [];
+            existing.push(event);
+            groups.set(category, existing);
+          }
+        }
+      } else {
+        // For application/title grouping, event appears in one group
+        const key = groupBy === 'application' ? event.app : `${event.app}|${event.title}`;
+        const existing = groups.get(key) || [];
+        existing.push(event);
+        groups.set(key, existing);
+      }
     }
 
     // Aggregate each group
     const result: CanonicalEvent[] = [];
-    for (const [, groupEvents] of groups) {
+    for (const [groupKey, groupEvents] of groups) {
       const first = groupEvents[0];
       const totalDuration = groupEvents.reduce((sum, e) => sum + e.duration, 0);
+
+      // Collect unique apps (for category grouping)
+      const apps = new Set<string>();
+      for (const e of groupEvents) {
+        apps.add(e.app);
+      }
 
       // Collect unique browser URLs
       const browserUrls = new Set<string>();
@@ -335,7 +356,9 @@ export class UnifiedActivityService {
       const lastSeen = new Date(Math.max(...timestamps)).toISOString();
 
       result.push({
-        app: first.app,
+        app: groupBy === 'category'
+          ? (apps.size === 1 ? Array.from(apps)[0] : `${apps.size} apps`)
+          : first.app,
         title: groupBy === 'title' ? first.title : 'Various',
         duration_seconds: totalDuration,
         duration_hours: totalDuration / 3600,
@@ -350,7 +373,7 @@ export class UnifiedActivityService {
           project: editorProjects.size === 1 ? Array.from(editorProjects)[0] : undefined,
           language: editorLanguages.size === 1 ? Array.from(editorLanguages)[0] : undefined,
         } : undefined,
-        category: first.category,
+        category: groupBy === 'category' ? groupKey : (first.categories?.[0] || first.category),
         event_count: groupEvents.length,
         first_seen: firstSeen,
         last_seen: lastSeen,

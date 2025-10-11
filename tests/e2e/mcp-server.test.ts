@@ -153,8 +153,6 @@ describe.skipIf(SKIP_E2E)('MCP Server E2E', () => {
             time_period: 'today',
             top_n: 5,
             response_format: 'concise',
-            include_browser_details: true,
-            include_editor_details: true,
           },
         },
       });
@@ -175,9 +173,6 @@ describe.skipIf(SKIP_E2E)('MCP Server E2E', () => {
             time_period: 'last_7_days',
             top_n: 3,
             response_format: 'detailed',
-            include_browser_details: true,
-            include_editor_details: true,
-            include_categories: false,
           },
         },
       });

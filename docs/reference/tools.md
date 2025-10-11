@@ -96,13 +96,10 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 | `custom_start` | string | - | Start time for custom period (ISO 8601). Required when `time_period="custom"` |
 | `custom_end` | string | - | End time for custom period (ISO 8601). Required when `time_period="custom"` |
 | `top_n` | number | `10` | Number of top activities to return (1-100) |
-| `group_by` | enum | `"application"` | Grouping: `"application"`, `"title"` |
-| `include_browser_details` | boolean | `true` | Include browser URLs/domains when available |
-| `include_editor_details` | boolean | `true` | Include editor files/projects when available |
-| `include_categories` | boolean | `false` | Include category information |
+| `group_by` | enum | `"application"` | Grouping: `"application"`, `"title"`, `"category"` (events can appear in multiple categories) |
 | `exclude_system_apps` | boolean | `true` | Filter out system apps (Finder, Dock, etc.) |
 | `min_duration_seconds` | number | `5` | Minimum event duration to include |
-| `response_format` | enum | `"concise"` | Output format: `"concise"`, `"detailed"` |
+| `response_format` | enum | `"concise"` | Output format: `"concise"` (basic info), `"detailed"` (includes browser/editor enrichment) |
 
 ### Returns
 ```typescript
@@ -114,12 +111,12 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
     duration_seconds: number;
     duration_hours: number;
     percentage: number;
-    browser?: {                        // Only when browsing
+    browser?: {                        // Only in detailed format when browsing
       url: string;
       domain: string;
       title: string;
     };
-    editor?: {                         // Only when coding
+    editor?: {                         // Only in detailed format when coding
       file: string;
       project: string;
       language: string;
@@ -129,7 +126,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
         repository: string;
       };
     };
-    category?: string;                 // If include_categories=true
+    category?: string;                 // Always included when categories configured
     event_count: number;
     first_seen: string;                // ISO 8601 timestamp
     last_seen: string;                 // ISO 8601 timestamp
@@ -143,22 +140,28 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 
 ### Examples
 
-**Today's activity with enrichment:**
+**Today's activity (concise):**
 ```json
 {
-  "time_period": "today",
-  "include_browser_details": true,
-  "include_editor_details": true,
-  "include_categories": true
+  "time_period": "today"
 }
 ```
 
-**Detailed view of this week:**
+**Detailed view of this week with browser/editor enrichment:**
 ```json
 {
-  "time_period": "this_week", 
+  "time_period": "this_week",
   "response_format": "detailed",
   "top_n": 15
+}
+```
+
+**Group by category:**
+```json
+{
+  "time_period": "today",
+  "group_by": "category",
+  "response_format": "detailed"
 }
 ```
 
@@ -174,8 +177,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 - Getting holistic view combining apps, websites, and time patterns
 
 ### When NOT to Use
-- For detailed analysis of just applications → use `aw_get_window_activity`
-- For detailed analysis of just websites → use `aw_get_web_activity`
+- For detailed analysis of activities → use `aw_get_activity`
 - For multi-day periods → use other tools with appropriate time_period
 
 ### Parameters

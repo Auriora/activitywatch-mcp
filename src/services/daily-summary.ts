@@ -46,7 +46,6 @@ export class DailySummaryService {
         custom_end: endOfDay.toISOString(),
         top_n: 20, // Get more to extract top apps and websites separately
         response_format: 'detailed',
-        include_browser_details: true,
       });
     } catch (error) {
       unifiedActivity = {
