@@ -6,6 +6,7 @@ import { IActivityWatchClient } from '../client/activitywatch.js';
 import { BucketInfo, Capabilities, AWError } from '../types.js';
 import { formatDateForAPI } from '../utils/time.js';
 import { SimpleCache } from '../utils/cache.js';
+import { loadUserPreferences } from '../config/user-preferences.js';
 
 export class CapabilitiesService {
   private bucketsCache = new SimpleCache<BucketInfo[]>(60000); // 1 minute cache
@@ -114,6 +115,9 @@ export class CapabilitiesService {
     return this.capabilitiesCache.getOrSet('capabilities', async () => {
       const buckets = await this.getAvailableBuckets();
 
+      // Load user preferences to include timezone info
+      const userPrefs = loadUserPreferences();
+
       return {
         has_window_tracking: buckets.some(b =>
           b.type === 'currentwindow' || b.type.includes('window')
@@ -128,6 +132,13 @@ export class CapabilitiesService {
           b.type === 'app.editor.activity' || b.type.includes('editor')
         ),
         has_categories: this.hasCategoriesConfigured,
+        user_preferences: {
+          timezone: userPrefs.timezone,
+          timezone_offset_minutes: userPrefs.timezoneOffsetMinutes,
+          date_format: userPrefs.dateFormat,
+          week_starts_on: userPrefs.weekStartsOn,
+          hour_format: userPrefs.hourFormat,
+        },
       };
     });
   }

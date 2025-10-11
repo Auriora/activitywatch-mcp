@@ -10,6 +10,140 @@ export interface TimeRange {
 }
 
 /**
+ * Timezone offset in minutes for common timezones
+ * Positive values are east of UTC, negative are west
+ */
+const TIMEZONE_OFFSETS: Record<string, number> = {
+  'UTC': 0,
+  'GMT': 0,
+  'IST': 60,  // Irish Standard Time (UTC+1 in summer, UTC+0 in winter)
+  'BST': 60,  // British Summer Time
+  'CET': 60,  // Central European Time
+  'CEST': 120, // Central European Summer Time
+  'EST': -300, // Eastern Standard Time
+  'EDT': -240, // Eastern Daylight Time
+  'CST': -360, // Central Standard Time
+  'CDT': -300, // Central Daylight Time
+  'MST': -420, // Mountain Standard Time
+  'MDT': -360, // Mountain Daylight Time
+  'PST': -480, // Pacific Standard Time
+  'PDT': -420, // Pacific Daylight Time
+};
+
+/**
+ * Parse timezone string to offset in minutes
+ * Supports: "UTC", "GMT", timezone abbreviations, "UTC+1", "UTC-5", IANA timezone names
+ */
+export function parseTimezoneOffset(timezone: string): number {
+  // Check if it's a known abbreviation
+  if (TIMEZONE_OFFSETS[timezone.toUpperCase()]) {
+    return TIMEZONE_OFFSETS[timezone.toUpperCase()];
+  }
+
+  // Check for UTC+X or UTC-X format
+  const utcMatch = timezone.match(/^UTC([+-]\d+)$/i);
+  if (utcMatch) {
+    return parseInt(utcMatch[1]) * 60;
+  }
+
+  // Check for +X or -X format
+  const offsetMatch = timezone.match(/^([+-]\d+)$/);
+  if (offsetMatch) {
+    return parseInt(offsetMatch[1]) * 60;
+  }
+
+  // For IANA timezone names (e.g., "Europe/Dublin"), we need to calculate offset
+  // This is a simplified approach - for production, consider using a library like date-fns-tz
+  try {
+    const now = new Date();
+    const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    return Math.round((tzDate.getTime() - utcDate.getTime()) / (1000 * 60));
+  } catch (error) {
+    throw new AWError(
+      `Invalid timezone: ${timezone}. Use UTC, timezone abbreviations (IST, EST, etc.), UTC+X format, or IANA timezone names (Europe/Dublin)`,
+      'INVALID_TIMEZONE',
+      { timezone, error }
+    );
+  }
+}
+
+/**
+ * Get the system timezone offset in minutes
+ */
+export function getSystemTimezoneOffset(): number {
+  return -new Date().getTimezoneOffset();
+}
+
+/**
+ * Format timezone offset as string (e.g., "UTC+1", "UTC-5")
+ */
+export function formatTimezoneOffset(offsetMinutes: number): string {
+  if (offsetMinutes === 0) return 'UTC';
+  const hours = Math.floor(Math.abs(offsetMinutes) / 60);
+  const minutes = Math.abs(offsetMinutes) % 60;
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  if (minutes === 0) {
+    return `UTC${sign}${hours}`;
+  }
+  return `UTC${sign}${hours}:${minutes.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Convert a date from UTC to a specific timezone
+ */
+export function convertToTimezone(utcDate: Date, timezoneOffsetMinutes: number): Date {
+  const localDate = new Date(utcDate.getTime() + timezoneOffsetMinutes * 60 * 1000);
+  return localDate;
+}
+
+/**
+ * Convert a date from a specific timezone to UTC
+ */
+export function convertFromTimezone(localDate: Date, timezoneOffsetMinutes: number): Date {
+  const utcDate = new Date(localDate.getTime() - timezoneOffsetMinutes * 60 * 1000);
+  return utcDate;
+}
+
+/**
+ * Get start of day in a specific timezone
+ */
+export function getStartOfDayInTimezone(date: Date, timezoneOffsetMinutes: number): Date {
+  // Convert to local timezone
+  const localDate = convertToTimezone(date, timezoneOffsetMinutes);
+
+  // Get start of day in local time
+  const startOfDay = new Date(Date.UTC(
+    localDate.getUTCFullYear(),
+    localDate.getUTCMonth(),
+    localDate.getUTCDate(),
+    0, 0, 0, 0
+  ));
+
+  // Convert back to UTC
+  return convertFromTimezone(startOfDay, timezoneOffsetMinutes);
+}
+
+/**
+ * Get end of day in a specific timezone
+ */
+export function getEndOfDayInTimezone(date: Date, timezoneOffsetMinutes: number): Date {
+  // Convert to local timezone
+  const localDate = convertToTimezone(date, timezoneOffsetMinutes);
+
+  // Get end of day in local time
+  const endOfDay = new Date(Date.UTC(
+    localDate.getUTCFullYear(),
+    localDate.getUTCMonth(),
+    localDate.getUTCDate(),
+    23, 59, 59, 999
+  ));
+
+  // Convert back to UTC
+  return convertFromTimezone(endOfDay, timezoneOffsetMinutes);
+}
+
+/**
  * Convert a time period to a concrete date range
  */
 export function getTimeRange(

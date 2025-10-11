@@ -11,7 +11,7 @@ import { secondsToHours } from './time.js';
 export function formatDailySummaryConcise(summary: DailySummary): string {
   const lines: string[] = [];
 
-  lines.push(`Daily Summary for ${summary.date}`);
+  lines.push(`Daily Summary for ${summary.date} (${summary.timezone})`);
   lines.push('='.repeat(50));
   lines.push('');
   lines.push(`Active Time: ${summary.total_active_time_hours}h`);
@@ -43,7 +43,7 @@ export function formatDailySummaryConcise(summary: DailySummary): string {
   }
 
   if (summary.hourly_breakdown && summary.hourly_breakdown.length > 0) {
-    lines.push('Hourly Breakdown:');
+    lines.push(`Hourly Breakdown (${summary.timezone}):`);
     lines.push('');
 
     // Create a visual timeline

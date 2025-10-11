@@ -56,6 +56,13 @@ export interface Capabilities {
   readonly has_afk_detection: boolean;
   readonly has_editor_tracking: boolean;
   readonly has_categories: boolean;
+  readonly user_preferences?: {
+    readonly timezone: string;
+    readonly timezone_offset_minutes: number;
+    readonly date_format: string;
+    readonly week_starts_on: 'monday' | 'sunday';
+    readonly hour_format: '12h' | '24h';
+  };
 }
 
 export interface AppUsage {
@@ -119,6 +126,7 @@ export interface CategoryUsage {
 
 export interface DailySummary {
   readonly date: string;
+  readonly timezone: string;
   readonly total_active_time_hours: number;
   readonly total_afk_time_hours: number;
   readonly top_applications: readonly AppUsage[];
@@ -165,6 +173,7 @@ export interface TimeRangeParams {
 export interface DailySummaryParams {
   date?: string;
   include_hourly_breakdown?: boolean;
+  timezone?: string;
 }
 
 export interface RawEventsParams {

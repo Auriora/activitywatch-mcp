@@ -7,9 +7,16 @@ import { QueryService } from './query.js';
 import { AfkActivityService } from './afk-activity.js';
 import { CategoryService } from './category.js';
 import { DailySummary, DailySummaryParams, HourlyActivity } from '../types.js';
-import { formatDate, getStartOfDay, getEndOfDay, secondsToHours } from '../utils/time.js';
+import {
+  formatDate,
+  secondsToHours,
+  getStartOfDayInTimezone,
+  getEndOfDayInTimezone,
+  convertToTimezone,
+} from '../utils/time.js';
 import { formatDailySummaryConcise } from '../utils/formatters.js';
 import { logger } from '../utils/logger.js';
+import { getTimezoneOffset } from '../config/user-preferences.js';
 
 export class DailySummaryService {
   constructor(
@@ -23,19 +30,37 @@ export class DailySummaryService {
    * Get comprehensive daily summary
    */
   async getDailySummary(params: DailySummaryParams): Promise<DailySummary> {
-    // Parse date (default to today)
-    const dateStr = params.date || formatDate(new Date());
-    logger.debug('Getting daily summary', { date: dateStr });
+    // Get timezone info (from parameter, config, or system)
+    const { timezone, offsetMinutes } = getTimezoneOffset(params.timezone);
 
-    const date = new Date(dateStr);
+    // Parse date (default to today in the specified timezone)
+    let dateStr: string;
+    if (params.date) {
+      dateStr = params.date;
+    } else {
+      // Get today's date in the user's timezone
+      const nowInTimezone = convertToTimezone(new Date(), offsetMinutes);
+      dateStr = formatDate(nowInTimezone);
+    }
+
+    logger.debug('Getting daily summary', { date: dateStr, timezone, offsetMinutes });
+
+    const date = new Date(dateStr + 'T00:00:00Z'); // Parse as UTC midnight
 
     if (isNaN(date.getTime())) {
       logger.error('Invalid date format', { dateStr });
       throw new Error(`Invalid date: ${dateStr}. Use YYYY-MM-DD format.`);
     }
 
-    const startOfDay = getStartOfDay(date);
-    const endOfDay = getEndOfDay(date);
+    // Get start and end of day in the specified timezone
+    const startOfDay = getStartOfDayInTimezone(date, offsetMinutes);
+    const endOfDay = getEndOfDayInTimezone(date, offsetMinutes);
+
+    logger.debug('Date range', {
+      startOfDay: startOfDay.toISOString(),
+      endOfDay: endOfDay.toISOString(),
+      timezone,
+    });
 
     // Get unified activity (includes apps and browser data)
     let unifiedActivity;
@@ -122,6 +147,7 @@ export class DailySummaryService {
 
     return {
       date: dateStr,
+      timezone,
       total_active_time_hours: secondsToHours(totalActiveTime),
       total_afk_time_hours: secondsToHours(afkTime),
       top_applications: applications,
