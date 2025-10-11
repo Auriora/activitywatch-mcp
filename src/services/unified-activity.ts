@@ -21,15 +21,11 @@ import {
 import { getTimeRange } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
 import {
-  parseTerminalTitle,
-  parseIDETitle,
-  isTerminalApp,
-  isIDEApp,
-  setTitleParserConfig,
-  TerminalInfo,
-  IDEInfo
-} from '../utils/title-parser.js';
-import { getParsingConfig } from '../config/app-names.js';
+  parseTitle,
+  setTitleParsingConfig,
+  hasParsingRules
+} from '../utils/configurable-title-parser.js';
+import { getTitleParsingConfig } from '../config/app-names.js';
 
 interface EnrichedEvent {
   app: string;
@@ -38,8 +34,9 @@ interface EnrichedEvent {
   timestamp: string;
   browser?: BrowserEnrichment;
   editor?: EditorEnrichment;
-  terminal?: TerminalInfo;
-  ide?: IDEInfo;
+  terminal?: Record<string, any>;
+  ide?: Record<string, any>;
+  custom?: Record<string, any>;
   category?: string;
 }
 
@@ -49,8 +46,8 @@ export class UnifiedActivityService {
     private categoryService: CategoryService
   ) {
     // Initialize title parser with config
-    const parsingConfig = getParsingConfig();
-    setTitleParserConfig(parsingConfig);
+    const titleParsingConfig = getTitleParsingConfig();
+    setTitleParsingConfig(titleParsingConfig);
   }
 
   /**
@@ -187,20 +184,26 @@ export class UnifiedActivityService {
         }
       }
 
-      // Parse terminal title if it's a terminal app
-      // This provides unique information (hostname, directory, SSH status)
-      // that is NOT available from any other bucket
-      let terminalInfo: TerminalInfo | undefined;
-      if (isTerminalApp(app)) {
-        terminalInfo = parseTerminalTitle(title) || undefined;
-      }
+      // Parse title using configurable rules
+      // Only parse if there are rules defined for this app
+      let terminalInfo: Record<string, any> | undefined;
+      let ideInfo: Record<string, any> | undefined;
+      let customInfo: Record<string, any> | undefined;
 
-      // Parse IDE title ONLY if editor enrichment is not available
-      // This helps detect dialogs/modals which should be filtered out
-      // If editor bucket has data, we already have file/project info
-      let ideInfo: IDEInfo | undefined;
-      if (isIDEApp(app) && !editorEnrichment) {
-        ideInfo = parseIDETitle(title);
+      if (hasParsingRules(app)) {
+        const parsed = parseTitle(app, title);
+
+        if (parsed) {
+          // Only parse IDE titles if editor enrichment is not available
+          // (editor bucket provides better data)
+          if (parsed.enrichmentType === 'terminal') {
+            terminalInfo = parsed.data;
+          } else if (parsed.enrichmentType === 'ide' && !editorEnrichment) {
+            ideInfo = parsed.data;
+          } else if (parsed.enrichmentType === 'custom') {
+            customInfo = parsed.data;
+          }
+        }
       }
 
       enriched.push({
@@ -212,6 +215,7 @@ export class UnifiedActivityService {
         editor: editorEnrichment,
         terminal: terminalInfo,
         ide: ideInfo,
+        custom: customInfo,
       });
     }
 

@@ -182,52 +182,94 @@
       "nano": ["nano"]
     }
   },
-  "parsing": {
+  "titleParsing": {
     "localHostname": "bruce-5560",
-    "terminalApps": [
-      "kgx",
-      "gnome-terminal",
-      "konsole",
-      "Terminal",
-      "iTerm2",
-      "Alacritty",
-      "kitty",
-      "Hyper",
-      "Terminator",
-      "xterm",
-      "rxvt",
-      "urxvt"
-    ],
-    "ideApps": [
-      "jetbrains-webstorm",
-      "jetbrains-pycharm",
-      "jetbrains-idea",
-      "jetbrains-goland",
-      "jetbrains-rider",
-      "jetbrains-clion",
-      "jetbrains-phpstorm",
-      "jetbrains-rubymine",
-      "jetbrains-rustrover",
-      "jetbrains-datagrip",
-      "jetbrains-dataspell",
-      "Code",
-      "Visual Studio Code",
-      "VSCode",
-      "code"
-    ],
-    "dialogPatterns": [
-      "Confirm Exit",
-      "Accept All Changes?",
-      "Rename",
-      "Delete",
-      "Move",
-      "Tip of the Day",
-      "New Agent Session",
-      "Commit:",
-      "Push",
-      "Pull",
-      "Merge",
-      "Rebase"
+    "rules": [
+      {
+        "name": "Terminal - SSH Session",
+        "description": "Parse terminal window titles to extract hostname, directory, and SSH status",
+        "appPatterns": ["kgx", "gnome-terminal", "konsole", "Terminal", "iTerm2", "Alacritty", "kitty", "Hyper", "Terminator", "xterm", "rxvt", "urxvt"],
+        "titlePattern": "^([^@]+)@([^:]+):\\s*(.+)$",
+        "captureGroups": {
+          "username": 1,
+          "hostname": 2,
+          "directory": 3
+        },
+        "enrichmentType": "terminal",
+        "computedFields": {
+          "isRemote": "hostname !== localHostname",
+          "isSSH": "hostname !== localHostname"
+        }
+      },
+      {
+        "name": "JetBrains IDE - Dialog Detection",
+        "description": "Detect IDE dialogs and modals to filter non-productive time",
+        "appPatterns": ["jetbrains-*", "Code", "Visual Studio Code", "VSCode"],
+        "titlePatterns": [
+          "Confirm Exit",
+          "Accept All Changes?",
+          "Rename",
+          "Delete",
+          "Move",
+          "Tip of the Day",
+          "New Agent Session",
+          "Commit:",
+          "Push",
+          "Pull",
+          "Merge",
+          "Rebase"
+        ],
+        "matchType": "contains",
+        "enrichmentType": "ide",
+        "fields": {
+          "isDialog": true,
+          "dialogType": "$title"
+        }
+      },
+      {
+        "name": "JetBrains IDE - Project and File",
+        "description": "Extract project and file from IDE window title (fallback when no editor bucket)",
+        "appPatterns": ["jetbrains-*", "Code", "Visual Studio Code", "VSCode"],
+        "titlePattern": "^([^–]+)\\s*–\\s*(.+)$",
+        "captureGroups": {
+          "project": 1,
+          "file": 2
+        },
+        "enrichmentType": "ide",
+        "fields": {
+          "isDialog": false
+        },
+        "priority": 10
+      },
+      {
+        "name": "Portainer Web App",
+        "description": "Extract Portainer instance information",
+        "appPatterns": ["WebApp-Portainer*"],
+        "titlePattern": "Portainer \\| (.+) — Mozilla Firefox",
+        "captureGroups": {
+          "instance": 1
+        },
+        "enrichmentType": "custom",
+        "fields": {
+          "service": "Portainer",
+          "type": "infrastructure"
+        }
+      },
+      {
+        "name": "1Password",
+        "description": "Extract vault and section from 1Password",
+        "appPatterns": ["1Password"],
+        "titlePattern": "^(.+) — (.+) — 1Password$",
+        "captureGroups": {
+          "vault": 1,
+          "section": 2
+        },
+        "enrichmentType": "custom",
+        "fields": {
+          "service": "1Password",
+          "type": "security"
+        }
+      }
     ]
   }
 }

@@ -12,6 +12,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+import { TitleParsingRule } from '../utils/configurable-title-parser.js';
+
 interface AppNamesConfig {
   browsers: Record<string, string[]>;
   editors: Record<string, string[]>;
@@ -19,11 +21,9 @@ interface AppNamesConfig {
     browsers: Record<string, string[]>;
     editors: Record<string, string[]>;
   };
-  parsing?: {
+  titleParsing?: {
     localHostname: string;
-    terminalApps: string[];
-    ideApps: string[];
-    dialogPatterns: string[];
+    rules: TitleParsingRule[];
   };
 }
 
@@ -100,14 +100,12 @@ export function detectEditorType(bucketId: string): string | null {
 }
 
 /**
- * Get parsing configuration
+ * Get title parsing configuration
  */
-export function getParsingConfig() {
-  return config.parsing || {
+export function getTitleParsingConfig() {
+  return config.titleParsing || {
     localHostname: 'unknown',
-    terminalApps: [],
-    ideApps: [],
-    dialogPatterns: []
+    rules: []
   };
 }
 

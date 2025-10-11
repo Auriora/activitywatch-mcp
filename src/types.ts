@@ -245,22 +245,24 @@ export interface EditorEnrichment {
   };
 }
 
-export interface TerminalEnrichment {
-  readonly username: string;
-  readonly hostname: string;
-  readonly directory: string;
-  readonly isRemote: boolean;
-  readonly isSSH: boolean;
-}
+/**
+ * Terminal enrichment - extracted from window title parsing
+ * Common fields: username, hostname, directory, isRemote, isSSH
+ */
+export type TerminalEnrichment = Record<string, any>;
 
-export interface IDEEnrichment {
-  // Only used when editor bucket data is NOT available
-  // Primarily for detecting dialogs/modals that should be filtered
-  readonly isDialog: boolean;
-  readonly dialogType?: string;
-  readonly project?: string;  // Fallback if no editor bucket
-  readonly file?: string;      // Fallback if no editor bucket
-}
+/**
+ * IDE enrichment - extracted from window title parsing
+ * Only used when editor bucket data is NOT available
+ * Common fields: isDialog, dialogType, project, file
+ */
+export type IDEEnrichment = Record<string, any>;
+
+/**
+ * Custom enrichment - any structured data from title parsing
+ * Fields depend on the parsing rule configuration
+ */
+export type CustomEnrichment = Record<string, any>;
 
 export interface CanonicalEvent {
   // Base fields (always present from window tracking)
@@ -276,11 +278,14 @@ export interface CanonicalEvent {
   // Editor enrichment (only when app is an editor AND window was active)
   readonly editor?: EditorEnrichment;
 
-  // Terminal enrichment (only when app is a terminal)
+  // Terminal enrichment (parsed from window title)
   readonly terminal?: TerminalEnrichment;
 
-  // IDE enrichment (only when app is an IDE)
+  // IDE enrichment (parsed from window title, only when no editor bucket)
   readonly ide?: IDEEnrichment;
+
+  // Custom enrichment (any other parsed data from window title)
+  readonly custom?: CustomEnrichment;
 
   // Category (if categorization enabled)
   readonly category?: string;
