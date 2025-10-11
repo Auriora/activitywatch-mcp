@@ -9,11 +9,9 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
 | [`aw_get_capabilities`](#aw_get_capabilities) | Discovery | **Always call first** - Check available data |
-| [`aw_get_activity`](#aw_get_activity) | **Unified Analysis** | **Recommended** - General activity with enrichment |
-| [`aw_get_daily_summary`](#aw_get_daily_summary) | Overview | Daily comprehensive summary |
-| [`aw_get_window_activity`](#aw_get_window_activity) | Applications | Focused app usage analysis |
-| [`aw_get_web_activity`](#aw_get_web_activity) | Websites | Focused web browsing analysis |
-| [`aw_get_editor_activity`](#aw_get_editor_activity) | Coding | Focused IDE/editor analysis |
+| [`aw_get_activity`](#aw_get_activity) | **Unified Analysis** | **Primary tool** - Apps, websites, and coding with enrichment |
+| [`aw_get_daily_summary`](#aw_get_daily_summary) | Daily Overview | Comprehensive single-day summary |
+| [`aw_query_events`](#aw_query_events) | Custom Queries | Advanced filtering and custom queries |
 | [`aw_get_raw_events`](#aw_get_raw_events) | Raw Data | Debugging and exact timestamps |
 | **Category Management** | | |
 | [`aw_list_categories`](#aw_list_categories) | List | Show configured categories |
@@ -236,172 +234,45 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 
 ---
 
-## aw_get_window_activity
+## aw_query_events
 
-**Analyzes application and window usage over a time period.**
-
-### When to Use
-- User asks about time in specific applications: "How long did I use VS Code?"
-- Productivity analysis focused on application usage
-- Comparing application usage across time periods
-
-### When NOT to Use  
-- For website/browser activity → use `aw_get_web_activity` instead
-- For comprehensive daily overview → use `aw_get_daily_summary` instead
-- For unified analysis with enrichment → use `aw_get_activity` instead
-
-### Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `time_period` | enum | `"today"` | Time period (same options as aw_get_activity) |
-| `custom_start` | string | - | Start time for custom period |
-| `custom_end` | string | - | End time for custom period |
-| `top_n` | number | `10` | Number of top applications (1-100) |
-| `group_by` | enum | `"application"` | Grouping: `"application"`, `"title"`, `"both"` |
-| `include_categories` | boolean | `false` | Include category information |
-| `exclude_system_apps` | boolean | `true` | Filter out system applications |
-| `min_duration_seconds` | number | `5` | Minimum event duration |
-| `response_format` | enum | `"concise"` | Output format: `"concise"`, `"detailed"` |
-
-### Returns
-```typescript
-{
-  total_time_seconds: number;          // Total active time (AFK-filtered)
-  applications: Array<{
-    name: string;                      // Application name
-    duration_seconds: number;
-    duration_hours: number;
-    percentage: number;
-    window_titles?: string[];          // If group_by="both" or detailed
-    category?: string;                 // If include_categories=true
-    event_count?: number;              // If response_format="detailed"
-    first_seen?: string;               // If response_format="detailed"
-    last_seen?: string;                // If response_format="detailed"
-  }>;
-  time_range: {
-    start: string;
-    end: string;
-  };
-}
-```
-
----
-
-## aw_get_web_activity
-
-**Analyzes web browsing and website usage over a time period.**
+**Build and execute custom queries with flexible filtering.**
 
 ### When to Use
-- User asks about time on specific websites or domains
-- Analyzing browsing patterns or habits
-- Identifying most-visited websites
+- Need to filter events by specific applications, domains, or titles
+- Want to combine multiple filtering criteria
+- Advanced analysis requiring specific event filtering
+- When standard tools don't provide the exact filtering needed
 
 ### When NOT to Use
-- For application usage (non-browser) → use `aw_get_window_activity` instead
-- For comprehensive daily overview → use `aw_get_daily_summary` instead
-- For unified analysis with enrichment → use `aw_get_activity` instead
+- For general activity overview → use `aw_get_activity` instead
+- For daily summaries → use `aw_get_daily_summary` instead
+- For simple queries → `aw_get_activity` is easier to use
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `time_period` | enum | `"today"` | Time period (same options as aw_get_activity) |
-| `custom_start` | string | - | Start time for custom period |
-| `custom_end` | string | - | End time for custom period |
-| `top_n` | number | `10` | Number of top websites (1-100) |
-| `group_by` | enum | `"domain"` | Grouping: `"domain"`, `"url"`, `"title"` |
-| `include_categories` | boolean | `false` | Include category information |
-| `exclude_domains` | array | `["localhost", "127.0.0.1"]` | Domain names to exclude |
-| `min_duration_seconds` | number | `5` | Minimum visit duration |
-| `response_format` | enum | `"concise"` | Output format: `"concise"`, `"detailed"` |
+| `query_type` | enum | - | **Required**. Type: `"window"`, `"browser"`, `"editor"`, `"afk"`, `"custom"` |
+| `start_time` | string | - | **Required**. Start timestamp (ISO 8601) |
+| `end_time` | string | - | **Required**. End timestamp (ISO 8601) |
+| `filter_afk` | boolean | `true` | Filter out AFK periods |
+| `filter_apps` | array | - | Include only specific applications |
+| `exclude_apps` | array | - | Exclude specific applications |
+| `filter_domains` | array | - | Include only specific domains (browser queries) |
+| `filter_titles` | array | - | Filter by title patterns (regex) |
+| `merge_events` | boolean | `true` | Merge consecutive similar events |
+| `min_duration_seconds` | number | `0` | Minimum event duration |
+| `limit` | number | `1000` | Maximum events to return (1-10000) |
+| `response_format` | enum | `"detailed"` | Output format: `"concise"`, `"detailed"`, `"raw"` |
 
 ### Returns
 ```typescript
 {
-  total_time_seconds: number;          // Total browsing time (AFK-filtered)
-  websites: Array<{
-    domain: string;                    // Domain name
-    url?: string;                      // Full URL (if group_by="url")
-    title?: string;                    // Page title (if group_by="title")
-    duration_seconds: number;
-    duration_hours: number;
-    percentage: number;
-    category?: string;                 // If include_categories=true
-    event_count?: number;              // If response_format="detailed"
-    first_seen?: string;               // If response_format="detailed"
-    last_seen?: string;                // If response_format="detailed"
-    audible?: boolean;                 // If response_format="detailed"
-    incognito?: boolean;               // If response_format="detailed"
-    tab_count_avg?: number;            // If response_format="detailed"
-  }>;
-  time_range: {
-    start: string;
-    end: string;
-  };
-}
-```
-
----
-
-## aw_get_editor_activity
-
-**Analyzes IDE and editor activity over a time period.**
-
-### When to Use
-- User asks about coding/development time: "What did I code today?"
-- Questions about time in specific projects or files
-- Analyzing development patterns across IDEs/editors
-
-### When NOT to Use
-- For general application usage → use `aw_get_window_activity` instead
-- For browser-based coding → use `aw_get_web_activity` instead
-- For unified analysis with enrichment → use `aw_get_activity` instead
-
-### Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `time_period` | enum | `"today"` | Time period (same options as aw_get_activity) |
-| `custom_start` | string | - | Start time for custom period |
-| `custom_end` | string | - | End time for custom period |
-| `top_n` | number | `10` | Number of top items (1-100) |
-| `group_by` | enum | `"project"` | Grouping: `"project"`, `"file"`, `"language"`, `"editor"` |
-| `include_categories` | boolean | `false` | Include category information |
-| `include_git_info` | boolean | `false` | Include git metadata (detailed mode only) |
-| `min_duration_seconds` | number | `5` | Minimum event duration |
-| `response_format` | enum | `"concise"` | Output format: `"concise"`, `"detailed"` |
-
-### Returns
-```typescript
-{
-  total_time_seconds: number;          // Total editing time (AFK-filtered)
-  editors: Array<{
-    name: string;                      // Project/file/language/editor name
-    duration_seconds: number;
-    duration_hours: number;
-    percentage: number;
-    projects?: string[];               // If grouping shows multiple
-    files?: string[];                  // If grouping shows multiple
-    languages?: string[];              // If grouping shows multiple
-    git_info?: {                       // If include_git_info=true
-      branch?: string;
-      commit?: string;
-      repository?: string;
-    };
-    category?: string;                 // If include_categories=true
-    event_count?: number;              // If response_format="detailed"
-    first_seen?: string;               // If response_format="detailed"
-    last_seen?: string;                // If response_format="detailed"
-    editor_version?: string;           // If response_format="detailed"
-    state_breakdown?: {                // If response_format="detailed"
-      [state: string]: number;
-    };
-  }>;
-  time_range: {
-    start: string;
-    end: string;
-  };
+  events: Array<AWEvent>;              // Filtered events
+  total_duration_seconds: number;      // Total time in filtered events
+  query_used: string[];                // The actual query executed
+  buckets_queried: string[];           // Which buckets were queried
 }
 ```
 

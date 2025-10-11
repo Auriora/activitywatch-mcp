@@ -2,8 +2,8 @@
  * Service for daily activity summaries
  */
 
-import { WindowActivityService } from './window-activity.js';
-import { WebActivityService } from './web-activity.js';
+import { UnifiedActivityService } from './unified-activity.js';
+import { QueryService } from './query.js';
 import { AfkActivityService } from './afk-activity.js';
 import { CategoryService } from './category.js';
 import { DailySummary, DailySummaryParams, HourlyActivity } from '../types.js';
@@ -13,8 +13,8 @@ import { logger } from '../utils/logger.js';
 
 export class DailySummaryService {
   constructor(
-    private windowService: WindowActivityService,
-    private webService: WebActivityService,
+    private unifiedService: UnifiedActivityService,
+    private queryService: QueryService,
     private afkService: AfkActivityService,
     private categoryService?: CategoryService
   ) {}
@@ -37,45 +37,49 @@ export class DailySummaryService {
     const startOfDay = getStartOfDay(date);
     const endOfDay = getEndOfDay(date);
 
-    // Get window activity
-    let windowActivity;
+    // Get unified activity (includes apps and browser data)
+    let unifiedActivity;
     try {
-      windowActivity = await this.windowService.getWindowActivity({
+      unifiedActivity = await this.unifiedService.getActivity({
         time_period: 'custom',
         custom_start: startOfDay.toISOString(),
         custom_end: endOfDay.toISOString(),
-        top_n: 5,
-        response_format: 'concise',
+        top_n: 20, // Get more to extract top apps and websites separately
+        response_format: 'detailed',
+        include_browser_details: true,
       });
     } catch (error) {
-      windowActivity = {
+      unifiedActivity = {
         total_time_seconds: 0,
-        applications: [],
+        activities: [],
         time_range: { start: startOfDay.toISOString(), end: endOfDay.toISOString() },
       };
     }
 
-    // Get web activity
-    let webActivity;
-    try {
-      webActivity = await this.webService.getWebActivity({
-        time_period: 'custom',
-        custom_start: startOfDay.toISOString(),
-        custom_end: endOfDay.toISOString(),
-        top_n: 5,
-        response_format: 'concise',
-      });
-    } catch (error) {
-      webActivity = {
-        total_time_seconds: 0,
-        websites: [],
-        time_range: { start: startOfDay.toISOString(), end: endOfDay.toISOString() },
-      };
-    }
+    // Extract top 5 applications (all activities)
+    const applications = unifiedActivity.activities
+      .map(a => ({
+        name: a.app,
+        duration_seconds: a.duration_seconds,
+        duration_hours: a.duration_hours,
+        percentage: a.percentage,
+      }))
+      .slice(0, 5);
+
+    // Extract top 5 websites (only activities with browser data)
+    const websites = unifiedActivity.activities
+      .filter(a => a.browser?.domain)
+      .map(a => ({
+        domain: a.browser!.domain,
+        duration_seconds: a.duration_seconds,
+        duration_hours: a.duration_hours,
+        percentage: a.percentage,
+      }))
+      .slice(0, 5);
 
     // Get actual AFK time from AFK tracking buckets
     let afkTime = 0;
-    let totalActiveTime = windowActivity.total_time_seconds;
+    let totalActiveTime = unifiedActivity.total_time_seconds;
 
     try {
       const afkStats = await this.afkService.getAfkStats(startOfDay, endOfDay);
@@ -93,8 +97,8 @@ export class DailySummaryService {
 
     // Generate insights
     const insights = this.generateInsights(
-      windowActivity.applications,
-      webActivity.websites,
+      applications,
+      websites,
       totalActiveTime
     );
 
@@ -102,8 +106,8 @@ export class DailySummaryService {
     let topCategories;
     if (this.categoryService && this.categoryService.hasCategories()) {
       try {
-        // Get all window events for categorization
-        const allEvents = await this.windowService.getAllEvents(startOfDay, endOfDay);
+        // Get all window and editor events for categorization
+        const allEvents = await this.queryService.getAllEventsFiltered(startOfDay, endOfDay);
         topCategories = this.categoryService.categorizeEvents(allEvents).slice(0, 5);
         logger.debug(`Categorized ${allEvents.length} events into ${topCategories.length} categories`);
       } catch (error) {
@@ -121,8 +125,8 @@ export class DailySummaryService {
       date: dateStr,
       total_active_time_hours: secondsToHours(totalActiveTime),
       total_afk_time_hours: secondsToHours(afkTime),
-      top_applications: windowActivity.applications,
-      top_websites: webActivity.websites,
+      top_applications: applications,
+      top_websites: websites,
       top_categories: topCategories,
       hourly_breakdown: hourlyBreakdown,
       insights,
@@ -141,7 +145,7 @@ export class DailySummaryService {
     for (let hour = 0; hour < 24; hour++) {
       const hourStart = new Date(startOfDay);
       hourStart.setHours(hour, 0, 0, 0);
-      
+
       const hourEnd = new Date(startOfDay);
       hourEnd.setHours(hour, 59, 59, 999);
 
@@ -149,7 +153,7 @@ export class DailySummaryService {
       if (hourStart > endOfDay) break;
 
       try {
-        const windowData = await this.windowService.getWindowActivity({
+        const activityData = await this.unifiedService.getActivity({
           time_period: 'custom',
           custom_start: hourStart.toISOString(),
           custom_end: hourEnd.toISOString(),
@@ -159,8 +163,8 @@ export class DailySummaryService {
 
         hourly.push({
           hour,
-          active_seconds: windowData.total_time_seconds,
-          top_app: windowData.applications[0]?.name,
+          active_seconds: activityData.total_time_seconds,
+          top_app: activityData.activities[0]?.app,
         });
       } catch (error) {
         hourly.push({

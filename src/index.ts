@@ -18,9 +18,6 @@ import { ActivityWatchClient } from './client/activitywatch.js';
 import { CapabilitiesService } from './services/capabilities.js';
 import { QueryService } from './services/query.js';
 import { QueryBuilderService } from './services/query-builder.js';
-import { WindowActivityService } from './services/window-activity.js';
-import { WebActivityService } from './services/web-activity.js';
-import { EditorActivityService } from './services/editor-activity.js';
 import { AfkActivityService } from './services/afk-activity.js';
 import { CategoryService } from './services/category.js';
 import { DailySummaryService } from './services/daily-summary.js';
@@ -28,9 +25,6 @@ import { UnifiedActivityService } from './services/unified-activity.js';
 
 import {
   GetCapabilitiesSchema,
-  GetWindowActivitySchema,
-  GetWebActivitySchema,
-  GetEditorActivitySchema,
   GetDailySummarySchema,
   GetRawEventsSchema,
   QueryEventsSchema,
@@ -61,15 +55,12 @@ const queryBuilderService = new QueryBuilderService(client, capabilitiesService)
 
 // Always pass category service - it will handle the case when no categories are configured
 // Categories are loaded asynchronously in main(), so we can't check hasCategories() here
-const windowService = new WindowActivityService(queryService, categoryService);
-const webService = new WebActivityService(queryService, categoryService);
-const editorService = new EditorActivityService(queryService, categoryService);
 const afkService = new AfkActivityService(client, capabilitiesService);
 const unifiedService = new UnifiedActivityService(queryService, categoryService);
 
 const dailySummaryService = new DailySummaryService(
-  windowService,
-  webService,
+  unifiedService,
+  queryService,
   afkService,
   categoryService
 );
@@ -268,298 +259,6 @@ Default response is human-readable summary. Use response_format='detailed' for s
     },
   },
   {
-    name: 'aw_get_window_activity',
-    description: `Analyzes application and window usage over a time period.
-
-WHEN TO USE:
-- User asks about time spent in specific applications (e.g., "How long did I use VS Code?")
-- Questions about which apps were used during a time period
-- Productivity analysis focused on application usage
-- Comparing application usage across time periods
-- Identifying most-used applications
-
-WHEN NOT TO USE:
-- For website/browser activity → use aw_get_web_activity instead
-- For comprehensive daily overview → use aw_get_daily_summary instead
-- For exact event timestamps → use aw_get_raw_events instead
-- If no window tracking data exists (check with aw_get_capabilities first)
-
-CAPABILITIES:
-- **AFK FILTERING**: Automatically filters events to only include active periods (when user is not AFK)
-- Automatically discovers and aggregates data from all window tracking buckets
-- Combines data across multiple devices if available
-- Filters out system applications (Finder, Dock, etc.) by default
-- Normalizes application names (e.g., "Code" → "VS Code")
-- Removes very short events (< 5 seconds by default) to filter noise
-- Groups by application name or window title
-- Calculates total time, percentages, and rankings
-
-LIMITATIONS:
-- Cannot see WHAT you did in the application (no content access)
-- Cannot determine quality or productivity of work
-- Only shows active window time (not background processes)
-- **Only counts time when user is actively working (AFK periods are excluded)**
-- Requires window watcher (aw-watcher-window) to be installed and running
-- Time periods limited to available data (check date ranges with aw_get_capabilities)
-
-RETURNS:
-- total_time_seconds: Total active time in the period (AFK-filtered)
-- applications: Array of {name, duration_seconds, duration_hours, percentage, window_titles?}
-- time_range: {start, end} timestamps of analyzed period
-
-Default response is human-readable summary. Use response_format='detailed' for structured data.`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        time_period: {
-          type: 'string',
-          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
-          default: 'today',
-          description: 'Time period to analyze. Options: "today" (since midnight), "yesterday" (previous day), "this_week" (Monday to now), "last_week" (previous Monday-Sunday), "last_7_days" (rolling 7 days), "last_30_days" (rolling 30 days), "custom" (requires custom_start and custom_end). Use natural periods unless user specifies exact dates.',
-        },
-        custom_start: {
-          type: 'string',
-          description: 'Start date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T09:00:00Z") or simple date ("2025-01-14" assumes 00:00:00). Examples: "2025-01-14", "2025-01-14T14:30:00Z"',
-        },
-        custom_end: {
-          type: 'string',
-          description: 'End date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T17:00:00Z") or simple date ("2025-01-14" assumes 23:59:59). Must be after custom_start. Examples: "2025-01-14", "2025-01-14T17:00:00Z"',
-        },
-        top_n: {
-          type: 'number',
-          default: 10,
-          minimum: 1,
-          maximum: 100,
-          description: 'Number of top applications to return, ranked by time spent. Default: 10. Use 5 for quick overview, 20+ for comprehensive analysis. Maximum: 100.',
-        },
-        group_by: {
-          type: 'string',
-          enum: ['application', 'title', 'both'],
-          default: 'application',
-          description: 'How to group results. "application": Group by app name only (e.g., all Chrome windows together) - recommended for overview. "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub") - use for detailed analysis. "both": Show both levels of grouping.',
-        },
-        response_format: {
-          type: 'string',
-          enum: ['concise', 'detailed'],
-          default: 'concise',
-          description: 'Output format. "concise": Human-readable text summary optimized for user presentation (recommended for most queries). "detailed": Full JSON with all fields including window_titles array and precise timestamps (use when user needs technical data or export).',
-        },
-        exclude_system_apps: {
-          type: 'boolean',
-          default: true,
-          description: 'Whether to exclude system/OS applications from results. true (default): Filters out Finder, Dock, Window Server, explorer.exe, etc. false: Include all applications. Set to false only if user specifically asks about system apps.',
-        },
-        min_duration_seconds: {
-          type: 'number',
-          default: 5,
-          minimum: 0,
-          description: 'Minimum event duration to include. Events shorter than this are filtered out as likely accidental window switches. Default: 5 seconds. Use 0 to include all events, 30+ to focus on sustained usage. Recommended: keep default unless user requests otherwise.',
-        },
-        include_categories: {
-          type: 'boolean',
-          default: false,
-          description: 'Include category information for each application. Shows which category each app matches based on configured rules. Requires categories to be configured in ActivityWatch.',
-        },
-      },
-      required: [],
-    },
-  },
-  {
-    name: 'aw_get_web_activity',
-    description: `Analyzes web browsing and website usage over a time period.
-
-WHEN TO USE:
-- User asks about time spent on specific websites or domains
-- Questions about browsing patterns or habits
-- Identifying most-visited websites
-- Analyzing time spent on different types of sites (social media, documentation, etc.)
-- Comparing web usage across time periods
-
-WHEN NOT TO USE:
-- For application usage (non-browser) → use aw_get_window_activity instead
-- For comprehensive daily overview → use aw_get_daily_summary instead
-- For exact page visit timestamps → use aw_get_raw_events instead
-- If no browser tracking data exists (check with aw_get_capabilities first)
-
-CAPABILITIES:
-- **AFK FILTERING**: Automatically filters events to only include active periods (when user is not AFK)
-- Automatically discovers and aggregates data from all browser tracking buckets
-- Combines data across multiple browsers (Chrome, Firefox, Safari, etc.)
-- Extracts and normalizes domain names from URLs
-- Filters out localhost and development URLs by default
-- Removes very short visits (< 5 seconds by default) to filter noise
-- Groups by domain, full URL, or page title
-- Calculates total time, percentages, and rankings
-
-LIMITATIONS:
-- Cannot see page CONTENT or what you read/typed
-- Cannot determine if time was productive or not
-- Only tracks active tab time (not background tabs)
-- **Only counts time when user is actively browsing (AFK periods are excluded)**
-- Requires browser extension (aw-watcher-web) to be installed
-- May not capture incognito/private browsing depending on extension settings
-- Time periods limited to available data (check date ranges with aw_get_capabilities)
-
-RETURNS:
-- total_time_seconds: Total browsing time in the period (AFK-filtered)
-- websites: Array of {domain, url?, title?, duration_seconds, duration_hours, percentage}
-- time_range: {start, end} timestamps of analyzed period
-
-Default response is human-readable summary. Use response_format='detailed' for structured data.`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        time_period: {
-          type: 'string',
-          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
-          default: 'today',
-          description: 'Time period to analyze. Options: "today" (since midnight), "yesterday" (previous day), "this_week" (Monday to now), "last_week" (previous Monday-Sunday), "last_7_days" (rolling 7 days), "last_30_days" (rolling 30 days), "custom" (requires custom_start and custom_end). Use natural periods unless user specifies exact dates.',
-        },
-        custom_start: {
-          type: 'string',
-          description: 'Start date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T09:00:00Z") or simple date ("2025-01-14" assumes 00:00:00). Examples: "2025-01-14", "2025-01-14T14:30:00Z"',
-        },
-        custom_end: {
-          type: 'string',
-          description: 'End date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T17:00:00Z") or simple date ("2025-01-14" assumes 23:59:59). Must be after custom_start. Examples: "2025-01-14", "2025-01-14T17:00:00Z"',
-        },
-        top_n: {
-          type: 'number',
-          default: 10,
-          minimum: 1,
-          maximum: 100,
-          description: 'Number of top websites to return, ranked by time spent. Default: 10. Use 5 for quick overview, 20+ for comprehensive analysis. Maximum: 100.',
-        },
-        group_by: {
-          type: 'string',
-          enum: ['domain', 'url', 'title'],
-          default: 'domain',
-          description: 'How to group results. "domain": Group by domain name (e.g., all github.com pages together) - recommended for overview. "url": Group by full URL (e.g., separate github.com/user/repo1 from github.com/user/repo2) - use for detailed page-level analysis. "title": Group by page title - use when user asks about specific page names.',
-        },
-        response_format: {
-          type: 'string',
-          enum: ['concise', 'detailed'],
-          default: 'concise',
-          description: 'Output format. "concise": Human-readable text summary optimized for user presentation (recommended for most queries). "detailed": Full JSON with all fields including URLs, titles, and precise timestamps (use when user needs technical data or export).',
-        },
-        exclude_domains: {
-          type: 'array',
-          items: { type: 'string' },
-          default: ['localhost', '127.0.0.1'],
-          description: 'Array of domain names to exclude from results. Default: ["localhost", "127.0.0.1"] to filter local development. Add domains like "about:blank", "chrome://newtab" to exclude browser UI pages. Examples: ["localhost", "192.168.1.1"], ["example.com", "test.local"]',
-        },
-        min_duration_seconds: {
-          type: 'number',
-          default: 5,
-          minimum: 0,
-          description: 'Minimum visit duration to include. Visits shorter than this are filtered out as likely accidental clicks or quick tab switches. Default: 5 seconds. Use 0 to include all visits, 30+ to focus on sustained reading/usage. Recommended: keep default unless user requests otherwise.',
-        },
-        include_categories: {
-          type: 'boolean',
-          default: false,
-          description: 'Include category information for each website. Shows which category each site matches based on configured rules. Requires categories to be configured in ActivityWatch.',
-        },
-      },
-      required: [],
-    },
-  },
-  {
-    name: 'aw_get_editor_activity',
-    description: `Analyzes IDE and editor activity over a time period.
-
-WHEN TO USE:
-- User asks about coding/development time or what code was written
-- Questions about time spent in specific projects or files
-- Identifying most-used programming languages
-- Analyzing development patterns across IDEs/editors
-- Questions like "What did I code today?" or "How much time in project X?"
-
-WHEN NOT TO USE:
-- For general application usage → use aw_get_window_activity instead
-- For browser-based coding (e.g., CodePen, Replit) → use aw_get_web_activity instead
-- For comprehensive daily overview → use aw_get_daily_summary instead
-- If no editor tracking data exists (check with aw_get_capabilities first)
-
-CAPABILITIES:
-- **AFK FILTERING**: Automatically filters events to only include active periods (when user is not AFK)
-- Automatically discovers and aggregates data from all editor tracking buckets
-- Combines data across multiple IDEs (VS Code, JetBrains IDEs, Vim, etc.)
-- Groups by project, file, programming language, or editor
-- Includes rich metadata: file paths, git branches, commits, repositories
-- Filters out very short events (< 5 seconds by default) to filter noise
-- Calculates total time, percentages, and rankings
-
-LIMITATIONS:
-- Cannot see CODE CONTENT or what you typed
-- Cannot determine code quality or productivity
-- Only tracks active file/editor time
-- **Only counts time when user is actively coding (AFK periods are excluded)**
-- Requires IDE plugins/watchers to be installed (e.g., JetBrains plugins, aw-watcher-vscode)
-- Time periods limited to available data (check date ranges with aw_get_capabilities)
-
-RETURNS:
-- total_time_seconds: Total editing time in the period (AFK-filtered)
-- editors: Array of {name, duration_seconds, duration_hours, percentage, projects?, files?, languages?, git_info?}
-- time_range: {start, end} timestamps of analyzed period
-
-Default response is human-readable summary. Use response_format='detailed' with include_git_info=true for git metadata.`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        time_period: {
-          type: 'string',
-          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
-          default: 'today',
-          description: 'Time period to analyze. Options: "today" (since midnight), "yesterday" (previous day), "this_week" (Monday to now), "last_week" (previous Monday-Sunday), "last_7_days" (rolling 7 days), "last_30_days" (rolling 30 days), "custom" (requires custom_start and custom_end). Use natural periods unless user specifies exact dates.',
-        },
-        custom_start: {
-          type: 'string',
-          description: 'Start date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T09:00:00Z") or simple date ("2025-01-14" assumes 00:00:00). Examples: "2025-01-14", "2025-01-14T14:30:00Z"',
-        },
-        custom_end: {
-          type: 'string',
-          description: 'End date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T17:00:00Z") or simple date ("2025-01-14" assumes 23:59:59). Must be after custom_start. Examples: "2025-01-14", "2025-01-14T17:00:00Z"',
-        },
-        top_n: {
-          type: 'number',
-          default: 10,
-          minimum: 1,
-          maximum: 100,
-          description: 'Number of top items to return, ranked by time spent. Default: 10. Use 5 for quick overview, 20+ for comprehensive analysis. Maximum: 100.',
-        },
-        group_by: {
-          type: 'string',
-          enum: ['project', 'file', 'language', 'editor'],
-          default: 'project',
-          description: 'How to group results. "project": Group by project name (recommended for overview). "file": Group by filename - use for detailed file-level analysis. "language": Group by programming language - use to see language distribution. "editor": Group by IDE/editor - use to compare tool usage.',
-        },
-        response_format: {
-          type: 'string',
-          enum: ['concise', 'detailed'],
-          default: 'concise',
-          description: 'Output format. "concise": Human-readable text summary optimized for user presentation (recommended for most queries). "detailed": Full JSON with all fields including file lists, languages, and git info (use when user needs technical data or export).',
-        },
-        min_duration_seconds: {
-          type: 'number',
-          default: 5,
-          minimum: 0,
-          description: 'Minimum event duration to include. Events shorter than this are filtered out as likely accidental file switches. Default: 5 seconds. Use 0 to include all events, 30+ to focus on sustained editing. Recommended: keep default unless user requests otherwise.',
-        },
-        include_git_info: {
-          type: 'boolean',
-          default: false,
-          description: 'Include git branch/commit information in detailed view. Only works with response_format="detailed". Shows branch, commit hash, and repository URL when available.',
-        },
-        include_categories: {
-          type: 'boolean',
-          default: false,
-          description: 'Include category information for each project/file/language. Shows which category each item matches based on configured rules. Requires categories to be configured in ActivityWatch.',
-        },
-      },
-      required: [],
-    },
-  },
-  {
     name: 'aw_get_daily_summary',
     description: `Provides a comprehensive overview of all activity for a specific day.
 
@@ -571,10 +270,9 @@ WHEN TO USE:
 - When you need both application AND web activity together
 
 WHEN NOT TO USE:
-- For detailed analysis of just applications → use aw_get_window_activity instead
-- For detailed analysis of just websites → use aw_get_web_activity instead
-- For multi-day periods → use aw_get_window_activity or aw_get_web_activity with appropriate time_period
-- For real-time "today so far" updates → this works but may be less detailed than specific tools
+- For detailed analysis with enrichment → use aw_get_activity instead
+- For multi-day periods → use aw_get_activity with appropriate time_period
+- For custom filtering or queries → use aw_query_events instead
 
 CAPABILITIES:
 - Combines window activity, web activity, and AFK detection into one summary
@@ -632,7 +330,7 @@ WHEN TO USE:
 - Advanced users who understand ActivityWatch bucket structure
 
 WHEN NOT TO USE:
-- For general activity analysis → use aw_get_window_activity, aw_get_web_activity, or aw_get_daily_summary
+- For general activity analysis → use aw_get_activity or aw_get_daily_summary
 - When you don't know the bucket_id → use aw_get_capabilities first to discover buckets
 - For aggregated statistics → high-level tools are more efficient
 - For user-friendly summaries → this returns technical data
@@ -659,7 +357,7 @@ RETURNS (depends on response_format):
 - detailed: Formatted event list with key fields
 - raw: Complete unprocessed event array with all fields
 
-IMPORTANT: This is a low-level tool. For most user queries, the high-level analysis tools (aw_get_window_activity, aw_get_web_activity, aw_get_daily_summary) are more appropriate and user-friendly.`,
+IMPORTANT: This is a low-level tool. For most user queries, the high-level analysis tools (aw_get_activity, aw_get_daily_summary) are more appropriate and user-friendly.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -705,10 +403,10 @@ WHEN TO USE:
 - When standard tools don't provide the exact filtering needed
 
 WHEN NOT TO USE:
-- For general activity overview → use aw_get_activity, aw_get_window_activity, or aw_get_web_activity
-- For daily summaries → use aw_get_daily_summary
+- For general activity overview → use aw_get_activity instead
+- For daily summaries → use aw_get_daily_summary instead
 - When you need aggregated statistics → high-level tools are more efficient
-- For simple queries → standard tools are easier to use
+- For simple queries → aw_get_activity is easier to use
 
 CAPABILITIES:
 - **Flexible Query Types**: window, browser, editor, afk, or custom queries
@@ -1123,86 +821,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               {
                 type: 'text',
                 text: lines.join('\n'),
-              },
-            ],
-          };
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'aw_get_window_activity': {
-        const params = GetWindowActivitySchema.parse(args);
-        const result = await windowService.getWindowActivity(params);
-
-        logger.info('Window activity retrieved', {
-          totalTime: result.total_time_seconds,
-          appCount: result.applications.length,
-        });
-
-        if (params.response_format === 'concise') {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: windowService.formatConcise(result),
-              },
-            ],
-          };
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'aw_get_web_activity': {
-        const params = GetWebActivitySchema.parse(args);
-        const result = await webService.getWebActivity(params);
-
-        if (params.response_format === 'concise') {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: webService.formatConcise(result),
-              },
-            ],
-          };
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'aw_get_editor_activity': {
-        const params = GetEditorActivitySchema.parse(args);
-        const result = await editorService.getEditorActivity(params);
-
-        if (params.response_format === 'concise') {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: editorService.formatConcise(result),
               },
             ],
           };

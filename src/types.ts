@@ -162,33 +162,6 @@ export interface TimeRangeParams {
   custom_end?: string;
 }
 
-export interface WindowActivityParams extends TimeRangeParams {
-  top_n?: number;
-  group_by?: 'application' | 'title' | 'both';
-  response_format?: ResponseFormat;
-  exclude_system_apps?: boolean;
-  min_duration_seconds?: number;
-  include_categories?: boolean;
-}
-
-export interface WebActivityParams extends TimeRangeParams {
-  top_n?: number;
-  group_by?: 'domain' | 'url' | 'title';
-  response_format?: ResponseFormat;
-  exclude_domains?: string[];
-  min_duration_seconds?: number;
-  include_categories?: boolean;
-}
-
-export interface EditorActivityParams extends TimeRangeParams {
-  top_n?: number;
-  group_by?: 'project' | 'file' | 'language' | 'editor';
-  response_format?: ResponseFormat;
-  min_duration_seconds?: number;
-  include_git_info?: boolean;
-  include_categories?: boolean;
-}
-
 export interface DailySummaryParams {
   date?: string;
   include_hourly_breakdown?: boolean;

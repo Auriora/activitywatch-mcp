@@ -2,56 +2,8 @@
  * Common formatting utilities for response output
  */
 
-import { AppUsage, WebUsage, DailySummary, AWEvent } from '../types.js';
+import { DailySummary, AWEvent } from '../types.js';
 import { secondsToHours } from './time.js';
-
-/**
- * Format window activity for concise output
- */
-export function formatWindowActivityConcise(data: {
-  total_time_seconds: number;
-  applications: AppUsage[];
-  time_range: { start: string; end: string };
-}): string {
-  const lines: string[] = [];
-  
-  lines.push(`Window Activity (${data.time_range.start} to ${data.time_range.end})`);
-  lines.push(`Total Active Time: ${secondsToHours(data.total_time_seconds)} hours`);
-  lines.push('');
-  lines.push('Top Applications:');
-  
-  for (const app of data.applications) {
-    lines.push(
-      `  ${app.name}: ${app.duration_hours}h (${app.percentage}%)`
-    );
-  }
-
-  return lines.join('\n');
-}
-
-/**
- * Format web activity for concise output
- */
-export function formatWebActivityConcise(data: {
-  total_time_seconds: number;
-  websites: WebUsage[];
-  time_range: { start: string; end: string };
-}): string {
-  const lines: string[] = [];
-  
-  lines.push(`Web Activity (${data.time_range.start} to ${data.time_range.end})`);
-  lines.push(`Total Browsing Time: ${secondsToHours(data.total_time_seconds)} hours`);
-  lines.push('');
-  lines.push('Top Websites:');
-  
-  for (const site of data.websites) {
-    lines.push(
-      `  ${site.domain}: ${site.duration_hours}h (${site.percentage}%)`
-    );
-  }
-
-  return lines.join('\n');
-}
 
 /**
  * Format daily summary for concise output
