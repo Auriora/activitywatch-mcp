@@ -25,7 +25,7 @@ This document explains how the MCP server integrates with ActivityWatch's native
 For conceptual background and query structure, see: ../concepts/canonical-events.md
 
 Services using AFK filtering:
-- WindowActivityService, WebActivityService, EditorActivityService, DailySummaryService
+- WindowActivityService, WebActivityService, EditorActivityService, PeriodSummaryService
 
 ---
 

@@ -63,9 +63,9 @@ The timezone used for date boundaries and time display in daily summaries and ot
 
 #### How Timezone Affects Queries
 
-When you request a daily summary for a specific date, the timezone determines the date boundaries:
+When you request a period summary for a specific date, the timezone determines the date boundaries:
 
-**Example**: Daily summary for "2025-10-11"
+**Example**: Daily period summary for "2025-10-11"
 
 - **UTC**: 2025-10-11 00:00:00 UTC to 2025-10-11 23:59:59 UTC
 - **Europe/Dublin (UTC+1)**: 2025-10-10 23:00:00 UTC to 2025-10-11 22:59:59 UTC
@@ -78,7 +78,8 @@ This ensures that "October 11" means October 11 in **your** timezone, not UTC.
 You can override the default timezone for individual requests:
 
 ```typescript
-aw_get_daily_summary({
+aw_get_period_summary({
+  period_type: "daily",
   date: "2025-10-11",
   timezone: "America/New_York"  // Override default
 })
@@ -247,4 +248,3 @@ The configuration is validated when loaded. Invalid configurations will:
 - [Timezone Support Implementation](../updates/timezone-support.md) - Technical details
 - [Configuration Overview](../../config/README.md) - All configuration files
 - [IANA Timezone Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) - Full timezone list
-

@@ -18,7 +18,7 @@ All notable changes to the ActivityWatch MCP Server project.
 - **New Service: `PeriodSummaryService`** (`src/services/period-summary.ts`)
   - Orchestrates multi-day summaries
   - Generates period-appropriate breakdowns
-  - Reuses existing daily summary logic
+  - Replaces the legacy daily summary implementation
   - Calculates period boundaries for all period types
 
 - **Enhanced Time Utilities** (`src/utils/time.ts`)
@@ -51,11 +51,18 @@ All notable changes to the ActivityWatch MCP Server project.
 
 - **Capabilities Service**
   - Now suggests `aw_get_period_summary` when tracking data is available
-  - Updated tool count to 11 tools
+  - Updated tool roster (period summary replaces the legacy daily summary)
 
 - **Tool Definitions**
   - Added comprehensive `aw_get_period_summary` tool definition
   - Detailed parameter descriptions and use cases
+
+### Removed
+
+- **Removed Tool: `aw_get_daily_summary`**
+  - Functionality superseded by `aw_get_period_summary`
+  - Eliminated `DailySummaryService` and related schemas/types
+  - Consolidated formatting via period summary output helpers
 
 ## [1.1.0] - 2025-01-14
 
@@ -292,4 +299,3 @@ See [IMPLEMENTATION.md](IMPLEMENTATION.md) for architecture details and [IMPROVE
 ## License
 
 MIT
-

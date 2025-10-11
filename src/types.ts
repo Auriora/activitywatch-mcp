@@ -55,6 +55,7 @@ export interface Capabilities {
   readonly has_browser_tracking: boolean;
   readonly has_afk_detection: boolean;
   readonly has_editor_tracking: boolean;
+  readonly has_calendar_events: boolean;
   readonly has_categories: boolean;
   readonly user_preferences?: {
     readonly timezone: string;
@@ -124,16 +125,38 @@ export interface CategoryUsage {
   readonly event_count: number;
 }
 
-export interface DailySummary {
-  readonly date: string;
-  readonly timezone: string;
-  readonly total_active_time_hours: number;
-  readonly total_afk_time_hours: number;
-  readonly top_applications: readonly AppUsage[];
-  readonly top_websites: readonly WebUsage[];
-  readonly top_categories?: readonly CategoryUsage[];
-  readonly hourly_breakdown?: readonly HourlyActivity[];
-  readonly insights: readonly string[];
+export interface CalendarAttendee {
+  readonly name?: string;
+  readonly email?: string;
+  readonly response_status?: string;
+  readonly organizer?: boolean;
+}
+
+export interface CalendarEvent {
+  readonly id: string;
+  readonly summary: string;
+  readonly description?: string;
+  readonly location?: string;
+  readonly calendar?: string;
+  readonly start: string;
+  readonly end: string;
+  readonly all_day: boolean;
+  readonly status?: string;
+  readonly is_recurring?: boolean;
+  readonly source_bucket: string;
+  readonly attendees?: readonly CalendarAttendee[];
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly duration_seconds: number;
+}
+
+export interface CalendarEventSummary {
+  readonly summary: string;
+  readonly start: string;
+  readonly end: string;
+  readonly status?: string;
+  readonly all_day: boolean;
+  readonly location?: string;
+  readonly calendar?: string;
 }
 
 export interface HourlyActivity {
@@ -186,6 +209,7 @@ export interface PeriodSummary {
   readonly top_applications: readonly AppUsage[];
   readonly top_websites: readonly WebUsage[];
   readonly top_categories?: readonly CategoryUsage[];
+  readonly notable_calendar_events?: readonly CalendarEventSummary[];
   readonly hourly_breakdown?: readonly HourlyActivity[];
   readonly daily_breakdown?: readonly DailyActivity[];
   readonly weekly_breakdown?: readonly WeeklyActivity[];
@@ -217,12 +241,6 @@ export interface TimeRangeParams {
   time_period: TimePeriod;
   custom_start?: string;
   custom_end?: string;
-}
-
-export interface DailySummaryParams {
-  date?: string;
-  include_hourly_breakdown?: boolean;
-  timezone?: string;
 }
 
 export interface PeriodSummaryParams {
@@ -354,4 +372,3 @@ export interface UnifiedActivityParams extends TimeRangeParams {
   exclude_system_apps?: boolean;
   min_duration_seconds?: number;
 }
-

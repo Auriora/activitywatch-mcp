@@ -20,14 +20,14 @@ import { QueryService } from './services/query.js';
 import { QueryBuilderService } from './services/query-builder.js';
 import { AfkActivityService } from './services/afk-activity.js';
 import { CategoryService } from './services/category.js';
-import { DailySummaryService } from './services/daily-summary.js';
 import { PeriodSummaryService } from './services/period-summary.js';
 import { UnifiedActivityService } from './services/unified-activity.js';
+import { CalendarService } from './services/calendar.js';
 
 import {
   GetCapabilitiesSchema,
-  GetDailySummarySchema,
   GetPeriodSummarySchema,
+  GetCalendarEventsSchema,
   GetRawEventsSchema,
   QueryEventsSchema,
 } from './tools/schemas.js';
@@ -38,6 +38,8 @@ import {
   formatQueryResultsConcise,
   formatQueryResultsDetailed,
   formatPeriodSummaryConcise,
+  formatCalendarEventsConcise,
+  formatCalendarEventsDetailed,
 } from './utils/formatters.js';
 import { logger } from './utils/logger.js';
 import { performHealthCheck, logStartupDiagnostics } from './utils/health.js';
@@ -55,24 +57,19 @@ const capabilitiesService = new CapabilitiesService(client);
 const categoryService = new CategoryService(client);
 const queryService = new QueryService(client, capabilitiesService);
 const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
+const calendarService = new CalendarService(client, capabilitiesService);
 
 // Always pass category service - it will handle the case when no categories are configured
 // Categories are loaded asynchronously in main(), so we can't check hasCategories() here
 const afkService = new AfkActivityService(client, capabilitiesService);
 const unifiedService = new UnifiedActivityService(queryService, categoryService);
 
-const dailySummaryService = new DailySummaryService(
-  unifiedService,
-  queryService,
-  afkService,
-  categoryService
-);
-
 const periodSummaryService = new PeriodSummaryService(
   unifiedService,
   queryService,
   afkService,
-  categoryService
+  categoryService,
+  calendarService
 );
 
 /**
@@ -153,7 +150,7 @@ WHEN TO USE:
 - Any general activity analysis question
 
 WHEN NOT TO USE:
-- For comprehensive daily overview → use aw_get_daily_summary instead
+- For comprehensive period or daily overview → use aw_get_period_summary instead
 - For exact event timestamps → use aw_get_raw_events instead
 - If no window tracking data exists (check with aw_get_capabilities first)
 
@@ -275,65 +272,65 @@ Default response is human-readable summary. Use response_format='detailed' for f
     },
   },
   {
-    name: 'aw_get_daily_summary',
-    description: `Provides a comprehensive overview of all activity for a specific day.
+    name: 'aw_get_calendar_events',
+    description: `Lists scheduled calendar events imported by ActivityWatch (aw-import-ical buckets). Calendar entries always take precedence over AFK status so meetings show up even when the user is marked away.
 
 WHEN TO USE:
-- User asks for a summary or overview of a day's activity
-- Questions like "What did I do yesterday?" or "Summarize my day"
-- Getting a holistic view combining apps, websites, and time patterns
-- Daily review or retrospective analysis
-- When you need both application AND web activity together
-
-WHEN NOT TO USE:
-- For detailed analysis with enrichment → use aw_get_activity instead
-- For multi-day periods → use aw_get_activity with appropriate time_period
-- For custom filtering or queries → use aw_query_events instead
+- Check upcoming or past meetings in a given window
+- Reconcile focus time with scheduled commitments
+- Confirm if calendar data exists before deeper analysis
 
 CAPABILITIES:
-- Combines window activity, web activity, and AFK detection into one summary
-- Calculates total active time vs away-from-keyboard time
-- Identifies top 5 applications with time and percentages
-- Identifies top 5 websites with time and percentages
-- Provides hour-by-hour activity breakdown showing when you were active
-- Generates automatic insights (e.g., "High activity day", "Most used app: VS Code")
-- Works even if some data sources are missing (gracefully degrades)
-- Supports timezone-aware date boundaries (use local timezone, not UTC)
+- Discovers all aw-import-ical* buckets automatically
+- Normalizes events (summary, start/end, duration, location, status, attendees)
+- Filters by time range, text query, all-day flag, cancellation status
+- Supports concise summaries, detailed breakdowns, or raw JSON output
 
 LIMITATIONS:
-- Fixed to single day (cannot span multiple days)
-- Limited to top 5 apps and websites (use specific tools for more)
-- Cannot see detailed window titles or full URL lists
-- Insights are basic pattern recognition, not deep analysis
-- Requires at least some tracking data for the specified day
-- AFK time calculation is approximate (total day - active time)
-
-RETURNS:
-- date: The date being summarized (YYYY-MM-DD)
-- timezone: The timezone used for date boundaries and display
-- total_active_time_hours: Hours of active computer use
-- total_afk_time_hours: Hours away from keyboard
-- top_applications: Top 5 apps with duration and percentage
-- top_websites: Top 5 websites with duration and percentage
-- hourly_breakdown: Array of {hour, active_seconds, top_app} for each hour (if requested)
-- insights: Array of auto-generated observations about the day
-
-Always returns human-readable formatted summary optimized for user presentation.`,
+- Requires ActivityWatch calendar importer to be running
+- Only reads existing events (cannot modify calendar data)`,
     inputSchema: {
       type: 'object',
       properties: {
-        date: {
+        time_period: {
           type: 'string',
-          description: 'Date to summarize in YYYY-MM-DD format. Examples: "2025-01-14", "2024-12-25". Defaults to today if omitted. Use "yesterday" in time_period tools for yesterday, or specify exact date here. Must be a date with available data (check with aw_get_capabilities for date ranges).',
+          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
+          description: 'Time window to inspect. Defaults to "today". Use "custom" with custom_start/custom_end for arbitrary ranges.',
         },
-        include_hourly_breakdown: {
+        custom_start: {
+          type: 'string',
+          description: 'Custom range start (ISO 8601 or YYYY-MM-DD). Required when time_period="custom".',
+        },
+        custom_end: {
+          type: 'string',
+          description: 'Custom range end (ISO 8601 or YYYY-MM-DD). Required when time_period="custom".',
+        },
+        include_all_day: {
           type: 'boolean',
           default: true,
-          description: 'Whether to include hour-by-hour (0-23) activity breakdown showing active time and top app for each hour. true (default): Include hourly data - recommended for understanding daily patterns. false: Omit hourly data for faster response - use when user only wants overall summary.',
+          description: 'Include all-day events (true by default). Set false to focus on timed meetings.',
         },
-        timezone: {
+        include_cancelled: {
+          type: 'boolean',
+          default: false,
+          description: 'Include events with status "cancelled". Defaults to false.',
+        },
+        summary_query: {
           type: 'string',
-          description: 'Timezone for date boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference from config/user-preferences.json or system timezone. Examples: "Europe/Dublin", "IST", "UTC+1", "America/New_York".',
+          description: 'Case-insensitive filter applied to summary, location, description, or calendar name.',
+        },
+        limit: {
+          type: 'number',
+          default: 50,
+          minimum: 1,
+          maximum: 200,
+          description: 'Maximum number of events to return across all calendar buckets.',
+        },
+        response_format: {
+          type: 'string',
+          enum: ['concise', 'detailed', 'raw'],
+          default: 'concise',
+          description: 'Choose "concise" for human-readable text, "detailed" for expanded summaries, "raw" for JSON.',
         },
       },
       required: [],
@@ -359,7 +356,7 @@ WHEN TO USE:
 - Advanced users who understand ActivityWatch bucket structure
 
 WHEN NOT TO USE:
-- For general activity analysis → use aw_get_activity or aw_get_daily_summary (RECOMMENDED)
+- For general activity analysis → use aw_get_activity or aw_get_period_summary (RECOMMENDED)
 - For accurate "time spent" metrics → use aw_get_activity instead (RECOMMENDED)
 - When you don't know the bucket_id → use aw_get_capabilities first to discover buckets
 - For aggregated statistics → high-level tools are more efficient
@@ -388,7 +385,7 @@ RETURNS (depends on response_format):
 - detailed: Formatted event list with key fields
 - raw: Complete unprocessed event array with all fields
 
-IMPORTANT: This is a low-level tool. For most user queries, the high-level analysis tools (aw_get_activity, aw_get_daily_summary) are more appropriate and user-friendly.`,
+IMPORTANT: This is a low-level tool. For most user queries, the high-level analysis tools (aw_get_activity, aw_get_period_summary) are more appropriate and user-friendly.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -444,7 +441,7 @@ WHEN TO USE:
 WHEN NOT TO USE:
 - For general activity overview → use aw_get_activity instead (RECOMMENDED)
 - For accurate "time spent" metrics → use aw_get_activity instead (RECOMMENDED)
-- For daily summaries → use aw_get_daily_summary instead
+- For daily or multi-day summaries → use aw_get_period_summary instead
 - When you need aggregated statistics → high-level tools are more efficient
 - For simple queries → aw_get_activity is easier to use and more accurate
 
@@ -862,15 +859,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'aw_get_daily_summary': {
-        const params = GetDailySummarySchema.parse(args);
-        const result = await dailySummaryService.getDailySummary(params);
+      case 'aw_get_calendar_events': {
+        const params = GetCalendarEventsSchema.parse(args);
+        const result = await calendarService.getEvents({
+          time_period: params.time_period,
+          custom_start: params.custom_start,
+          custom_end: params.custom_end,
+          include_all_day: params.include_all_day,
+          include_cancelled: params.include_cancelled,
+          summary_query: params.summary_query,
+          limit: params.limit,
+        });
+
+        if (params.response_format === 'raw') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        if (params.response_format === 'detailed') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: formatCalendarEventsDetailed(result),
+              },
+            ],
+          };
+        }
 
         return {
           content: [
             {
               type: 'text',
-              text: dailySummaryService.formatConcise(result),
+              text: formatCalendarEventsConcise(result),
             },
           ],
         };
@@ -1291,4 +1318,3 @@ main().catch((error) => {
   logger.error('Fatal error during startup', error);
   process.exit(1);
 });
-

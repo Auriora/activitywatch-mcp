@@ -52,7 +52,7 @@ export class MockActivityWatchClient {
    */
   async getEvents(
     bucketId: string,
-    params?: { start?: Date; end?: Date; limit?: number }
+    params?: { start?: string | Date; end?: string | Date; limit?: number }
   ): Promise<AWEvent[]> {
     const events = this.events.get(bucketId) || [];
     
@@ -60,11 +60,17 @@ export class MockActivityWatchClient {
     let filtered = events;
     
     if (params?.start) {
-      filtered = filtered.filter(e => new Date(e.timestamp) >= params.start!);
+      const startDate = typeof params.start === 'string'
+        ? new Date(params.start)
+        : params.start;
+      filtered = filtered.filter(e => new Date(e.timestamp) >= startDate!);
     }
     
     if (params?.end) {
-      filtered = filtered.filter(e => new Date(e.timestamp) <= params.end!);
+      const endDate = typeof params.end === 'string'
+        ? new Date(params.end)
+        : params.end;
+      filtered = filtered.filter(e => new Date(e.timestamp) <= endDate!);
     }
     
     if (params?.limit) {
@@ -223,4 +229,3 @@ export function createMockAFKEvents(
   
   return events;
 }
-

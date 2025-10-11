@@ -131,6 +131,12 @@ export class CapabilitiesService {
         has_editor_tracking: buckets.some(b =>
           b.type === 'app.editor.activity' || b.type.includes('editor')
         ),
+        has_calendar_events: buckets.some(b =>
+          b.type === 'aw-import-ical' ||
+          b.type.includes('import-ical') ||
+          b.type.includes('calendar') ||
+          b.id.startsWith('aw-import-ical')
+        ),
         has_categories: this.hasCategoriesConfigured,
         user_preferences: {
           timezone: userPrefs.timezone,
@@ -162,8 +168,11 @@ export class CapabilitiesService {
       tools.push('aw_get_editor_activity');
     }
 
+    if (capabilities.has_calendar_events) {
+      tools.push('aw_get_calendar_events');
+    }
+
     if (capabilities.has_window_tracking || capabilities.has_browser_tracking || capabilities.has_editor_tracking) {
-      tools.push('aw_get_daily_summary');
       tools.push('aw_get_period_summary');
     }
 
@@ -178,6 +187,7 @@ export class CapabilitiesService {
       'currentwindow': 'Active window and application tracking',
       'afkstatus': 'Active/AFK (away from keyboard) status tracking',
       'web.tab.current': 'Browser tab and website tracking',
+      'aw-import-ical': 'Calendar events (iCal import)',
     };
 
     if (descriptions[type]) {
@@ -193,6 +203,9 @@ export class CapabilitiesService {
     }
     if (type.includes('afk')) {
       return 'Activity status tracking';
+    }
+    if (type.includes('ical') || type.includes('calendar')) {
+      return 'Calendar events tracking';
     }
 
     return `${client} - ${type}`;
@@ -237,6 +250,19 @@ export class CapabilitiesService {
   }
 
   /**
+   * Find calendar import buckets
+   */
+  async findCalendarBuckets(): Promise<BucketInfo[]> {
+    const buckets = await this.getAvailableBuckets();
+    return buckets.filter(b =>
+      b.type === 'aw-import-ical' ||
+      b.type.includes('import-ical') ||
+      b.type.includes('calendar') ||
+      b.id.startsWith('aw-import-ical')
+    );
+  }
+
+  /**
    * Find AFK tracking buckets
    */
   async findAfkBuckets(): Promise<BucketInfo[]> {
@@ -254,4 +280,3 @@ export class CapabilitiesService {
     this.capabilitiesCache.clear();
   }
 }
-

@@ -58,7 +58,7 @@ WHEN TO USE:
 - Any general activity analysis question
 
 WHEN NOT TO USE:
-- For comprehensive daily overview → use aw_get_daily_summary instead
+- For comprehensive period or daily overview → use aw_get_period_summary instead
 - For exact event timestamps → use aw_get_raw_events instead
 - If no window tracking data exists (check with aw_get_capabilities first)
 
@@ -180,65 +180,6 @@ Default response is human-readable summary. Use response_format='detailed' for f
     },
   },
   {
-    name: 'aw_get_daily_summary',
-    description: `Provides a comprehensive overview of all activity for a specific day.
-
-WHEN TO USE:
-- User asks for a summary or overview of a day's activity
-- Questions like "What did I do yesterday?" or "Summarize my day"
-- Getting a holistic view combining apps, websites, and time patterns
-- Daily review or retrospective analysis
-- When you need both application AND web activity together
-
-WHEN NOT TO USE:
-- For detailed analysis with enrichment → use aw_get_activity instead
-- For multi-day periods → use aw_get_activity with appropriate time_period
-- For custom filtering or queries → use aw_query_events instead
-
-CAPABILITIES:
-- Combines window activity, web activity, and AFK detection into one summary
-- Calculates total active time vs away-from-keyboard time
-- Identifies top 5 applications with time and percentages
-- Identifies top 5 websites with time and percentages
-- Provides hour-by-hour activity breakdown showing when you were active
-- Generates automatic insights (e.g., "High activity day", "Most used app: VS Code")
-- Works even if some data sources are missing (gracefully degrades)
-
-LIMITATIONS:
-- Fixed to single day (cannot span multiple days)
-- Limited to top 5 apps and websites (use specific tools for more)
-- Cannot see detailed window titles or full URL lists
-- Insights are basic pattern recognition, not deep analysis
-- Requires at least some tracking data for the specified day
-- AFK time calculation is approximate (total day - active time)
-
-RETURNS:
-- date: The date being summarized (YYYY-MM-DD)
-- total_active_time_hours: Hours of active computer use
-- total_afk_time_hours: Hours away from keyboard
-- top_applications: Top 5 apps with duration and percentage
-- top_websites: Top 5 websites with duration and percentage
-- hourly_breakdown: Array of {hour, active_seconds, top_app} for each hour (if requested)
-- insights: Array of auto-generated observations about the day
-
-Always returns human-readable formatted summary optimized for user presentation.`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        date: {
-          type: 'string',
-          description: 'Date to summarize in YYYY-MM-DD format. Examples: "2025-01-14", "2024-12-25". Defaults to today if omitted. Use "yesterday" in time_period tools for yesterday, or specify exact date here. Must be a date with available data (check with aw_get_capabilities for date ranges).',
-        },
-        include_hourly_breakdown: {
-          type: 'boolean',
-          default: true,
-          description: 'Whether to include hour-by-hour (0-23) activity breakdown showing active time and top app for each hour. true (default): Include hourly data - recommended for understanding daily patterns. false: Omit hourly data for faster response - use when user only wants overall summary.',
-        },
-      },
-      required: [],
-    },
-  },
-  {
     name: 'aw_get_period_summary',
     description: `Provides a comprehensive overview of activity for various time periods with flexible detail levels.
 
@@ -250,9 +191,9 @@ WHEN TO USE:
 - When you need aggregated statistics beyond a single day
 
 WHEN NOT TO USE:
-- For single day analysis → use aw_get_daily_summary instead
 - For detailed analysis with enrichment → use aw_get_activity instead
 - For custom filtering or queries → use aw_query_events instead
+- For low-level event inspection → use aw_get_raw_events instead
 
 CAPABILITIES:
 - Supports multiple period types: daily, weekly, monthly, last 24 hours, last 7 days, last 30 days
@@ -326,6 +267,82 @@ Always returns human-readable formatted summary optimized for user presentation.
     },
   },
   {
+    name: 'aw_get_calendar_events',
+    description: `Surfaces scheduled meetings from ActivityWatch calendar import buckets (e.g., aw-import-ical_*).
+
+WHEN TO USE:
+- User asks "What meetings do I have today/this week?" or similar scheduling questions
+- Need to cross-reference focus time with calendar obligations
+- Highlight events even when AFK tracking marks the user as away (calendar always takes precedence)
+
+WHEN NOT TO USE:
+- For full productivity summaries → use aw_get_period_summary
+- For raw bucket inspection → use aw_get_raw_events
+
+CAPABILITIES:
+- Finds all aw-import-ical buckets automatically
+- Returns events even if AFK marked you away (calendar ORs with activity)
+- Consolidates across multiple calendars/devices
+- Filters by time range, search query, cancelled/all-day toggles
+- Provides concise human summary or detailed breakdown with attendees and raw metadata
+
+RETURNS:
+- events: Normalized list with summary, start/end ISO timestamps, duration, location, status, attendees
+- buckets: Calendar bucket IDs queried
+- time_range: Start/end timestamps used for the query
+
+LIMITATIONS:
+- Only reads events already imported into ActivityWatch
+- Does not modify calendar data or infer meeting quality
+- Assumes calendar entries include start/end timestamps`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        time_period: {
+          type: 'string',
+          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
+          description: 'Time window to inspect. Defaults to "today". Use "custom" with custom_start/custom_end for specific ranges.',
+        },
+        custom_start: {
+          type: 'string',
+          description: 'Custom range start (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Example: "2025-01-14T09:00:00Z".',
+        },
+        custom_end: {
+          type: 'string',
+          description: 'Custom range end (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Example: "2025-01-14T17:00:00Z".',
+        },
+        include_all_day: {
+          type: 'boolean',
+          default: true,
+          description: 'Include all-day events (true by default). Set false to focus on timed meetings.',
+        },
+        include_cancelled: {
+          type: 'boolean',
+          default: false,
+          description: 'Include cancelled events. Defaults to false so cancelled meetings are hidden.',
+        },
+        summary_query: {
+          type: 'string',
+          description: 'Case-insensitive substring filter applied to summary, location, description, or calendar name. Example: "standup".',
+        },
+        limit: {
+          type: 'number',
+          default: 50,
+          minimum: 1,
+          maximum: 200,
+          description: 'Maximum number of events to return across all calendar buckets.',
+        },
+        response_format: {
+          type: 'string',
+          enum: ['concise', 'detailed', 'raw'],
+          default: 'concise',
+          description: 'Output verbosity. "concise" → human summary, "detailed" → expanded text, "raw" → JSON payload.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'aw_get_raw_events',
     description: `Retrieves raw, unprocessed events from a specific ActivityWatch data bucket.
 
@@ -345,7 +362,7 @@ WHEN TO USE:
 - Advanced users who understand ActivityWatch bucket structure
 
 WHEN NOT TO USE:
-- For general activity analysis → use aw_get_activity or aw_get_daily_summary (RECOMMENDED)
+- For general activity analysis → use aw_get_activity or aw_get_period_summary (RECOMMENDED)
 - For accurate "time spent" metrics → use aw_get_activity instead (RECOMMENDED)
 - When you don't know the bucket_id → use aw_get_capabilities first to discover buckets
 - For aggregated statistics → high-level tools are more efficient
@@ -374,7 +391,7 @@ RETURNS (depends on response_format):
 - detailed: Formatted event list with key fields
 - raw: Complete unprocessed event array with all fields
 
-IMPORTANT: This is a low-level tool. For most user queries, the high-level analysis tools (aw_get_activity, aw_get_daily_summary) are more appropriate and user-friendly.`,
+IMPORTANT: This is a low-level tool. For most user queries, the high-level analysis tools (aw_get_activity, aw_get_period_summary) are more appropriate and user-friendly.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -430,7 +447,7 @@ WHEN TO USE:
 WHEN NOT TO USE:
 - For general activity overview → use aw_get_activity instead (RECOMMENDED)
 - For accurate "time spent" metrics → use aw_get_activity instead (RECOMMENDED)
-- For daily summaries → use aw_get_daily_summary instead
+- For daily or multi-day summaries → use aw_get_period_summary instead
 - When you need aggregated statistics → high-level tools are more efficient
 - For simple queries → aw_get_activity is easier to use and more accurate
 

@@ -262,18 +262,16 @@ All summaries include:
    - Most used app and website
    - Activity level assessment
 
-## Comparison with aw_get_daily_summary
+## Comparison with the legacy daily summary tool
 
-`aw_get_daily_summary` is optimized for single-day analysis:
+The retired `aw_get_daily_summary` tool only supported single-day analysis:
 - Fixed to one day
-- Always includes hourly breakdown (optional)
-- Simpler API
+- Limited customization options
+- Separate code path for hourly breakdowns
 
-`aw_get_period_summary` is flexible for multi-day analysis:
-- Supports 6 different period types
-- Flexible detail levels (hourly/daily/weekly/none)
-- Better for trends and comparisons
-- Includes averages and period-level insights
+`aw_get_period_summary` replaces it and covers all previous use cases:
+- Works for daily, weekly, monthly, and rolling periods
+- Provides flexible detail levels (hourly/daily/weekly/none)
+- Adds richer insights and averages across the selected range
 
-**Recommendation**: Use `aw_get_daily_summary` for single-day analysis, `aw_get_period_summary` for everything else.
-
+**Recommendation**: Use `aw_get_period_summary` for both single-day and multi-day summaries.

@@ -6,7 +6,7 @@ import { UnifiedActivityService } from './unified-activity.js';
 import { QueryService } from './query.js';
 import { AfkActivityService } from './afk-activity.js';
 import { CategoryService } from './category.js';
-import { 
+import {
   PeriodSummary, 
   PeriodSummaryParams, 
   HourlyActivity,
@@ -15,6 +15,7 @@ import {
   AppUsage,
   WebUsage,
   CategoryUsage,
+  CalendarEventSummary,
 } from '../types.js';
 import {
   formatDate,
@@ -31,13 +32,15 @@ import {
 } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
 import { getTimezoneOffset } from '../config/user-preferences.js';
+import { CalendarService } from './calendar.js';
 
 export class PeriodSummaryService {
   constructor(
     private unifiedService: UnifiedActivityService,
     private queryService: QueryService,
     private afkService: AfkActivityService,
-    private categoryService?: CategoryService
+    private categoryService?: CategoryService,
+    private calendarService?: CalendarService
   ) {}
 
   /**
@@ -131,6 +134,23 @@ export class PeriodSummaryService {
       }
     }
 
+    // Fetch notable calendar events (calendar ORs with activity so always included)
+    let notableCalendarEvents: CalendarEventSummary[] | undefined;
+    if (this.calendarService) {
+      try {
+        const calendarResult = await this.calendarService.getEvents({
+          time_period: 'custom',
+          custom_start: start.toISOString(),
+          custom_end: end.toISOString(),
+          include_cancelled: false,
+          limit: 5,
+        });
+        notableCalendarEvents = this.calendarService.summarizeEvents(calendarResult.events, 5);
+      } catch (error) {
+        logger.debug('No calendar events available for summary', error);
+      }
+    }
+
     // Generate breakdowns based on detail level
     const detailLevel = params.detail_level || this.getDefaultDetailLevel(params.period_type);
     let hourlyBreakdown: HourlyActivity[] | undefined;
@@ -165,6 +185,7 @@ export class PeriodSummaryService {
       top_applications: applications,
       top_websites: websites,
       top_categories: topCategories,
+      notable_calendar_events: notableCalendarEvents,
       hourly_breakdown: hourlyBreakdown,
       daily_breakdown: dailyBreakdown,
       weekly_breakdown: weeklyBreakdown,
@@ -446,4 +467,3 @@ export class PeriodSummaryService {
     }
   }
 }
-

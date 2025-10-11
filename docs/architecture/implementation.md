@@ -27,7 +27,7 @@ The server uses ActivityWatch's canonical events pattern and AFK filtering acros
 │  - WindowActivityService            │  ← Legacy (still supported)
 │  - WebActivityService               │  ← Legacy (still supported)
 │  - EditorActivityService            │  ← Legacy (still supported)
-│  - DailySummaryService              │
+│  - PeriodSummaryService             │
 │  - QueryBuilderService              │  ← Custom query builder powering aw_query_events
 ├─────────────────────────────────────┤
 │      Client Layer                   │  ← ActivityWatch API client
@@ -54,7 +54,7 @@ src/
 │   ├── window-activity.ts     # Window/app activity analysis (legacy)
 │   ├── web-activity.ts        # Browser/web activity analysis (legacy)
 │   ├── editor-activity.ts     # Editor/IDE activity analysis (legacy)
-│   ├── daily-summary.ts       # Daily summary generation
+│   ├── period-summary.ts      # Period summary generation
 │   └── query-builder.ts       # Custom query builder for aw_query_events
 ├── tools/
 │   └── schemas.ts             # Zod schemas for tool parameters
@@ -198,20 +198,19 @@ AFK filtering is implemented across all activity tools using ActivityWatch's que
 
 ---
 
-### 5. aw_get_daily_summary
+### 5. aw_get_period_summary
 
-**Purpose**: Comprehensive daily overview
+**Purpose**: Comprehensive summaries for daily and multi-day periods with flexible breakdowns
 
 **Implementation**:
-1. Parse date (default to today)
-2. Get AFK-filtered window activity for the day
-3. Get AFK-filtered web activity for the day
-4. Get AFK statistics from AFK tracking buckets
-5. Generate hourly breakdown (optional)
-6. Generate insights based on patterns
-7. Format comprehensive summary
+1. Validate `period_type`, optional date, and timezone
+2. Calculate period boundaries and select detail level (hourly/daily/weekly)
+3. Use `UnifiedActivityService` to gather canonical activity data
+4. Aggregate totals, top items, and breakdowns for the requested granularity
+5. Generate insights (averages, trends, AFK balance)
+6. Format concise text response for MCP clients
 
-**Key Code**: `src/services/daily-summary.ts`
+**Key Code**: `src/services/period-summary.ts`
 
 ---
 

@@ -10,7 +10,8 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 |------|---------|-------------|
 | [`aw_get_capabilities`](#aw_get_capabilities) | Discovery | **Always call first** - Check available data |
 | [`aw_get_activity`](#aw_get_activity) | **Unified Analysis** | **Primary tool** - Apps, websites, and coding with enrichment |
-| [`aw_get_daily_summary`](#aw_get_daily_summary) | Daily Overview | Comprehensive single-day summary |
+| [`aw_get_calendar_events`](#aw_get_calendar_events) | Calendar | Surface meetings that override AFK |
+| [`aw_get_period_summary`](#aw_get_period_summary) | Period Overview | Comprehensive daily/week/month summaries |
 | [`aw_query_events`](#aw_query_events) | Custom Queries | Advanced filtering and custom queries |
 | [`aw_get_raw_events`](#aw_get_raw_events) | Raw Data | Debugging and exact timestamps |
 | **Category Management** | | |
@@ -78,7 +79,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 - Any general activity analysis question
 
 ### When NOT to Use
-- For comprehensive daily overview → use `aw_get_daily_summary` instead
+- For comprehensive period overview → use `aw_get_period_summary` instead
 - For exact event timestamps → use `aw_get_raw_events` instead
 
 ### Capabilities
@@ -167,70 +168,178 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 
 ---
 
-## aw_get_daily_summary
+## aw_get_calendar_events
 
-**Provides comprehensive overview of all activity for a specific day.**
+**Surface calendar events imported by ActivityWatch (aw-import-ical_* buckets). Calendar entries always override AFK status—the schedule is ORed with activity so meetings still appear even when you were marked away.**
 
 ### When to Use
-- User asks for summary/overview: "What did I do yesterday?"
-- Daily review or retrospective analysis
-- Getting holistic view combining apps, websites, and time patterns
+- Share upcoming or recent meetings for a specific day or range
+- Cross-check focus time versus scheduled obligations
+- Inspect which calendars are imported before building workflows around them
 
 ### When NOT to Use
-- For detailed analysis of activities → use `aw_get_activity`
-- For multi-day periods → use other tools with appropriate time_period
+- For full productivity summaries → prefer `aw_get_period_summary`
+- For low-level bucket debugging → use `aw_get_raw_events`
+- When no calendar importer is running (call `aw_get_capabilities` first)
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `date` | string | today | Date to summarize (YYYY-MM-DD format) |
-| `include_hourly_breakdown` | boolean | `true` | Include hour-by-hour activity breakdown |
+| `time_period` | enum | `today` | `"today"`, `"yesterday"`, `"this_week"`, `"last_week"`, `"last_7_days"`, `"last_30_days"`, `"custom"` |
+| `custom_start` | string | — | ISO 8601 or `YYYY-MM-DD`. Required when `time_period="custom"` |
+| `custom_end` | string | — | ISO 8601 or `YYYY-MM-DD`. Required when `time_period="custom"` |
+| `include_all_day` | boolean | `true` | Include all-day blocks. Set `false` to focus on timed meetings |
+| `include_cancelled` | boolean | `false` | Include events whose status is `cancelled` |
+| `summary_query` | string | — | Case-insensitive substring filter against summary, location, description, or calendar name |
+| `limit` | number | `50` | Maximum events to return across all calendar buckets (1–200) |
+| `response_format` | enum | `concise` | `"concise"`, `"detailed"`, or `"raw"` |
 
 ### Returns
+
 ```typescript
 {
-  date: string;                        // YYYY-MM-DD
-  total_active_time_hours: number;     // Hours of active use
-  total_afk_time_hours: number;        // Hours away from keyboard
-  top_applications: Array<{            // Top 5 apps
-    name: string;
-    duration_hours: number;
-    percentage: number;
+  events: Array<{
+    id: string;                 // Stable identifier per bucket
+    summary: string;            // Meeting/event title
+    start: string;              // ISO start time (UTC)
+    end: string;                // ISO end time (UTC)
+    duration_seconds: number;   // Computed duration (all-day defaults to 24h)
+    status?: string;            // confirmed, tentative, cancelled, etc.
+    all_day: boolean;
+    location?: string;
+    calendar?: string;          // Calendar/source label when available
+    attendees?: Array<{
+      name?: string;
+      email?: string;
+      response_status?: string;
+      organizer?: boolean;
+    }>;
+    source_bucket: string;      // aw-import-ical bucket id
+    metadata?: Record<string, unknown>; // Original event payload
   }>;
-  top_websites: Array<{               // Top 5 websites
-    domain: string;
-    duration_hours: number; 
-    percentage: number;
-  }>;
-  top_categories?: Array<{            // If categories configured
-    category_name: string;
-    duration_hours: number;
-    percentage: number;
-    event_count: number;
-  }>;
-  hourly_breakdown?: Array<{          // If include_hourly_breakdown=true
-    hour: number;                     // 0-23
-    active_seconds: number;
-    top_app?: string;
-  }>;
-  insights: string[];                 // Auto-generated observations
+  buckets: string[];            // Calendar buckets that were queried
+  time_range: {
+    start: string;              // Range start in ISO 8601
+    end: string;                // Range end in ISO 8601
+  };
 }
 ```
 
 ### Examples
 
-**Yesterday's summary:**
+**Today’s meetings (concise output):**
 ```json
 {
-  "date": "2025-10-10"
+  "time_period": "today"
 }
 ```
 
-**Today without hourly breakdown:**
+**Detailed view for a specific date range without all-day blocks:**
 ```json
 {
-  "include_hourly_breakdown": false
+  "time_period": "custom",
+  "custom_start": "2025-02-10T00:00:00Z",
+  "custom_end": "2025-02-11T00:00:00Z",
+  "include_all_day": false,
+  "response_format": "detailed"
+}
+```
+
+---
+
+## aw_get_period_summary
+
+**Provides comprehensive summaries for single-day and multi-day periods with flexible breakdowns.**
+
+### When to Use
+- Need a concise overview for a day, week, month, or rolling range
+- Want top applications/websites and AFK balance across a period
+- Need hourly, daily, or weekly breakdowns selected automatically or explicitly
+
+### When NOT to Use
+- For enriched per-activity details → use `aw_get_activity`
+- For custom filtering or complex queries → use `aw_query_events`
+- For raw event data → use `aw_get_raw_events`
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period_type` | enum | **required** | `"daily"`, `"weekly"`, `"monthly"`, `"last_24_hours"`, `"last_7_days"`, `"last_30_days"` |
+| `date` | string | today | Reference date within the period (YYYY-MM-DD). Ignored for rolling periods. |
+| `detail_level` | enum | auto | `"hourly"`, `"daily"`, `"weekly"`, or `"none"`. Auto-selected when omitted. |
+| `timezone` | string | user preference | Timezone for period boundaries. Supports IANA names and offsets. |
+
+### Returns
+```typescript
+{
+  period_type: string;                 // Requested period type
+  period_start: string;                // ISO 8601 timestamp
+  period_end: string;                  // ISO 8601 timestamp
+  timezone: string;
+  total_active_time_hours: number;
+  total_afk_time_hours: number;
+  top_applications: Array<{
+    name: string;
+    duration_hours: number;
+    percentage: number;
+  }>;
+  top_websites: Array<{
+    domain: string;
+    duration_hours: number;
+    percentage: number;
+  }>;
+  top_categories?: Array<{
+    category_name: string;
+    duration_hours: number;
+    percentage: number;
+    event_count: number;
+  }>;
+  hourly_breakdown?: Array<{
+    hour: number;
+    active_seconds: number;
+    top_app?: string;
+  }>;
+  daily_breakdown?: Array<{
+    date: string;
+    active_seconds: number;
+    afk_seconds: number;
+    top_app?: string;
+  }>;
+  weekly_breakdown?: Array<{
+    week_start: string;
+    week_end: string;
+    active_seconds: number;
+    afk_seconds: number;
+    top_app?: string;
+  }>;
+  insights: string[];
+}
+```
+
+### Examples
+
+**Daily summary (today):**
+```json
+{
+  "period_type": "daily"
+}
+```
+
+**Weekly overview anchored to a date:**
+```json
+{
+  "period_type": "weekly",
+  "date": "2025-01-13"
+}
+```
+
+**Rolling 30 days with daily breakdown:**
+```json
+{
+  "period_type": "last_30_days",
+  "detail_level": "daily"
 }
 ```
 
@@ -248,7 +357,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 
 ### When NOT to Use
 - For general activity overview → use `aw_get_activity` instead
-- For daily summaries → use `aw_get_daily_summary` instead
+- For daily or multi-day summaries → use `aw_get_period_summary` instead
 - For simple queries → `aw_get_activity` is easier to use
 
 ### Parameters
@@ -539,7 +648,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 ### Discovery Workflow
 ```
 1. aw_get_capabilities          → Check available data
-2. aw_get_daily_summary         → Get overview  
+2. aw_get_period_summary        → Get overview  
 3. aw_get_activity             → Detailed analysis
 ```
 
@@ -555,7 +664,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 ```
 1. aw_list_categories           → See current categories
 2. aw_add_category             → Create new categories
-3. aw_get_daily_summary        → See categorized breakdown
+3. aw_get_period_summary       → See categorized breakdown
 ```
 
 ## Error Handling

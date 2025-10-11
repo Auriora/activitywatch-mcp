@@ -50,7 +50,7 @@ RETURNS:
 ```
 WHEN NOT TO USE:
 - For website/browser activity → use aw_get_web_activity instead
-- For comprehensive daily overview → use aw_get_daily_summary instead
+- For comprehensive period overview → use aw_get_period_summary instead
 - For exact event timestamps → use aw_get_raw_events instead
 ```
 
@@ -83,7 +83,7 @@ LIMITATIONS:
 **Examples:**
 - `aw_get_window_activity`: "How long did I use VS Code?"
 - `aw_get_web_activity`: "What websites did I visit most?"
-- `aw_get_daily_summary`: "What did I do yesterday?"
+- `aw_get_period_summary`: "What did I do yesterday?"
 
 ### 5. **Prerequisite and Dependency Information**
 
@@ -106,16 +106,17 @@ LIMITATIONS:
 
 **Solution**: Document return structure with field names and types.
 
-**Example from `aw_get_daily_summary`:**
+**Example from `aw_get_period_summary`:**
 ```
 RETURNS:
-- date: The date being summarized (YYYY-MM-DD)
-- total_active_time_hours: Hours of active computer use
-- total_afk_time_hours: Hours away from keyboard
-- top_applications: Top 5 apps with duration and percentage
-- top_websites: Top 5 websites with duration and percentage
-- hourly_breakdown: Array of {hour, active_seconds, top_app} for each hour
-- insights: Array of auto-generated observations
+- period_type: The requested period (daily, weekly, monthly, etc.)
+- period_start/period_end: Period boundaries (ISO 8601 timestamps)
+- timezone: Timezone applied to calculations
+- total_active_time_hours / total_afk_time_hours: Hours of active vs AFK time
+- top_applications / top_websites: Top 5 items with duration and percentage
+- top_categories: Optional when categories are configured
+- hourly_breakdown / daily_breakdown / weekly_breakdown: Optional detail arrays
+- insights: Auto-generated observations about the period
 ```
 
 ### 7. **Response Format Guidance**
@@ -137,7 +138,7 @@ Default response is human-readable summary. Use response_format='detailed' for s
 
 **Tool Hierarchy:**
 1. **Discovery**: `aw_get_capabilities` (always first)
-2. **High-level**: `aw_get_daily_summary` (comprehensive overview)
+2. **High-level**: `aw_get_period_summary` (comprehensive overview)
 3. **Specific**: `aw_get_window_activity`, `aw_get_web_activity` (focused analysis)
 4. **Low-level**: `aw_get_raw_events` (debugging/advanced)
 
@@ -158,7 +159,7 @@ Default response is human-readable summary. Use response_format='detailed' for s
 
 **Solution**: Document fallback behavior.
 
-**Example from `aw_get_daily_summary`:**
+**Example from `aw_get_period_summary`:**
 ```
 CAPABILITIES:
 - Works even if some data sources are missing (gracefully degrades)
@@ -197,7 +198,7 @@ WHEN TO USE:
 
 WHEN NOT TO USE:
 - For website/browser activity → use aw_get_web_activity instead
-- For comprehensive daily overview → use aw_get_daily_summary instead
+- For comprehensive period overview → use aw_get_period_summary instead
 - For exact event timestamps → use aw_get_raw_events instead
 - If no window tracking data exists (check with aw_get_capabilities first)
 
@@ -268,7 +269,7 @@ Default response is human-readable summary. Use response_format='detailed' for s
 To validate these improvements, test with:
 
 1. **Ambiguous Queries**
-   - "Show me my activity" → Should route to aw_get_daily_summary
+   - "Show me my activity" → Should route to aw_get_period_summary
    - "What did I work on?" → Should route to aw_get_window_activity
 
 2. **Edge Cases**
@@ -277,7 +278,7 @@ To validate these improvements, test with:
 
 3. **Tool Selection**
    - Website questions → Should use aw_get_web_activity, not aw_get_window_activity
-   - Overview questions → Should use aw_get_daily_summary, not multiple specific tools
+   - Overview questions → Should use aw_get_period_summary, not multiple specific tools
 
 4. **Error Recovery**
    - Failed tool call → Should suggest checking capabilities

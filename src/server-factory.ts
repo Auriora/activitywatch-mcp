@@ -17,13 +17,13 @@ import { QueryService } from './services/query.js';
 import { QueryBuilderService } from './services/query-builder.js';
 import { AfkActivityService } from './services/afk-activity.js';
 import { CategoryService } from './services/category.js';
-import { DailySummaryService } from './services/daily-summary.js';
 import { PeriodSummaryService } from './services/period-summary.js';
 import { UnifiedActivityService } from './services/unified-activity.js';
+import { CalendarService } from './services/calendar.js';
 
 import {
   GetCapabilitiesSchema,
-  GetDailySummarySchema,
+  GetCalendarEventsSchema,
   GetPeriodSummarySchema,
   GetRawEventsSchema,
   QueryEventsSchema,
@@ -35,6 +35,8 @@ import {
   formatQueryResultsConcise,
   formatQueryResultsDetailed,
   formatPeriodSummaryConcise,
+  formatCalendarEventsConcise,
+  formatCalendarEventsDetailed,
 } from './utils/formatters.js';
 import { logger } from './utils/logger.js';
 import { performHealthCheck, logStartupDiagnostics } from './utils/health.js';
@@ -53,19 +55,15 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
   const categoryService = new CategoryService(client);
   const queryService = new QueryService(client, capabilitiesService);
   const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
+  const calendarService = new CalendarService(client, capabilitiesService);
   const afkService = new AfkActivityService(client, capabilitiesService);
   const unifiedService = new UnifiedActivityService(queryService, categoryService);
-  const dailySummaryService = new DailySummaryService(
-    unifiedService,
-    queryService,
-    afkService,
-    categoryService
-  );
   const periodSummaryService = new PeriodSummaryService(
     unifiedService,
     queryService,
     afkService,
-    categoryService
+    categoryService,
+    calendarService
   );
 
   // Load categories from ActivityWatch server
@@ -199,15 +197,45 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
           };
         }
 
-        case 'aw_get_daily_summary': {
-          const params = GetDailySummarySchema.parse(args);
-          const result = await dailySummaryService.getDailySummary(params);
+        case 'aw_get_calendar_events': {
+          const params = GetCalendarEventsSchema.parse(args);
+          const result = await calendarService.getEvents({
+            time_period: params.time_period,
+            custom_start: params.custom_start,
+            custom_end: params.custom_end,
+            include_all_day: params.include_all_day,
+            include_cancelled: params.include_cancelled,
+            summary_query: params.summary_query,
+            limit: params.limit,
+          });
+
+          if (params.response_format === 'raw') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+            };
+          }
+
+          if (params.response_format === 'detailed') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: formatCalendarEventsDetailed(result),
+                },
+              ],
+            };
+          }
 
           return {
             content: [
               {
                 type: 'text',
-                text: dailySummaryService.formatConcise(result),
+                text: formatCalendarEventsConcise(result),
               },
             ],
           };
@@ -586,4 +614,3 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
 
   return server;
 }
-

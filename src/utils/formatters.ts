@@ -2,85 +2,9 @@
  * Common formatting utilities for response output
  */
 
-import { DailySummary, PeriodSummary, AWEvent } from '../types.js';
-import { secondsToHours } from './time.js';
-
-/**
- * Format daily summary for concise output
- */
-export function formatDailySummaryConcise(summary: DailySummary): string {
-  const lines: string[] = [];
-
-  lines.push(`Daily Summary for ${summary.date} (${summary.timezone})`);
-  lines.push('='.repeat(50));
-  lines.push('');
-  lines.push(`Active Time: ${summary.total_active_time_hours}h`);
-  lines.push(`AFK Time: ${summary.total_afk_time_hours}h`);
-  lines.push('');
-
-  if (summary.top_applications.length > 0) {
-    lines.push('Top Applications:');
-    for (const app of summary.top_applications) {
-      lines.push(`  ${app.name}: ${app.duration_hours}h (${app.percentage}%)`);
-    }
-    lines.push('');
-  }
-
-  if (summary.top_websites.length > 0) {
-    lines.push('Top Websites:');
-    for (const site of summary.top_websites) {
-      lines.push(`  ${site.domain}: ${site.duration_hours}h (${site.percentage}%)`);
-    }
-    lines.push('');
-  }
-
-  if (summary.top_categories && summary.top_categories.length > 0) {
-    lines.push('Top Categories:');
-    for (const category of summary.top_categories) {
-      lines.push(`  ${category.category_name}: ${category.duration_hours}h (${category.percentage}%)`);
-    }
-    lines.push('');
-  }
-
-  if (summary.hourly_breakdown && summary.hourly_breakdown.length > 0) {
-    lines.push(`Hourly Breakdown (${summary.timezone}):`);
-    lines.push('');
-
-    // Create a visual timeline
-    const maxActiveSeconds = Math.max(...summary.hourly_breakdown.map(h => h.active_seconds));
-    const barWidth = 40; // characters for the bar
-
-    for (const hourData of summary.hourly_breakdown) {
-      const hour = hourData.hour.toString().padStart(2, '0');
-      const activeHours = secondsToHours(hourData.active_seconds);
-
-      // Create a visual bar
-      const barLength = maxActiveSeconds > 0
-        ? Math.round((hourData.active_seconds / maxActiveSeconds) * barWidth)
-        : 0;
-      const bar = '█'.repeat(barLength);
-
-      // Format the line
-      let line = `  ${hour}:00 │${bar.padEnd(barWidth, ' ')}│ ${activeHours}h`;
-
-      if (hourData.top_app) {
-        line += ` (${hourData.top_app})`;
-      }
-
-      lines.push(line);
-    }
-    lines.push('');
-  }
-
-  if (summary.insights.length > 0) {
-    lines.push('Insights:');
-    for (const insight of summary.insights) {
-      lines.push(`  • ${insight}`);
-    }
-  }
-
-  return lines.join('\n');
-}
+import { PeriodSummary, AWEvent, CalendarEvent } from '../types.js';
+import { secondsToHours, formatDuration } from './time.js';
+import type { CalendarEventsResult } from '../services/calendar.js';
 
 /**
  * Format raw events for concise output
@@ -195,6 +119,112 @@ export function formatQueryResultsDetailed(data: {
 }
 
 /**
+ * Format calendar events for concise output
+ */
+export function formatCalendarEventsConcise(result: CalendarEventsResult): string {
+  const lines: string[] = [];
+  const eventCount = result.events.length;
+
+  lines.push('Calendar Events');
+  lines.push('===============');
+  lines.push('');
+  lines.push(`Events Found: ${eventCount}`);
+  lines.push(`Time Range: ${new Date(result.time_range.start).toISOString()} → ${new Date(result.time_range.end).toISOString()}`);
+  lines.push(`Buckets Queried: ${result.buckets.join(', ')}`);
+  lines.push('');
+
+  if (eventCount === 0) {
+    lines.push('No calendar events scheduled in this window.');
+    return lines.join('\n');
+  }
+
+  const preview = result.events.slice(0, Math.min(10, eventCount));
+  for (const event of preview) {
+    lines.push(formatCalendarLine(event));
+  }
+
+  if (eventCount > preview.length) {
+    lines.push('');
+    lines.push(`... and ${eventCount - preview.length} more events`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Format calendar events for detailed output
+ */
+export function formatCalendarEventsDetailed(result: CalendarEventsResult): string {
+  const lines: string[] = [];
+
+  lines.push('Calendar Events (Detailed)');
+  lines.push('==========================');
+  lines.push('');
+  lines.push(`Events Found: ${result.events.length}`);
+  lines.push(`Time Range: ${new Date(result.time_range.start).toISOString()} → ${new Date(result.time_range.end).toISOString()}`);
+  lines.push(`Buckets Queried: ${result.buckets.join(', ')}`);
+  lines.push('');
+
+  if (result.events.length === 0) {
+    lines.push('No calendar events scheduled in this window.');
+    return lines.join('\n');
+  }
+
+  result.events.forEach((event, index) => {
+    lines.push(`Event ${index + 1}: ${event.summary}`);
+    lines.push(`  When: ${new Date(event.start).toLocaleString()} → ${new Date(event.end).toLocaleString()}`);
+    lines.push(`  Duration: ${formatDuration(event.duration_seconds)}`);
+    if (event.all_day) {
+      lines.push('  All Day: yes');
+    }
+    if (event.status) {
+      lines.push(`  Status: ${event.status}`);
+    }
+    if (event.location) {
+      lines.push(`  Location: ${event.location}`);
+    }
+    if (event.calendar) {
+      lines.push(`  Calendar: ${event.calendar}`);
+    }
+    if (event.attendees && event.attendees.length > 0) {
+      lines.push('  Attendees:');
+      event.attendees.forEach(attendee => {
+        const details = [
+          attendee.name,
+          attendee.email ? `<${attendee.email}>` : undefined,
+          attendee.response_status ? `(${attendee.response_status})` : undefined,
+          attendee.organizer ? '[organizer]' : undefined,
+        ]
+          .filter(Boolean)
+          .join(' ');
+        lines.push(`    - ${details}`);
+      });
+    }
+    lines.push(`  Source Bucket: ${event.source_bucket}`);
+    if (event.metadata) {
+      lines.push('  Raw Data:');
+      Object.entries(event.metadata).forEach(([key, value]) => {
+        lines.push(`    ${key}: ${JSON.stringify(value)}`);
+      });
+    }
+    lines.push('');
+  });
+
+  return lines.join('\n');
+}
+
+function formatCalendarLine(event: CalendarEvent): string {
+  const start = new Date(event.start).toLocaleString();
+  const end = new Date(event.end).toLocaleString();
+  const status = event.status ? ` [${event.status}]` : '';
+  const location = event.location ? ` @ ${event.location}` : '';
+  const allDay = event.all_day ? ' (all day)' : '';
+  const duration = !event.all_day ? ` — ${formatDuration(event.duration_seconds)}` : '';
+
+  return `• ${event.summary}${status}${location}${allDay}\n  ${start} → ${end}${duration}`;
+}
+
+/**
  * Format period summary for concise output
  */
 export function formatPeriodSummaryConcise(summary: PeriodSummary): string {
@@ -236,6 +266,19 @@ export function formatPeriodSummaryConcise(summary: PeriodSummary): string {
     lines.push('Top Categories:');
     for (const category of summary.top_categories) {
       lines.push(`  ${category.category_name}: ${category.duration_hours}h (${category.percentage}%)`);
+    }
+    lines.push('');
+  }
+
+  // Notable calendar events (calendar OR with activity)
+  if (summary.notable_calendar_events && summary.notable_calendar_events.length > 0) {
+    lines.push('Notable Calendar Events (Calendar overrides AFK):');
+    for (const event of summary.notable_calendar_events) {
+      const status = event.status ? ` [${event.status}]` : '';
+      const location = event.location ? ` @ ${event.location}` : '';
+      const allDay = event.all_day ? ' (all day)' : '';
+      lines.push(`  ${event.summary}${status}${location}${allDay}`);
+      lines.push(`    ${new Date(event.start).toLocaleString()} → ${new Date(event.end).toLocaleString()}`);
     }
     lines.push('');
   }
@@ -328,4 +371,3 @@ function getPeriodLabel(periodType: string): string {
       return 'Period Summary';
   }
 }
-

@@ -26,18 +26,6 @@ export const ResponseFormatSchema = z.enum(['concise', 'detailed', 'raw']);
 
 export const GetCapabilitiesSchema = z.object({});
 
-export const GetDailySummarySchema = z.object({
-  date: z.string().optional().describe(
-    'Date to summarize (YYYY-MM-DD format). Defaults to today.'
-  ),
-  include_hourly_breakdown: z.boolean().default(true).describe(
-    'Include hour-by-hour activity breakdown'
-  ),
-  timezone: z.string().optional().describe(
-    'Timezone for date boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone.'
-  ),
-});
-
 export const GetPeriodSummarySchema = z.object({
   period_type: z.enum([
     'daily',
@@ -57,6 +45,33 @@ export const GetPeriodSummarySchema = z.object({
   ),
   timezone: z.string().optional().describe(
     'Timezone for period boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone.'
+  ),
+});
+
+export const GetCalendarEventsSchema = z.object({
+  time_period: TimePeriodSchema.default('today').describe(
+    'Time window to inspect. Defaults to "today". Use "custom" with custom_start/custom_end for specific ranges.'
+  ),
+  custom_start: z.string().optional().describe(
+    'Custom range start (ISO 8601 or YYYY-MM-DD). Required when time_period="custom".'
+  ),
+  custom_end: z.string().optional().describe(
+    'Custom range end (ISO 8601 or YYYY-MM-DD). Required when time_period="custom".'
+  ),
+  include_all_day: z.boolean().default(true).describe(
+    'Include all-day events (true by default). Set false to focus on timed meetings.'
+  ),
+  include_cancelled: z.boolean().default(false).describe(
+    'Include cancelled events. Defaults to false so cancelled meetings are hidden.'
+  ),
+  summary_query: z.string().optional().describe(
+    'Case-insensitive substring filter applied to summary, location, description, or calendar name.'
+  ),
+  limit: z.number().min(1).max(200).default(50).describe(
+    'Maximum number of events to return across all calendar buckets.'
+  ),
+  response_format: ResponseFormatSchema.default('concise').describe(
+    'Output verbosity. "concise" → human summary, "detailed" → expanded text, "raw" → JSON payload.'
   ),
 });
 
@@ -136,8 +151,7 @@ export const QueryEventsSchema = z.object({
  */
 
 export type GetCapabilitiesParams = z.infer<typeof GetCapabilitiesSchema>;
-export type GetDailySummaryParams = z.infer<typeof GetDailySummarySchema>;
 export type GetPeriodSummaryParams = z.infer<typeof GetPeriodSummarySchema>;
+export type GetCalendarEventsParams = z.infer<typeof GetCalendarEventsSchema>;
 export type GetRawEventsParams = z.infer<typeof GetRawEventsSchema>;
 export type QueryEventsParams = z.infer<typeof QueryEventsSchema>;
-

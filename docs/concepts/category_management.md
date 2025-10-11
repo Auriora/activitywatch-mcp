@@ -317,14 +317,14 @@ Provide LLMs with common templates (development, content creation, etc.).
 
 ## Integration with Other Tools
 
-### Daily Summary
+### Period Summaries
 
-Categories automatically appear in daily summaries when configured:
+Categories automatically appear in period summaries when configured:
 
 ```json
 {
-  "name": "aw_get_daily_summary",
-  "arguments": { "date": "2025-10-10" }
+  "name": "aw_get_period_summary",
+  "arguments": { "period_type": "daily", "date": "2025-10-10" }
 }
 ```
 

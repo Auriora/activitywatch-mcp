@@ -9,7 +9,7 @@ A Model Context Protocol (MCP) server that enables LLM agents to query and analy
 - **Pre-Aggregated Data**: Returns human-readable summaries by default
 - **Built-in Filtering**: Removes noise (system apps, localhost, short events)
 - **Multi-Device Support**: Aggregates data across multiple devices
-- **Comprehensive Analysis**: Window activity, web browsing, and daily summaries
+- **Comprehensive Analysis**: Window activity, web browsing, and period summaries
 - **Category Management**: LLM-assisted category creation, updates, and organization
 - **ActivityWatch Integration**: Full read/write access to ActivityWatch categories
 - **Health Checks**: Automatic startup diagnostics and capability detection
@@ -148,7 +148,7 @@ You can customize the server behavior with environment variables:
 
 ## Available Tools
 
-The server provides 11 MCP tools for comprehensive activity analysis:
+The server provides 13 MCP tools for comprehensive activity analysis:
 
 ### 1. `aw_get_capabilities`
 
@@ -189,7 +189,39 @@ LLM calls: aw_get_activity({ time_period: "today", group_by: "category", respons
 
 ---
 
-### 3. `aw_get_window_activity`
+### 3. `aw_get_calendar_events`
+
+Surface calendar events imported by ActivityWatch (`aw-import-ical_*` buckets). Calendar events always take precedence over AFK detection, so scheduled meetings are returned even when ActivityWatch marked you as away. Results can be shown as a concise list, detailed report, or raw JSON.
+
+**Parameters:**
+- `time_period`: "today" (default) | "yesterday" | "this_week" | "last_week" | "last_7_days" | "last_30_days" | "custom"
+- `custom_start` / `custom_end`: ISO 8601 or YYYY-MM-DD (required when `time_period="custom"`)
+- `include_all_day`: Include all-day blocks (default: true)
+- `include_cancelled`: Include events whose status is cancelled (default: false)
+- `summary_query`: Case-insensitive filter applied to summary, location, description, or calendar name
+- `limit`: Maximum number of events across all calendar buckets (default: 50, max: 200)
+- `response_format`: "concise" | "detailed" | "raw"
+
+**Example:**
+```
+User: "What meetings do I have tomorrow?"
+LLM calls: aw_get_calendar_events({
+  time_period: "custom",
+  custom_start: "2025-02-10T00:00:00Z",
+  custom_end: "2025-02-11T00:00:00Z"
+})
+
+User: "List detailed meetings for this week without all-day entries"
+LLM calls: aw_get_calendar_events({
+  time_period: "this_week",
+  include_all_day: false,
+  response_format: "detailed"
+})
+```
+
+---
+
+### 4. `aw_get_window_activity`
 
 Get application/window activity for a time period.
 
@@ -212,7 +244,7 @@ LLM calls: aw_get_window_activity({ time_period: "this_week" })
 
 ---
 
-### 4. `aw_get_web_activity`
+### 5. `aw_get_web_activity`
 
 Get browser/website activity for a time period.
 
@@ -235,7 +267,7 @@ LLM calls: aw_get_web_activity({ time_period: "yesterday", top_n: 5 })
 
 ---
 
-### 5. `aw_get_editor_activity`
+### 6. `aw_get_editor_activity`
 
 Analyze IDE/editor activity over a time period.
 
@@ -248,29 +280,6 @@ Analyze IDE/editor activity over a time period.
 ```
 User: "What did I code today?"
 LLM calls: aw_get_editor_activity({ time_period: "today", group_by: "project" })
-```
-
----
-
-### 6. `aw_get_daily_summary`
-
-Get a comprehensive summary of activity for a specific day.
-
-**Parameters:**
-- `date`: YYYY-MM-DD format (default: today)
-- `include_hourly_breakdown`: boolean (default: true)
-
-**Returns:**
-- Total active time and AFK time
-- Top 5 applications with time and percentages
-- Top 5 websites with time and percentages
-- Hourly activity breakdown
-- Auto-generated insights
-
-**Example:**
-```
-User: "Summarize my activity for yesterday"
-LLM calls: aw_get_daily_summary({ date: "2025-01-13" })
 ```
 
 ---
@@ -348,7 +357,7 @@ LLM calls: aw_query_events({
 
 ---
 
-### 8. `aw_get_raw_events`
+### 9. `aw_get_raw_events`
 
 Retrieve raw events from a specific bucket.
 
@@ -376,7 +385,7 @@ LLM calls: aw_get_raw_events({
 
 ---
 
-### 9. `aw_list_categories`
+### 10. `aw_list_categories`
 
 List all configured categories in ActivityWatch.
 
@@ -392,7 +401,7 @@ LLM calls: aw_list_categories()
 
 ---
 
-### 10. `aw_add_category`
+### 11. `aw_add_category`
 
 Create a new category for activity classification.
 
@@ -411,7 +420,7 @@ LLM calls: aw_add_category({
 
 ---
 
-### 11. `aw_update_category`
+### 12. `aw_update_category`
 
 Update an existing category's name or regex pattern.
 
@@ -431,7 +440,7 @@ LLM calls: aw_update_category({
 
 ---
 
-### 12. `aw_delete_category`
+### 13. `aw_delete_category`
 
 Delete a category from ActivityWatch.
 

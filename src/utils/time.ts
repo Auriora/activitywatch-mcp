@@ -254,7 +254,7 @@ export function getTimeRange(
 /**
  * Parse a date string (supports YYYY-MM-DD and ISO 8601)
  */
-function parseDate(dateStr: string): Date {
+export function parseDate(dateStr: string): Date {
   // Try ISO 8601 first
   const isoDate = new Date(dateStr);
   if (!isNaN(isoDate.getTime())) {
@@ -450,4 +450,3 @@ export function getWeeksBetween(start: Date, end: Date): Array<{ start: Date; en
 
   return weeks;
 }
-
