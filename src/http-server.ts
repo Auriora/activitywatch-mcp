@@ -17,12 +17,15 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 
 import { createMCPServer } from './server-factory.js';
 import { logger } from './utils/logger.js';
+import { logStartupDiagnostics } from './utils/health.js';
 
 /**
  * Configuration
  */
 const MCP_PORT = process.env.MCP_PORT ? parseInt(process.env.MCP_PORT, 10) : 3000;
-const AW_URL = process.env.AW_URL || 'http://localhost:5600';
+let currentAwUrl = process.env.AW_URL || 'http://localhost:5600';
+
+logStartupDiagnostics(currentAwUrl);
 
 /**
  * Create Express app
@@ -36,15 +39,99 @@ app.use(cors({
   exposedHeaders: ['Mcp-Session-Id']
 }));
 
-/**
- * Map to store transports and servers by session ID
- */
+let sharedServerPromise: Promise<Server> | null = null;
+
 interface SessionData {
   transport: StreamableHTTPServerTransport | SSEServerTransport;
   server: Server;
 }
 
 const sessions = new Map<string, SessionData>();
+
+async function getSharedServer(): Promise<Server> {
+  if (!sharedServerPromise) {
+    sharedServerPromise = createMCPServer(currentAwUrl).catch(error => {
+      sharedServerPromise = null;
+      throw error;
+    });
+  }
+  return sharedServerPromise;
+}
+
+async function resetSharedServer(): Promise<void> {
+  if (!sharedServerPromise) {
+    return;
+  }
+
+  try {
+    const server = await sharedServerPromise;
+    const closable = server as unknown as { close?: () => Promise<void> | void; dispose?: () => Promise<void> | void };
+    if (typeof closable.close === 'function') {
+      await closable.close();
+    } else if (typeof closable.dispose === 'function') {
+      await closable.dispose();
+    }
+  } catch (error) {
+    logger.warn('Unable to close existing MCP server during reset', error);
+  } finally {
+    sharedServerPromise = null;
+  }
+}
+
+async function closeAllSessions(reason: string): Promise<void> {
+  const closures: Promise<unknown>[] = [];
+
+  for (const [sessionId, sessionData] of sessions.entries()) {
+    sessions.delete(sessionId);
+    logger.info(`Closing session ${sessionId}`, { reason });
+    const transportAny = sessionData.transport as unknown as { close?: () => Promise<void> | void };
+    if (typeof transportAny.close === 'function') {
+      closures.push(
+        Promise.resolve()
+          .then(() => transportAny.close!.call(sessionData.transport))
+          .catch(error => logger.warn(`Failed to close transport for session ${sessionId}`, error))
+      );
+    }
+  }
+
+  if (closures.length > 0) {
+    await Promise.allSettled(closures);
+  }
+}
+
+const resourceLogIntervalMs = Number.parseInt(process.env.MCP_RESOURCE_LOG_INTERVAL ?? '60000', 10);
+if (!Number.isNaN(resourceLogIntervalMs) && resourceLogIntervalMs > 0) {
+  const snapshot = (): void => {
+    const mem = process.memoryUsage();
+    const usage = typeof process.resourceUsage === 'function' ? process.resourceUsage() : undefined;
+    const handles = typeof (process as unknown as { _getActiveHandles?: () => unknown[] })._getActiveHandles === 'function'
+      ? (process as unknown as { _getActiveHandles?: () => unknown[] })._getActiveHandles!().length
+      : undefined;
+
+    const toMB = (value: number): number => Math.round((value / 1024 / 1024) * 100) / 100;
+
+    logger.debug('Resource usage snapshot', {
+      sessions: sessions.size,
+      memory: {
+        rssMB: toMB(mem.rss),
+        heapUsedMB: toMB(mem.heapUsed),
+        heapTotalMB: toMB(mem.heapTotal),
+        externalMB: toMB(mem.external),
+        arrayBuffersMB: toMB(mem.arrayBuffers),
+      },
+      cpu: usage
+        ? {
+            userSec: Math.round((usage.userCPUTime / 1_000_000) * 100) / 100,
+            systemSec: Math.round((usage.systemCPUTime / 1_000_000) * 100) / 100,
+            maxRSSMB: usage.maxRSS / 1024,
+          }
+        : undefined,
+      activeHandles: handles,
+    });
+  };
+
+  setInterval(snapshot, resourceLogIntervalMs).unref();
+}
 
 /**
  * Health check endpoint
@@ -53,7 +140,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     activeSessions: sessions.size,
-    awUrl: AW_URL,
+    awUrl: currentAwUrl,
     timestamp: new Date().toISOString()
   });
 });
@@ -82,7 +169,7 @@ app.post('/mcp', async (req, res) => {
       logger.info('Creating new MCP session');
 
       // Create a new server instance for this session
-      const server = await createMCPServer(AW_URL);
+      const server = await getSharedServer();
 
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
@@ -211,7 +298,7 @@ app.get('/mcp', async (req, res) => {
       logger.info(`Pure SSE session created with ID: ${newSessionId}`);
 
       // Create a new server instance for this session
-      const server = await createMCPServer(AW_URL);
+      const server = await getSharedServer();
 
       // Store the session
       const sessionData = { transport, server };
@@ -284,6 +371,33 @@ app.post('/messages', async (req, res) => {
   }
 });
 
+app.post('/admin/reload-server', async (req, res) => {
+  const requestedUrl = typeof req.body?.awUrl === 'string' ? req.body.awUrl : undefined;
+
+  try {
+    if (requestedUrl && requestedUrl !== currentAwUrl) {
+      currentAwUrl = requestedUrl;
+      logStartupDiagnostics(currentAwUrl);
+    }
+
+    await closeAllSessions('admin reload');
+    await resetSharedServer();
+    await getSharedServer();
+
+    res.json({
+      status: 'reloaded',
+      awUrl: currentAwUrl,
+      activeSessions: sessions.size,
+    });
+  } catch (error) {
+    logger.error('Failed to reload MCP server', error);
+    res.status(500).json({
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 /**
  * MCP DELETE endpoint - handles session termination
  */
@@ -339,7 +453,7 @@ const server = app.listen(MCP_PORT, () => {
   logger.info(`ActivityWatch MCP HTTP Server listening on port ${MCP_PORT}`);
   logger.info(`Health check available at http://localhost:${MCP_PORT}/health`);
   logger.info(`MCP endpoint at http://localhost:${MCP_PORT}/mcp`);
-  logger.info(`ActivityWatch URL: ${AW_URL}`);
+  logger.info(`ActivityWatch URL: ${currentAwUrl}`);
 });
 
 // Handle server errors
@@ -359,15 +473,8 @@ process.on('SIGINT', async () => {
   logger.info('Shutting down server...');
 
   // Close all active sessions
-  for (const [sessionId, sessionData] of sessions.entries()) {
-    try {
-      logger.info(`Closing session ${sessionId}`);
-      await sessionData.transport.close();
-      sessions.delete(sessionId);
-    } catch (error) {
-      logger.error(`Error closing session ${sessionId}`, error);
-    }
-  }
+  await closeAllSessions('shutdown');
+  await resetSharedServer();
 
   // Close the HTTP server
   server.close(() => {
@@ -386,4 +493,3 @@ process.on('SIGTERM', async () => {
   logger.info('Received SIGTERM, shutting down gracefully...');
   process.emit('SIGINT' as any);
 });
-

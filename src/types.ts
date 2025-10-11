@@ -27,15 +27,6 @@ export interface AWServerInfo {
   readonly device_id: string;
 }
 
-export interface AWQuery {
-  readonly query: readonly string[];
-  readonly timeperiods: readonly string[];
-}
-
-/**
- * Internal processed types
- */
-
 export interface BucketInfo {
   readonly id: string;
   readonly type: string;
@@ -92,29 +83,6 @@ export interface WebUsage {
   readonly audible?: boolean;   // Whether any visits had audio
   readonly incognito?: boolean; // Whether any visits were incognito
   readonly tab_count_avg?: number; // Average number of tabs open
-}
-
-export interface EditorUsage {
-  readonly name: string; // project, file, language, or editor name depending on group_by
-  readonly duration_seconds: number;
-  readonly duration_hours: number;
-  readonly percentage: number;
-  readonly projects?: readonly string[]; // When grouped by language/editor
-  readonly files?: readonly string[]; // When grouped by project
-  readonly languages?: readonly string[]; // When grouped by project
-  readonly git_info?: {
-    readonly branch?: string;
-    readonly commit?: string;
-    readonly repository?: string;
-  };
-  readonly category?: string;
-  readonly event_count?: number;
-  readonly first_seen?: string; // ISO 8601 timestamp
-  readonly last_seen?: string;  // ISO 8601 timestamp
-  readonly editor_version?: string; // IDE version
-  readonly state_breakdown?: {
-    readonly [state: string]: number; // seconds per state (CODING, DEBUGGING, etc.)
-  };
 }
 
 export interface CategoryUsage {
@@ -255,8 +223,6 @@ export type TimePeriod =
 
 export type ResponseFormat = 'concise' | 'detailed' | 'raw';
 
-export type GroupBy = 'application' | 'title' | 'both' | 'domain' | 'url';
-
 /**
  * Tool parameter types
  */
@@ -272,14 +238,6 @@ export interface PeriodSummaryParams {
   date?: string; // For daily/weekly/monthly - the date within the period
   detail_level?: DetailLevel;
   timezone?: string;
-}
-
-export interface RawEventsParams {
-  bucket_id: string;
-  start_time: string;
-  end_time: string;
-  limit?: number;
-  response_format?: ResponseFormat;
 }
 
 /**

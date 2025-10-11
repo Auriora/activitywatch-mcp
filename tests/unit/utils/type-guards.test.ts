@@ -57,9 +57,9 @@ describe('Type Guards', () => {
 
   describe('isObject', () => {
     it('should return true for plain objects', () => {
-      expect(isObject({})).toBe(true);
+      expect(isObject(Object.create(null))).toBe(true);
       expect(isObject({ key: 'value' })).toBe(true);
-      expect(isObject(new Object())).toBe(true);
+      expect(isObject({})).toBe(true);
     });
 
     it('should return false for null', () => {
@@ -81,9 +81,9 @@ describe('Type Guards', () => {
 
   describe('isArray', () => {
     it('should return true for arrays', () => {
-      expect(isArray([])).toBe(true);
+      expect(isArray(Array(0))).toBe(true);
       expect(isArray([1, 2, 3])).toBe(true);
-      expect(isArray(new Array())).toBe(true);
+      expect(isArray([])).toBe(true);
     });
 
     it('should return false for non-arrays', () => {
@@ -322,4 +322,3 @@ describe('Type Guards', () => {
     });
   });
 });
-

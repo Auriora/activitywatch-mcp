@@ -5,6 +5,11 @@
   "description": "User-specific preferences for the ActivityWatch MCP server",
   "type": "object",
   "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to the JSON schema that describes this file",
+      "format": "uri-reference"
+    },
     "timezone": {
       "type": "string",
       "description": "Timezone for date boundaries and display. Supports IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5).",
@@ -55,4 +60,3 @@
   },
   "additionalProperties": false
 }
-

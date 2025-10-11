@@ -147,7 +147,7 @@ export class UnifiedActivityService {
     }
 
     // Always apply categorization
-    const categorizedEvents = await this.applyCategoriestoEvents(eventsToGroup);
+    const categorizedEvents = this.applyCategoriestoEvents(eventsToGroup);
 
     // Group and aggregate (handle both single and multi-level grouping)
     const groupBy = params.group_by ?? 'application';
@@ -296,7 +296,7 @@ export class UnifiedActivityService {
     if (!url) return undefined;
 
     // Extract domain from URL
-    let domain = '';
+    let domain: string;
     try {
       const urlObj = new URL(url);
       domain = urlObj.hostname;
@@ -892,8 +892,8 @@ export class UnifiedActivityService {
   /**
    * Apply category classification to enriched events
    */
-  private async applyCategoriestoEvents(events: EnrichedEvent[]): Promise<EnrichedEvent[]> {
-    const categories = await this.categoryService.getCategories();
+  private applyCategoriestoEvents(events: EnrichedEvent[]): EnrichedEvent[] {
+    const categories = this.categoryService.getCategories();
 
     logger.debug(`Applying categories to ${events.length} events using ${categories.length} category rules`);
 

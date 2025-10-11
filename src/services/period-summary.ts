@@ -115,7 +115,7 @@ export class PeriodSummaryService {
     let totalActiveTime = calendarSummary?.union_seconds ?? unifiedActivity.total_time_seconds;
 
     // Get AFK stats
-    let afkTime = 0;
+    let afkTime: number;
 
     try {
       const afkStats = await this.afkService.getAfkStats(start, end);

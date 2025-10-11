@@ -27,7 +27,7 @@ describe('UnifiedActivityService calendar overlay', () => {
   } as any;
 
   const categoryService = {
-    getCategories: vi.fn().mockResolvedValue([]),
+    getCategories: vi.fn().mockReturnValue([]),
   } as any;
 
   const calendarService = {
@@ -41,7 +41,7 @@ describe('UnifiedActivityService calendar overlay', () => {
     categoryService.getCategories.mockReset();
     calendarService.getEvents.mockReset();
 
-    categoryService.getCategories.mockResolvedValue([]);
+    categoryService.getCategories.mockReturnValue([]);
 
     service = new UnifiedActivityService(
       queryService,
