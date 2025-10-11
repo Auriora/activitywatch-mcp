@@ -21,11 +21,13 @@ import { QueryBuilderService } from './services/query-builder.js';
 import { AfkActivityService } from './services/afk-activity.js';
 import { CategoryService } from './services/category.js';
 import { DailySummaryService } from './services/daily-summary.js';
+import { PeriodSummaryService } from './services/period-summary.js';
 import { UnifiedActivityService } from './services/unified-activity.js';
 
 import {
   GetCapabilitiesSchema,
   GetDailySummarySchema,
+  GetPeriodSummarySchema,
   GetRawEventsSchema,
   QueryEventsSchema,
 } from './tools/schemas.js';
@@ -35,6 +37,7 @@ import {
   formatRawEventsConcise,
   formatQueryResultsConcise,
   formatQueryResultsDetailed,
+  formatPeriodSummaryConcise,
 } from './utils/formatters.js';
 import { logger } from './utils/logger.js';
 import { performHealthCheck, logStartupDiagnostics } from './utils/health.js';
@@ -59,6 +62,13 @@ const afkService = new AfkActivityService(client, capabilitiesService);
 const unifiedService = new UnifiedActivityService(queryService, categoryService);
 
 const dailySummaryService = new DailySummaryService(
+  unifiedService,
+  queryService,
+  afkService,
+  categoryService
+);
+
+const periodSummaryService = new PeriodSummaryService(
   unifiedService,
   queryService,
   afkService,
@@ -861,6 +871,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: dailySummaryService.formatConcise(result),
+            },
+          ],
+        };
+      }
+
+      case 'aw_get_period_summary': {
+        const params = GetPeriodSummarySchema.parse(args);
+        const result = await periodSummaryService.getPeriodSummary(params);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: formatPeriodSummaryConcise(result),
             },
           ],
         };

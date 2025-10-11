@@ -339,3 +339,115 @@ export function createTimePeriods(start: Date, end: Date): string[] {
   return [`${formatDateForAPI(start)}/${formatDateForAPI(end)}`];
 }
 
+/**
+ * Get start of week (Monday) for a given date
+ */
+export function getStartOfWeek(date: Date): Date {
+  const result = new Date(date);
+  const day = result.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // Monday as start of week
+  result.setDate(result.getDate() + diff);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+/**
+ * Get end of week (Sunday) for a given date
+ */
+export function getEndOfWeek(date: Date): Date {
+  const result = getStartOfWeek(date);
+  result.setDate(result.getDate() + 6);
+  result.setHours(23, 59, 59, 999);
+  return result;
+}
+
+/**
+ * Get start of month for a given date
+ */
+export function getStartOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+}
+
+/**
+ * Get end of month for a given date
+ */
+export function getEndOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+/**
+ * Get start of week in a specific timezone
+ */
+export function getStartOfWeekInTimezone(date: Date, timezoneOffsetMinutes: number): Date {
+  const localDate = convertToTimezone(date, timezoneOffsetMinutes);
+  const startOfWeek = getStartOfWeek(localDate);
+  return convertFromTimezone(startOfWeek, timezoneOffsetMinutes);
+}
+
+/**
+ * Get end of week in a specific timezone
+ */
+export function getEndOfWeekInTimezone(date: Date, timezoneOffsetMinutes: number): Date {
+  const localDate = convertToTimezone(date, timezoneOffsetMinutes);
+  const endOfWeek = getEndOfWeek(localDate);
+  return convertFromTimezone(endOfWeek, timezoneOffsetMinutes);
+}
+
+/**
+ * Get start of month in a specific timezone
+ */
+export function getStartOfMonthInTimezone(date: Date, timezoneOffsetMinutes: number): Date {
+  const localDate = convertToTimezone(date, timezoneOffsetMinutes);
+  const startOfMonth = getStartOfMonth(localDate);
+  return convertFromTimezone(startOfMonth, timezoneOffsetMinutes);
+}
+
+/**
+ * Get end of month in a specific timezone
+ */
+export function getEndOfMonthInTimezone(date: Date, timezoneOffsetMinutes: number): Date {
+  const localDate = convertToTimezone(date, timezoneOffsetMinutes);
+  const endOfMonth = getEndOfMonth(localDate);
+  return convertFromTimezone(endOfMonth, timezoneOffsetMinutes);
+}
+
+/**
+ * Generate array of dates between start and end (inclusive)
+ */
+export function getDaysBetween(start: Date, end: Date): Date[] {
+  const days: Date[] = [];
+  const current = new Date(start);
+  current.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(end);
+  endDate.setHours(0, 0, 0, 0);
+
+  while (current <= endDate) {
+    days.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return days;
+}
+
+/**
+ * Generate array of week ranges between start and end
+ */
+export function getWeeksBetween(start: Date, end: Date): Array<{ start: Date; end: Date }> {
+  const weeks: Array<{ start: Date; end: Date }> = [];
+  let current = getStartOfWeek(start);
+
+  while (current <= end) {
+    const weekEnd = getEndOfWeek(current);
+    weeks.push({
+      start: new Date(current),
+      end: weekEnd > end ? new Date(end) : new Date(weekEnd),
+    });
+    current = new Date(weekEnd);
+    current.setDate(current.getDate() + 1);
+    current.setHours(0, 0, 0, 0);
+  }
+
+  return weeks;
+}
+

@@ -8,6 +8,12 @@ import {
   getStartOfDay,
   getEndOfDay,
   createTimePeriods,
+  getStartOfWeek,
+  getEndOfWeek,
+  getStartOfMonth,
+  getEndOfMonth,
+  getDaysBetween,
+  getWeeksBetween,
 } from '../../../src/utils/time.js';
 import { AWError } from '../../../src/types.js';
 
@@ -286,11 +292,107 @@ describe('Time Utilities', () => {
     it('should handle same day', () => {
       const start = new Date('2025-01-15T00:00:00Z');
       const end = new Date('2025-01-15T23:59:59Z');
-      
+
       const periods = createTimePeriods(start, end);
-      
+
       expect(periods).toHaveLength(1);
       expect(periods[0]).toContain('2025-01-15');
+    });
+  });
+
+  describe('getStartOfWeek', () => {
+    it('should return Monday for a Wednesday', () => {
+      const date = new Date('2025-01-15T14:30:00Z'); // Wednesday
+      const startOfWeek = getStartOfWeek(date);
+
+      expect(startOfWeek.toISOString()).toBe('2025-01-13T00:00:00.000Z'); // Monday
+    });
+
+    it('should return Monday for a Monday', () => {
+      const date = new Date('2025-01-13T14:30:00Z'); // Monday
+      const startOfWeek = getStartOfWeek(date);
+
+      expect(startOfWeek.toISOString()).toBe('2025-01-13T00:00:00.000Z');
+    });
+
+    it('should return Monday for a Sunday', () => {
+      const date = new Date('2025-01-19T14:30:00Z'); // Sunday
+      const startOfWeek = getStartOfWeek(date);
+
+      expect(startOfWeek.toISOString()).toBe('2025-01-13T00:00:00.000Z'); // Previous Monday
+    });
+  });
+
+  describe('getEndOfWeek', () => {
+    it('should return Sunday for a Wednesday', () => {
+      const date = new Date('2025-01-15T14:30:00Z'); // Wednesday
+      const endOfWeek = getEndOfWeek(date);
+
+      expect(endOfWeek.toISOString()).toBe('2025-01-19T23:59:59.999Z'); // Sunday
+    });
+  });
+
+  describe('getStartOfMonth', () => {
+    it('should return first day of month', () => {
+      const date = new Date('2025-01-15T14:30:00Z');
+      const startOfMonth = getStartOfMonth(date);
+
+      expect(startOfMonth.toISOString()).toBe('2025-01-01T00:00:00.000Z');
+    });
+  });
+
+  describe('getEndOfMonth', () => {
+    it('should return last day of month', () => {
+      const date = new Date('2025-01-15T14:30:00Z');
+      const endOfMonth = getEndOfMonth(date);
+
+      expect(endOfMonth.toISOString()).toBe('2025-01-31T23:59:59.999Z');
+    });
+
+    it('should handle February in non-leap year', () => {
+      const date = new Date('2025-02-15T14:30:00Z');
+      const endOfMonth = getEndOfMonth(date);
+
+      expect(endOfMonth.toISOString()).toBe('2025-02-28T23:59:59.999Z');
+    });
+  });
+
+  describe('getDaysBetween', () => {
+    it('should return array of dates between start and end', () => {
+      const start = new Date('2025-01-15T00:00:00Z');
+      const end = new Date('2025-01-17T00:00:00Z');
+
+      const days = getDaysBetween(start, end);
+
+      expect(days).toHaveLength(3);
+      expect(formatDate(days[0])).toBe('2025-01-15');
+      expect(formatDate(days[1])).toBe('2025-01-16');
+      expect(formatDate(days[2])).toBe('2025-01-17');
+    });
+
+    it('should return single day for same start and end', () => {
+      const start = new Date('2025-01-15T00:00:00Z');
+      const end = new Date('2025-01-15T23:59:59Z');
+
+      const days = getDaysBetween(start, end);
+
+      expect(days).toHaveLength(1);
+      expect(formatDate(days[0])).toBe('2025-01-15');
+    });
+  });
+
+  describe('getWeeksBetween', () => {
+    it('should return array of week ranges', () => {
+      const start = new Date('2025-01-13T00:00:00Z'); // Monday
+      const end = new Date('2025-01-26T23:59:59Z'); // Sunday (2 weeks later)
+
+      const weeks = getWeeksBetween(start, end);
+
+      expect(weeks).toHaveLength(2);
+      expect(formatDate(weeks[0].start)).toBe('2025-01-13');
+      expect(formatDate(weeks[0].end)).toBe('2025-01-19');
+      expect(formatDate(weeks[1].start)).toBe('2025-01-20');
+      expect(formatDate(weeks[1].end)).toBe('2025-01-26');
     });
   });
 });

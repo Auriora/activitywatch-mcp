@@ -148,6 +148,8 @@ You can customize the server behavior with environment variables:
 
 ## Available Tools
 
+The server provides 11 MCP tools for comprehensive activity analysis:
+
 ### 1. `aw_get_capabilities`
 
 Discover what ActivityWatch data is available.
@@ -273,7 +275,51 @@ LLM calls: aw_get_daily_summary({ date: "2025-01-13" })
 
 ---
 
-### 7. `aw_query_events`
+### 7. `aw_get_period_summary`
+
+Get a comprehensive summary of activity for various time periods with flexible detail levels.
+
+**Parameters:**
+- `period_type`: "daily" | "weekly" | "monthly" | "last_24_hours" | "last_7_days" | "last_30_days" (required)
+- `date`: YYYY-MM-DD format (optional, for daily/weekly/monthly periods)
+- `detail_level`: "hourly" | "daily" | "weekly" | "none" (optional, auto-selected based on period)
+- `timezone`: Timezone for period boundaries (optional)
+
+**Period Types:**
+- `daily`: Single day (00:00-23:59)
+- `weekly`: Week from Monday to Sunday
+- `monthly`: Calendar month
+- `last_24_hours`: Rolling 24 hours from now
+- `last_7_days`: Rolling 7 days from now
+- `last_30_days`: Rolling 30 days from now
+
+**Detail Levels:**
+- `hourly`: Hour-by-hour breakdown (best for daily/24hr periods)
+- `daily`: Day-by-day breakdown (best for weekly/7-day/30-day periods)
+- `weekly`: Week-by-week breakdown (best for monthly periods)
+- `none`: No breakdown, just totals
+
+**Returns:**
+- Total active time and AFK time for the period
+- Top 5 applications and websites
+- Period-appropriate breakdown (hourly/daily/weekly)
+- Auto-generated insights including averages
+
+**Examples:**
+```
+User: "What did I do this week?"
+LLM calls: aw_get_period_summary({ period_type: "weekly" })
+
+User: "Show me my last 30 days with daily breakdown"
+LLM calls: aw_get_period_summary({ period_type: "last_30_days", detail_level: "daily" })
+
+User: "Summarize January 2025"
+LLM calls: aw_get_period_summary({ period_type: "monthly", date: "2025-01-15" })
+```
+
+---
+
+### 8. `aw_query_events`
 
 Build and execute custom queries with flexible filtering.
 

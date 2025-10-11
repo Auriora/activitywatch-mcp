@@ -239,6 +239,93 @@ Always returns human-readable formatted summary optimized for user presentation.
     },
   },
   {
+    name: 'aw_get_period_summary',
+    description: `Provides a comprehensive overview of activity for various time periods with flexible detail levels.
+
+WHEN TO USE:
+- User asks for weekly, monthly, or rolling period summaries
+- Questions like "What did I do this week?" or "Summarize my last 30 days"
+- Getting activity trends over multiple days
+- Comparing activity across different time periods
+- When you need aggregated statistics beyond a single day
+
+WHEN NOT TO USE:
+- For single day analysis → use aw_get_daily_summary instead
+- For detailed analysis with enrichment → use aw_get_activity instead
+- For custom filtering or queries → use aw_query_events instead
+
+CAPABILITIES:
+- Supports multiple period types: daily, weekly, monthly, last 24 hours, last 7 days, last 30 days
+- Flexible detail levels: hourly, daily, weekly breakdowns, or none
+- Combines window activity, web activity, and AFK detection
+- Calculates total active time vs away-from-keyboard time
+- Identifies top 5 applications and websites for the entire period
+- Provides period-appropriate breakdowns (hourly for daily, daily for weekly, etc.)
+- Generates automatic insights including averages and trends
+- Works even if some data sources are missing (gracefully degrades)
+
+PERIOD TYPES:
+- "daily": Single day (00:00-23:59 in specified timezone)
+- "weekly": Week from Monday to Sunday
+- "monthly": Calendar month
+- "last_24_hours": Rolling 24 hours from current time
+- "last_7_days": Rolling 7 days from current time
+- "last_30_days": Rolling 30 days from current time
+
+DETAIL LEVELS:
+- "hourly": Hour-by-hour breakdown (recommended for daily/24hr periods)
+- "daily": Day-by-day breakdown (recommended for weekly/7-day/30-day periods)
+- "weekly": Week-by-week breakdown (recommended for monthly periods)
+- "none": No breakdown, just totals and top items
+- Auto-selected if not specified based on period_type
+
+LIMITATIONS:
+- Cannot see detailed window titles or full URL lists
+- Insights are basic pattern recognition, not deep analysis
+- Requires at least some tracking data for the specified period
+- Large periods with detailed breakdowns may take longer to process
+
+RETURNS:
+- period_type: The type of period summarized
+- period_start/period_end: ISO timestamps of the period boundaries
+- timezone: Timezone used for period boundaries
+- total_active_time_hours: Hours of active computer use
+- total_afk_time_hours: Hours away from keyboard
+- top_applications: Top 5 apps with duration and percentage
+- top_websites: Top 5 websites with duration and percentage
+- top_categories: Top 5 categories (if configured)
+- hourly_breakdown: Hour-by-hour data (if detail_level='hourly')
+- daily_breakdown: Day-by-day data (if detail_level='daily')
+- weekly_breakdown: Week-by-week data (if detail_level='weekly')
+- insights: Array of auto-generated observations about the period
+
+Always returns human-readable formatted summary optimized for user presentation.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        period_type: {
+          type: 'string',
+          enum: ['daily', 'weekly', 'monthly', 'last_24_hours', 'last_7_days', 'last_30_days'],
+          description: 'Type of period to summarize. "daily": Single day. "weekly": Week (Mon-Sun). "monthly": Calendar month. "last_24_hours": Rolling 24 hours. "last_7_days": Rolling 7 days. "last_30_days": Rolling 30 days.',
+        },
+        date: {
+          type: 'string',
+          description: 'Reference date in YYYY-MM-DD format. For daily/weekly/monthly: the date within the period. For rolling periods: ignored (uses current time). Defaults to today. Examples: "2025-01-14", "2024-12-25".',
+        },
+        detail_level: {
+          type: 'string',
+          enum: ['hourly', 'daily', 'weekly', 'none'],
+          description: 'Level of detail for breakdown. "hourly": Hour-by-hour (best for daily/24hr). "daily": Day-by-day (best for weekly/7-day/30-day). "weekly": Week-by-week (best for monthly). "none": No breakdown. Auto-selected if omitted.',
+        },
+        timezone: {
+          type: 'string',
+          description: 'Timezone for period boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone.',
+        },
+      },
+      required: ['period_type'],
+    },
+  },
+  {
     name: 'aw_get_raw_events',
     description: `Retrieves raw, unprocessed events from a specific ActivityWatch data bucket.
 

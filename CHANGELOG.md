@@ -2,6 +2,61 @@
 
 All notable changes to the ActivityWatch MCP Server project.
 
+## [Unreleased]
+
+### Added
+
+#### Period Summary Feature
+- **New Tool: `aw_get_period_summary`**
+  - Flexible time period analysis beyond single days
+  - Supports 6 period types: daily, weekly, monthly, last_24_hours, last_7_days, last_30_days
+  - Multiple detail levels: hourly, daily, weekly, or none
+  - Auto-selected detail levels based on period type
+  - Timezone-aware period boundaries
+  - Comprehensive insights including averages and trends
+
+- **New Service: `PeriodSummaryService`** (`src/services/period-summary.ts`)
+  - Orchestrates multi-day summaries
+  - Generates period-appropriate breakdowns
+  - Reuses existing daily summary logic
+  - Calculates period boundaries for all period types
+
+- **Enhanced Time Utilities** (`src/utils/time.ts`)
+  - `getStartOfWeek()` / `getEndOfWeek()` - Week boundary calculation
+  - `getStartOfMonth()` / `getEndOfMonth()` - Month boundary calculation
+  - `getStartOfWeekInTimezone()` / `getEndOfWeekInTimezone()` - Timezone-aware week boundaries
+  - `getStartOfMonthInTimezone()` / `getEndOfMonthInTimezone()` - Timezone-aware month boundaries
+  - `getDaysBetween()` - Generate array of dates between two dates
+  - `getWeeksBetween()` - Generate array of week ranges
+
+- **New Types** (`src/types.ts`)
+  - `PeriodType` - Period type enumeration
+  - `DetailLevel` - Detail level enumeration
+  - `DailyActivity` - Daily breakdown structure
+  - `WeeklyActivity` - Weekly breakdown structure
+  - `PeriodSummary` - Complete period summary structure
+  - `PeriodSummaryParams` - Tool parameters
+
+- **Period Summary Formatter** (`src/utils/formatters.ts`)
+  - `formatPeriodSummaryConcise()` - Human-readable period summary output
+  - Visual bar charts for breakdowns
+  - Period-specific formatting
+
+- **Documentation**
+  - Period summary examples (`docs/examples/period-summary-examples.md`)
+  - Updated README with tool description and examples
+  - Comprehensive test coverage for new time utilities
+
+### Changed
+
+- **Capabilities Service**
+  - Now suggests `aw_get_period_summary` when tracking data is available
+  - Updated tool count to 11 tools
+
+- **Tool Definitions**
+  - Added comprehensive `aw_get_period_summary` tool definition
+  - Detailed parameter descriptions and use cases
+
 ## [1.1.0] - 2025-01-14
 
 ### Added

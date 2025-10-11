@@ -164,6 +164,7 @@ export class CapabilitiesService {
 
     if (capabilities.has_window_tracking || capabilities.has_browser_tracking || capabilities.has_editor_tracking) {
       tools.push('aw_get_daily_summary');
+      tools.push('aw_get_period_summary');
     }
 
     return tools;

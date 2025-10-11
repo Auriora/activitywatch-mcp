@@ -38,6 +38,28 @@ export const GetDailySummarySchema = z.object({
   ),
 });
 
+export const GetPeriodSummarySchema = z.object({
+  period_type: z.enum([
+    'daily',
+    'weekly',
+    'monthly',
+    'last_24_hours',
+    'last_7_days',
+    'last_30_days',
+  ]).describe(
+    'Type of period to summarize. "daily": Single day (00:00-23:59). "weekly": Week (Monday-Sunday). "monthly": Calendar month. "last_24_hours": Rolling 24 hours from now. "last_7_days": Rolling 7 days from now. "last_30_days": Rolling 30 days from now.'
+  ),
+  date: z.string().optional().describe(
+    'Reference date (YYYY-MM-DD format). For daily/weekly/monthly: the date within the period. For rolling periods (last_24_hours, last_7_days, last_30_days): ignored, uses current time. Defaults to today.'
+  ),
+  detail_level: z.enum(['hourly', 'daily', 'weekly', 'none']).optional().describe(
+    'Level of detail for breakdown. "hourly": Hour-by-hour (best for daily/24hr). "daily": Day-by-day (best for weekly/7-day/30-day). "weekly": Week-by-week (best for monthly). "none": No breakdown, totals only. Defaults to appropriate level for period_type.'
+  ),
+  timezone: z.string().optional().describe(
+    'Timezone for period boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone.'
+  ),
+});
+
 export const GetRawEventsSchema = z.object({
   bucket_id: z.string().describe(
     'Bucket identifier (use aw_get_capabilities to discover available buckets)'
@@ -115,6 +137,7 @@ export const QueryEventsSchema = z.object({
 
 export type GetCapabilitiesParams = z.infer<typeof GetCapabilitiesSchema>;
 export type GetDailySummaryParams = z.infer<typeof GetDailySummarySchema>;
+export type GetPeriodSummaryParams = z.infer<typeof GetPeriodSummarySchema>;
 export type GetRawEventsParams = z.infer<typeof GetRawEventsSchema>;
 export type QueryEventsParams = z.infer<typeof QueryEventsSchema>;
 

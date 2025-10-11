@@ -144,6 +144,55 @@ export interface HourlyActivity {
 }
 
 /**
+ * Period summary types
+ */
+
+export type PeriodType =
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'last_24_hours'
+  | 'last_7_days'
+  | 'last_30_days';
+
+export type DetailLevel = 'hourly' | 'daily' | 'weekly' | 'none';
+
+export interface DailyActivity {
+  readonly date: string;
+  readonly active_seconds: number;
+  readonly afk_seconds: number;
+  readonly top_app?: string;
+  readonly top_website?: string;
+  readonly top_category?: string;
+}
+
+export interface WeeklyActivity {
+  readonly week_start: string;
+  readonly week_end: string;
+  readonly active_seconds: number;
+  readonly afk_seconds: number;
+  readonly top_app?: string;
+  readonly top_website?: string;
+  readonly top_category?: string;
+}
+
+export interface PeriodSummary {
+  readonly period_type: PeriodType;
+  readonly period_start: string;
+  readonly period_end: string;
+  readonly timezone: string;
+  readonly total_active_time_hours: number;
+  readonly total_afk_time_hours: number;
+  readonly top_applications: readonly AppUsage[];
+  readonly top_websites: readonly WebUsage[];
+  readonly top_categories?: readonly CategoryUsage[];
+  readonly hourly_breakdown?: readonly HourlyActivity[];
+  readonly daily_breakdown?: readonly DailyActivity[];
+  readonly weekly_breakdown?: readonly WeeklyActivity[];
+  readonly insights: readonly string[];
+}
+
+/**
  * Time period types
  */
 
@@ -173,6 +222,13 @@ export interface TimeRangeParams {
 export interface DailySummaryParams {
   date?: string;
   include_hourly_breakdown?: boolean;
+  timezone?: string;
+}
+
+export interface PeriodSummaryParams {
+  period_type: PeriodType;
+  date?: string; // For daily/weekly/monthly - the date within the period
+  detail_level?: DetailLevel;
   timezone?: string;
 }
 
