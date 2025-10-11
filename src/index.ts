@@ -225,9 +225,9 @@ Default response is human-readable summary. Use response_format='detailed' for f
         },
         group_by: {
           type: 'string',
-          enum: ['application', 'title', 'category'],
+          enum: ['application', 'title', 'category', 'domain', 'project', 'hour', 'category_top_level'],
           default: 'application',
-          description: 'How to group results. "application": Group by app name only (e.g., all Chrome windows together) - recommended for overview. "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub") - use for detailed analysis. "category": Group by category (events can appear in multiple categories if they match multiple rules).',
+          description: 'How to group results. "application": Group by app name (e.g., all Chrome windows together). "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub"). "category": Group by full category hierarchy (events can appear in multiple categories). "domain": Group by website domain (browser activity only). "project": Group by project/repository (editor activity only). "hour": Group by hour of day (00:00-01:00, 01:00-02:00, etc.). "category_top_level": Group by top-level category only (e.g., "Work", "Media").',
         },
         response_format: {
           type: 'string',

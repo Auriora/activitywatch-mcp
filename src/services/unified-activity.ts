@@ -274,11 +274,11 @@ export class UnifiedActivityService {
   }
 
   /**
-   * Group events by application, title, or category
+   * Group events by application, title, category, domain, project, hour, or category_top_level
    */
   private groupEvents(
     events: EnrichedEvent[],
-    groupBy: 'application' | 'title' | 'category'
+    groupBy: 'application' | 'title' | 'category' | 'domain' | 'project' | 'hour' | 'category_top_level'
   ): CanonicalEvent[] {
     const groups = new Map<string, EnrichedEvent[]>();
 
@@ -301,6 +301,47 @@ export class UnifiedActivityService {
             groups.set(category, existing);
           }
         }
+      } else if (groupBy === 'category_top_level') {
+        // Group by top-level category (first part of hierarchy)
+        const categories = event.categories || [];
+        if (categories.length === 0) {
+          const key = 'Uncategorized';
+          const existing = groups.get(key) || [];
+          existing.push(event);
+          groups.set(key, existing);
+        } else {
+          // Extract top-level from each category and add to those groups
+          const topLevelCategories = new Set<string>();
+          for (const category of categories) {
+            const topLevel = category.split(' > ')[0];
+            topLevelCategories.add(topLevel);
+          }
+          for (const topLevel of topLevelCategories) {
+            const existing = groups.get(topLevel) || [];
+            existing.push(event);
+            groups.set(topLevel, existing);
+          }
+        }
+      } else if (groupBy === 'domain') {
+        // Group by browser domain
+        const domain = event.browser?.domain || 'Non-browser';
+        const existing = groups.get(domain) || [];
+        existing.push(event);
+        groups.set(domain, existing);
+      } else if (groupBy === 'project') {
+        // Group by editor project
+        const project = event.editor?.project || 'No project';
+        const existing = groups.get(project) || [];
+        existing.push(event);
+        groups.set(project, existing);
+      } else if (groupBy === 'hour') {
+        // Group by hour of day
+        const timestamp = new Date(event.timestamp);
+        const hour = timestamp.getUTCHours();
+        const key = `${hour.toString().padStart(2, '0')}:00-${((hour + 1) % 24).toString().padStart(2, '0')}:00`;
+        const existing = groups.get(key) || [];
+        existing.push(event);
+        groups.set(key, existing);
       } else {
         // For application/title grouping, event appears in one group
         const key = groupBy === 'application' ? event.app : `${event.app}|${event.title}`;
@@ -353,11 +394,35 @@ export class UnifiedActivityService {
       const firstSeen = new Date(Math.min(...timestamps)).toISOString();
       const lastSeen = new Date(Math.max(...timestamps)).toISOString();
 
+      // Determine app field based on grouping type
+      let appField: string;
+      if (groupBy === 'category' || groupBy === 'category_top_level' || groupBy === 'domain' || groupBy === 'project' || groupBy === 'hour') {
+        // For these groupings, show app count if multiple apps
+        appField = apps.size === 1 ? Array.from(apps)[0] : `${apps.size} apps`;
+      } else {
+        // For application/title grouping, use the actual app
+        appField = first.app;
+      }
+
+      // Determine title field based on grouping type
+      let titleField: string;
+      if (groupBy === 'title') {
+        titleField = first.title;
+      } else if (groupBy === 'domain') {
+        titleField = groupKey; // Show the domain as title
+      } else if (groupBy === 'project') {
+        titleField = groupKey; // Show the project as title
+      } else if (groupBy === 'hour') {
+        titleField = groupKey; // Show the hour range as title
+      } else if (groupBy === 'category_top_level') {
+        titleField = groupKey; // Show the top-level category as title
+      } else {
+        titleField = 'Various';
+      }
+
       result.push({
-        app: groupBy === 'category'
-          ? (apps.size === 1 ? Array.from(apps)[0] : `${apps.size} apps`)
-          : first.app,
-        title: groupBy === 'title' ? first.title : 'Various',
+        app: appField,
+        title: titleField,
         duration_seconds: totalDuration,
         duration_hours: totalDuration / 3600,
         percentage: 0, // Will be calculated later
@@ -371,7 +436,7 @@ export class UnifiedActivityService {
           project: editorProjects.size === 1 ? Array.from(editorProjects)[0] : undefined,
           language: editorLanguages.size === 1 ? Array.from(editorLanguages)[0] : undefined,
         } : undefined,
-        category: groupBy === 'category' ? groupKey : (first.categories?.[0] || first.category),
+        category: groupBy === 'category' || groupBy === 'category_top_level' ? groupKey : (first.categories?.[0] || first.category),
         event_count: groupEvents.length,
         first_seen: firstSeen,
         last_seen: lastSeen,

@@ -278,7 +278,7 @@ export interface CanonicalQueryResult {
 
 export interface UnifiedActivityParams extends TimeRangeParams {
   top_n?: number;
-  group_by?: 'application' | 'title' | 'category';
+  group_by?: 'application' | 'title' | 'category' | 'domain' | 'project' | 'hour' | 'category_top_level';
   response_format?: ResponseFormat;
   exclude_system_apps?: boolean;
   min_duration_seconds?: number;
