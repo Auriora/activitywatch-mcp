@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://activitywatch.net/schemas/user-preferences.json",
+  "title": "ActivityWatch MCP User Preferences",
+  "description": "User-specific preferences for the ActivityWatch MCP server",
+  "type": "object",
+  "properties": {
+    "timezone": {
+      "type": "string",
+      "description": "Timezone for date boundaries and display. Supports IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5).",
+      "default": "UTC",
+      "examples": [
+        "UTC",
+        "Europe/Dublin",
+        "America/New_York",
+        "Asia/Tokyo",
+        "IST",
+        "EST",
+        "PST",
+        "UTC+1",
+        "UTC-5",
+        "+1",
+        "-5"
+      ]
+    },
+    "dateFormat": {
+      "type": "string",
+      "description": "Preferred date format for display (currently informational)",
+      "default": "YYYY-MM-DD",
+      "enum": [
+        "YYYY-MM-DD",
+        "DD/MM/YYYY",
+        "MM/DD/YYYY",
+        "DD.MM.YYYY"
+      ]
+    },
+    "weekStartsOn": {
+      "type": "string",
+      "description": "First day of the week for weekly summaries",
+      "default": "monday",
+      "enum": [
+        "monday",
+        "sunday"
+      ]
+    },
+    "hourFormat": {
+      "type": "string",
+      "description": "Preferred hour format for time display (currently informational)",
+      "default": "24h",
+      "enum": [
+        "12h",
+        "24h"
+      ]
+    }
+  },
+  "additionalProperties": false
+}
+

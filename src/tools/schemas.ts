@@ -33,6 +33,9 @@ export const GetDailySummarySchema = z.object({
   include_hourly_breakdown: z.boolean().default(true).describe(
     'Include hour-by-hour activity breakdown'
   ),
+  timezone: z.string().optional().describe(
+    'Timezone for date boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone.'
+  ),
 });
 
 export const GetRawEventsSchema = z.object({

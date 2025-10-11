@@ -2,6 +2,98 @@
 
 This directory contains configuration files for the ActivityWatch MCP server.
 
+## Configuration Files
+
+- **`user-preferences.json`** - User-specific preferences (timezone, date format, etc.)
+- **`user-preferences.schema.json`** - JSON schema for user preferences validation
+- **`app-names.json`** - Browser and editor app name mappings
+- **`categories.json`** - Activity categorization rules (optional)
+
+## user-preferences.json
+
+This file contains user-specific preferences for the MCP server, including timezone settings.
+
+**Schema**: `user-preferences.schema.json` provides JSON schema validation and IDE autocomplete support.
+
+### Structure
+
+```json
+{
+  "$schema": "./user-preferences.schema.json",
+  "timezone": "UTC",
+  "dateFormat": "YYYY-MM-DD",
+  "weekStartsOn": "monday",
+  "hourFormat": "24h"
+}
+```
+
+### Timezone Configuration
+
+The `timezone` setting controls how dates and times are interpreted and displayed:
+
+- **Default**: Uses the timezone specified in this file
+- **Environment Variable Override**: Set `ACTIVITYWATCH_TIMEZONE` or `TZ` to override
+- **Parameter Override**: Pass `timezone` parameter to tools for per-request override
+- **Fallback**: If no timezone is configured, uses system timezone
+
+#### Supported Timezone Formats
+
+1. **IANA Timezone Names** (recommended):
+   - `Europe/Dublin` - Irish timezone (handles DST automatically)
+   - `America/New_York` - Eastern Time
+   - `Asia/Tokyo` - Japan Standard Time
+   - `Australia/Sydney` - Australian Eastern Time
+
+2. **Timezone Abbreviations**:
+   - `IST` - Irish Standard Time (UTC+1)
+   - `GMT` - Greenwich Mean Time (UTC+0)
+   - `EST` - Eastern Standard Time (UTC-5)
+   - `PST` - Pacific Standard Time (UTC-8)
+
+3. **UTC Offsets**:
+   - `UTC+1` - One hour ahead of UTC
+   - `UTC-5` - Five hours behind UTC
+   - `+1` - Short form for UTC+1
+
+#### How Timezone Affects Daily Summaries
+
+When you request a daily summary for "2025-10-11":
+- **Without timezone**: Uses UTC midnight to midnight (00:00-23:59 UTC)
+- **With timezone**: Uses local midnight to midnight (00:00-23:59 in your timezone)
+
+For example, if you're in Ireland (UTC+1):
+- Your work from 23:00 UTC on Oct 10 appears in Oct 11's summary (because it's 00:00 Oct 11 in Ireland)
+- Your work from 22:59 UTC on Oct 10 appears in Oct 10's summary
+
+#### Example Configurations
+
+**For Ireland:**
+```json
+{
+  "timezone": "Europe/Dublin"
+}
+```
+
+**For US East Coast:**
+```json
+{
+  "timezone": "America/New_York"
+}
+```
+
+**For UTC (default):**
+```json
+{
+  "timezone": "UTC"
+}
+```
+
+### Other Preferences
+
+- **dateFormat**: Date display format (currently informational, not yet implemented)
+- **weekStartsOn**: Whether weeks start on Monday or Sunday (for weekly summaries)
+- **hourFormat**: 12-hour or 24-hour time display (currently informational)
+
 ## app-names.json
 
 This file defines the mappings between browser/editor types and their window app names. These mappings are used when building canonical queries to match window events with browser/editor events.

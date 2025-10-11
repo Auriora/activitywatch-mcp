@@ -1,0 +1,8 @@
+{
+  "$schema": "./user-preferences.schema.json",
+  "timezone": "Europe/Dublin",
+  "dateFormat": "YYYY-MM-DD",
+  "weekStartsOn": "monday",
+  "hourFormat": "24h"
+}
+

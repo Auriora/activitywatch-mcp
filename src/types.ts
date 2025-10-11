@@ -119,6 +119,7 @@ export interface CategoryUsage {
 
 export interface DailySummary {
   readonly date: string;
+  readonly timezone: string;
   readonly total_active_time_hours: number;
   readonly total_afk_time_hours: number;
   readonly top_applications: readonly AppUsage[];
@@ -165,6 +166,7 @@ export interface TimeRangeParams {
 export interface DailySummaryParams {
   date?: string;
   include_hourly_breakdown?: boolean;
+  timezone?: string;
 }
 
 export interface RawEventsParams {

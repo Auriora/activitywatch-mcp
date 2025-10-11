@@ -287,6 +287,7 @@ CAPABILITIES:
 - Provides hour-by-hour activity breakdown showing when you were active
 - Generates automatic insights (e.g., "High activity day", "Most used app: VS Code")
 - Works even if some data sources are missing (gracefully degrades)
+- Supports timezone-aware date boundaries (use local timezone, not UTC)
 
 LIMITATIONS:
 - Fixed to single day (cannot span multiple days)
@@ -298,6 +299,7 @@ LIMITATIONS:
 
 RETURNS:
 - date: The date being summarized (YYYY-MM-DD)
+- timezone: The timezone used for date boundaries and display
 - total_active_time_hours: Hours of active computer use
 - total_afk_time_hours: Hours away from keyboard
 - top_applications: Top 5 apps with duration and percentage
@@ -317,6 +319,10 @@ Always returns human-readable formatted summary optimized for user presentation.
           type: 'boolean',
           default: true,
           description: 'Whether to include hour-by-hour (0-23) activity breakdown showing active time and top app for each hour. true (default): Include hourly data - recommended for understanding daily patterns. false: Omit hourly data for faster response - use when user only wants overall summary.',
+        },
+        timezone: {
+          type: 'string',
+          description: 'Timezone for date boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference from config/user-preferences.json or system timezone. Examples: "Europe/Dublin", "IST", "UTC+1", "America/New_York".',
         },
       },
       required: [],
