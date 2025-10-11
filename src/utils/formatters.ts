@@ -10,14 +10,14 @@ import { secondsToHours } from './time.js';
  */
 export function formatDailySummaryConcise(summary: DailySummary): string {
   const lines: string[] = [];
-  
+
   lines.push(`Daily Summary for ${summary.date}`);
   lines.push('='.repeat(50));
   lines.push('');
   lines.push(`Active Time: ${summary.total_active_time_hours}h`);
   lines.push(`AFK Time: ${summary.total_afk_time_hours}h`);
   lines.push('');
-  
+
   if (summary.top_applications.length > 0) {
     lines.push('Top Applications:');
     for (const app of summary.top_applications) {
@@ -30,6 +30,44 @@ export function formatDailySummaryConcise(summary: DailySummary): string {
     lines.push('Top Websites:');
     for (const site of summary.top_websites) {
       lines.push(`  ${site.domain}: ${site.duration_hours}h (${site.percentage}%)`);
+    }
+    lines.push('');
+  }
+
+  if (summary.top_categories && summary.top_categories.length > 0) {
+    lines.push('Top Categories:');
+    for (const category of summary.top_categories) {
+      lines.push(`  ${category.category_name}: ${category.duration_hours}h (${category.percentage}%)`);
+    }
+    lines.push('');
+  }
+
+  if (summary.hourly_breakdown && summary.hourly_breakdown.length > 0) {
+    lines.push('Hourly Breakdown:');
+    lines.push('');
+
+    // Create a visual timeline
+    const maxActiveSeconds = Math.max(...summary.hourly_breakdown.map(h => h.active_seconds));
+    const barWidth = 40; // characters for the bar
+
+    for (const hourData of summary.hourly_breakdown) {
+      const hour = hourData.hour.toString().padStart(2, '0');
+      const activeHours = secondsToHours(hourData.active_seconds);
+
+      // Create a visual bar
+      const barLength = maxActiveSeconds > 0
+        ? Math.round((hourData.active_seconds / maxActiveSeconds) * barWidth)
+        : 0;
+      const bar = '█'.repeat(barLength);
+
+      // Format the line
+      let line = `  ${hour}:00 │${bar.padEnd(barWidth, ' ')}│ ${activeHours}h`;
+
+      if (hourData.top_app) {
+        line += ` (${hourData.top_app})`;
+      }
+
+      lines.push(line);
     }
     lines.push('');
   }
