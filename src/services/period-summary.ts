@@ -4,7 +4,7 @@
 
 import { UnifiedActivityService } from './unified-activity.js';
 import { QueryService } from './query.js';
-import { AfkActivityService, AfkPeriod } from './afk-activity.js';
+import { AfkActivityService, AfkPeriod, AfkSummary } from './afk-activity.js';
 import { CategoryService } from './category.js';
 import {
   PeriodSummary, 
@@ -35,6 +35,17 @@ import { logger } from '../utils/logger.js';
 import { getTimezoneOffset } from '../config/user-preferences.js';
 import { CalendarService } from './calendar.js';
 import { getStringProperty } from '../utils/type-guards.js';
+
+type AfkActivitySummaryMethod = (
+  start: Date,
+  end: Date
+) => Promise<
+  Pick<AfkSummary, 'total_afk_seconds' | 'total_active_seconds' | 'afk_periods'>
+>;
+
+type AfkSummaryCapableService = {
+  getAfkActivity?: AfkActivitySummaryMethod;
+};
 
 export class PeriodSummaryService {
   constructor(
@@ -451,17 +462,15 @@ export class PeriodSummaryService {
     start: Date,
     end: Date
   ): Promise<ResolvedAfkSummary> {
-    const candidate = (this.afkService as unknown as {
-      getAfkActivity?: (start: Date, end: Date) => Promise<{
-        total_afk_seconds: number;
-        total_active_seconds: number;
-        afk_periods: AfkPeriod[];
-      }>;
-    }).getAfkActivity;
+    const candidateMethod = (this.afkService as AfkSummaryCapableService).getAfkActivity;
+    const candidate =
+      typeof candidateMethod === 'function'
+        ? candidateMethod.bind(this.afkService)
+        : undefined;
 
     if (typeof candidate === 'function') {
       try {
-        const summary = await candidate.call(this.afkService, start, end);
+        const summary = await candidate(start, end);
         return {
           totalAfkSeconds: summary.total_afk_seconds,
           totalActiveSeconds: summary.total_active_seconds,
@@ -730,5 +739,5 @@ export class PeriodSummaryService {
 interface ResolvedAfkSummary {
   totalAfkSeconds: number;
   totalActiveSeconds: number;
-  periods: AfkPeriod[];
+  periods: readonly AfkPeriod[];
 }
