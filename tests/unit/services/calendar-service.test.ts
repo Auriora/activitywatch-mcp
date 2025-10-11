@@ -93,6 +93,32 @@ describe('CalendarService', () => {
     expect(result.events[0].summary).toBe('Daily Standup');
   });
 
+  it('derives missing end timestamps using duration data', async () => {
+    mockClient.setEvents(bucketId, [
+      createMockEvent('2025-01-01T09:00:00Z', 1800, {
+        summary: 'Daily Standup',
+        start: '2025-01-01T09:00:00Z',
+        end: '2025-01-01T09:30:00Z',
+      }),
+      createMockEvent('2025-01-01T11:00:00Z', 2700, {
+        summary: 'Doc Review',
+        location: 'Room 12B',
+      }),
+    ]);
+
+    const result = await calendarService.getEvents({
+      time_period: 'custom',
+      custom_start: customStart,
+      custom_end: customEnd,
+    });
+
+    const docReview = result.events.find(event => event.summary === 'Doc Review');
+    expect(docReview).toBeDefined();
+    expect(docReview?.start).toBe('2025-01-01T11:00:00.000Z');
+    expect(docReview?.end).toBe('2025-01-01T11:45:00.000Z');
+    expect(docReview?.duration_seconds).toBe(2700);
+  });
+
   it('summarizes events with limited output', async () => {
     const result = await calendarService.getEvents({
       time_period: 'custom',

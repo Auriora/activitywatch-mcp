@@ -197,19 +197,44 @@ export class CalendarService {
     const summary: string = String(data.summary ?? data.title ?? 'Untitled event');
     const rawStart = (data.start ?? data.begin) as unknown;
     const rawEnd = (data.end ?? data.finish) as unknown;
+    const dataDuration = typeof data.duration === 'number' ? data.duration : undefined;
+    const effectiveDuration =
+      (dataDuration !== undefined && dataDuration > 0 ? dataDuration : undefined) ??
+      (event.duration > 0 ? event.duration : undefined);
+    const allDay = Boolean(data.all_day ?? data.allDay ?? false);
 
-    const start = this.toIsoTimestamp(rawStart);
-    const end = this.toIsoTimestamp(rawEnd);
+    const start =
+      this.toIsoTimestamp(rawStart) ?? this.toIsoTimestamp(event.timestamp);
+
+    let end = this.toIsoTimestamp(rawEnd);
+
+    if (!end && start) {
+      const durationForEnd =
+        typeof effectiveDuration === 'number'
+          ? effectiveDuration
+          : allDay
+            ? 86400
+            : undefined;
+
+      if (typeof durationForEnd === 'number') {
+        const derivedEnd = new Date(new Date(start).getTime() + durationForEnd * 1000);
+        if (!isNaN(derivedEnd.getTime())) {
+          end = derivedEnd.toISOString();
+        }
+      }
+    }
 
     if (!start || !end) {
       logger.warn('Skipping calendar event without valid start/end', {
         eventId: event.id,
         bucketId,
+        hasStart: Boolean(start),
+        hasEnd: Boolean(end),
+        duration: event.duration,
       });
       return null;
     }
 
-    const allDay = Boolean(data.all_day ?? data.allDay ?? false);
     const status = data.status ? String(data.status) : undefined;
     const calendar = data.calendar ? String(data.calendar) : undefined;
     const location = data.location ? String(data.location) : undefined;
@@ -224,7 +249,7 @@ export class CalendarService {
         }))
       : undefined;
 
-    const durationSeconds = this.calculateDuration(start, end, allDay, event.duration);
+    const durationSeconds = this.calculateDuration(start, end, allDay, effectiveDuration);
 
     return {
       id: this.buildEventId(event, bucketId),
