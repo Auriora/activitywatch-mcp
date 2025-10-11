@@ -203,6 +203,7 @@ flameshot
 ### 1. Terminal Title Parser (IMPLEMENTED)
 
 ```typescript
+// @ts-nocheck
 interface TerminalInfo {
   username: string;
   hostname: string;
@@ -232,6 +233,7 @@ function parseTerminalTitle(title: string, localHostname: string): TerminalInfo 
 **Note**: Only used when editor bucket data is NOT available. Primarily for detecting dialogs/modals.
 
 ```typescript
+// @ts-nocheck
 interface IDEInfo {
   isDialog: boolean;
   dialogType?: string;
@@ -407,4 +409,3 @@ With title parsing, users could query:
 5. Update tool descriptions to mention new capabilities
 6. Add tests for title parsing
 7. Document new query capabilities
-

@@ -5,7 +5,7 @@
  * For E2E tests with real ActivityWatch server, see tests/e2e/
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { QueryBuilderService } from '../../src/services/query-builder.js';
 import { CapabilitiesService } from '../../src/services/capabilities.js';
 import { MockActivityWatchClient, createMockBucket } from '../helpers/mock-client.js';
@@ -272,4 +272,3 @@ describe('QueryBuilderService Integration', () => {
     });
   });
 });
-

@@ -28,6 +28,13 @@ import {
   GetRawEventsSchema,
   QueryEventsSchema,
 } from './tools/schemas.js';
+import type {
+  GetCapabilitiesParams,
+  GetCalendarEventsParams,
+  GetPeriodSummaryParams,
+  GetRawEventsParams,
+  QueryEventsParams,
+} from './tools/schemas.js';
 
 import { AWError } from './types.js';
 import {
@@ -39,16 +46,13 @@ import {
   formatCalendarEventsDetailed,
 } from './utils/formatters.js';
 import { logger } from './utils/logger.js';
-import { performHealthCheck, logStartupDiagnostics } from './utils/health.js';
+import { performHealthCheck, formatHealthCheckResult } from './utils/health.js';
 import { tools } from './tools/definitions.js';
 
 /**
  * Creates a configured MCP server instance
  */
 export async function createMCPServer(awUrl: string): Promise<Server> {
-  // Log startup diagnostics
-  logStartupDiagnostics(awUrl);
-
   // Initialize services
   const client = new ActivityWatchClient(awUrl);
   const capabilitiesService = new CapabilitiesService(client);
@@ -57,7 +61,11 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
   const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
   const calendarService = new CalendarService(client, capabilitiesService);
   const afkService = new AfkActivityService(client, capabilitiesService);
-  const unifiedService = new UnifiedActivityService(queryService, categoryService);
+  const unifiedService = new UnifiedActivityService(
+    queryService,
+    categoryService,
+    calendarService
+  );
   const periodSummaryService = new PeriodSummaryService(
     unifiedService,
     queryService,
@@ -86,6 +94,7 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
   } else {
     logger.info('Health check passed');
   }
+  logger.debug(formatHealthCheckResult(healthCheck));
 
   // Create MCP server
   const server = new Server(
@@ -114,7 +123,7 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
     try {
       switch (name) {
         case 'aw_get_capabilities': {
-          GetCapabilitiesSchema.parse(args);
+          GetCapabilitiesSchema.parse(args) satisfies GetCapabilitiesParams;
           logger.debug('Fetching capabilities');
 
           const [buckets, capabilities, suggestedTools] = await Promise.all([
@@ -198,7 +207,7 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
         }
 
         case 'aw_get_calendar_events': {
-          const params = GetCalendarEventsSchema.parse(args);
+          const params: GetCalendarEventsParams = GetCalendarEventsSchema.parse(args);
           const result = await calendarService.getEvents({
             time_period: params.time_period,
             custom_start: params.custom_start,
@@ -242,7 +251,7 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
         }
 
         case 'aw_get_period_summary': {
-          const params = GetPeriodSummarySchema.parse(args);
+          const params: GetPeriodSummaryParams = GetPeriodSummarySchema.parse(args);
           const result = await periodSummaryService.getPeriodSummary(params);
 
           return {
@@ -256,7 +265,7 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
         }
 
         case 'aw_get_raw_events': {
-          const params = GetRawEventsSchema.parse(args);
+          const params: GetRawEventsParams = GetRawEventsSchema.parse(args);
 
           logger.debug('Fetching raw events', {
             bucketId: params.bucket_id,
@@ -314,7 +323,7 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
         }
 
         case 'aw_query_events': {
-          const params = QueryEventsSchema.parse(args);
+          const params: QueryEventsParams = QueryEventsSchema.parse(args);
 
           logger.debug('Building custom query', {
             queryType: params.query_type,

@@ -65,7 +65,22 @@ AW_URL=http://localhost:5600 npm run start:http
 
 # Debug logging
 LOG_LEVEL=DEBUG npm run start:http
+
+# Resource telemetry snapshot interval (ms)
+MCP_RESOURCE_LOG_INTERVAL=60000 npm run start:http
 ```
+
+### Admin Endpoint
+
+The HTTP server exposes a lightweight admin hook for refreshing the pooled MCP server or retargeting ActivityWatch:
+
+```bash
+curl -X POST http://localhost:3000/admin/reload-server \
+  -H "Content-Type: application/json" \
+  -d '{"awUrl":"http://localhost:5601"}'
+```
+
+This drains active sessions, resets the shared MCP server instance, and (optionally) updates the backing `AW_URL`.
 
 ### Claude Desktop Config
 
@@ -127,4 +142,3 @@ Restart Claude Desktop to create a new session.
 ## Full Documentation
 
 See [docs/developer/http-server-development.md](docs/developer/http-server-development.md) for complete documentation.
-

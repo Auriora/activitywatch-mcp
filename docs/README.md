@@ -169,8 +169,8 @@ Step-by-step explanation with examples.
 How this concept relates to tools and usage.
 
 ## References
-- [Related Concept](../concepts/other.md)
-- [Tool Reference](../reference/tools.md)
+- [Related Concept](concepts/canonical-events.md)
+- [Tool Reference](reference/tools.md)
 ```
 
 ## Quality Checklist

@@ -287,5 +287,4 @@ The server already binds to `0.0.0.0`, so it's accessible from the network. Conf
 
 - [MCP Protocol Documentation](https://modelcontextprotocol.io/docs/concepts/transports)
 - [Logging and Health Checks](./logging-and-health.md)
-- [Testing Guide](../testing.md)
-
+- [Testing Guide](./testing.md)

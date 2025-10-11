@@ -258,7 +258,6 @@ aw_update_category({
 
 ## See Also
 
-- [Category Management](./CATEGORY_MANAGEMENT.md)
+- [Category Management](../concepts/category_management.md)
 - [Category Auto-Reload](./CATEGORY_AUTO_RELOAD.md)
-- [ActivityWatch Integration](./ACTIVITYWATCH_INTEGRATION.md)
-
+- [ActivityWatch Integration](../reference/activitywatch-integration.md)

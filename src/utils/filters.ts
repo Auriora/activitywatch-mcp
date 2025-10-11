@@ -86,7 +86,8 @@ export function extractDomain(url: string): string {
  * Normalize domain (remove www, etc.)
  */
 export function normalizeDomain(domain: string): string {
-  return domain.replace(/^www\./, '').toLowerCase();
+  const lower = domain.toLowerCase();
+  return lower.replace(/^www\./, '');
 }
 
 /**
@@ -181,4 +182,3 @@ export const DEFAULT_EXCLUDED_DOMAINS = [
   'chrome://newtab',
   'about:newtab',
 ];
-

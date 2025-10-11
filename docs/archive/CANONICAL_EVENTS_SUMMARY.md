@@ -329,6 +329,5 @@ Potential improvements:
 
 - [ActivityWatch Canonical Events](https://github.com/ActivityWatch/aw-client/blob/master/aw_client/queries.py)
 - [Design Document](./CANONICAL_EVENTS_DESIGN.md)
-- [Implementation Details](./IMPLEMENTATION.md)
+- [Implementation Details](../architecture/implementation.md)
 - [AFK Filtering](./AFK_FILTERING.md)
-
