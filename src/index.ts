@@ -224,10 +224,23 @@ Default response is human-readable summary. Use response_format='detailed' for f
           description: 'Number of top activities to return, ranked by time spent. Default: 10. Use 5 for quick overview, 20+ for comprehensive analysis. Maximum: 100.',
         },
         group_by: {
-          type: 'string',
-          enum: ['application', 'title', 'category', 'domain', 'project', 'hour', 'category_top_level'],
-          default: 'application',
-          description: 'How to group results. "application": Group by app name (e.g., all Chrome windows together). "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub"). "category": Group by full category hierarchy (events can appear in multiple categories). "domain": Group by website domain (browser activity only). "project": Group by project/repository (editor activity only). "hour": Group by hour of day (00:00-01:00, 01:00-02:00, etc.). "category_top_level": Group by top-level category only (e.g., "Work", "Media").',
+          description: 'How to group results. Can be a single grouping option or an array for multi-level hierarchical grouping. Single options: "application": Group by app name (e.g., all Chrome windows together). "title": Group by window title (e.g., separate "Chrome - Gmail" from "Chrome - GitHub"). "category": Group by full category hierarchy (events can appear in multiple categories). "domain": Group by website domain (browser activity only). "project": Group by project/repository (editor activity only). "hour": Group by hour of day (00:00-01:00, 01:00-02:00, etc.). "category_top_level": Group by top-level category only (e.g., "Work", "Media"). "language": Group by programming language (editor activity only). Multi-level: Pass an array like ["category_top_level", "project"] to group by category, then by project within each category. The hierarchy is shown in the title field as "Category > Project".',
+          oneOf: [
+            {
+              type: 'string',
+              enum: ['application', 'title', 'category', 'domain', 'project', 'hour', 'category_top_level', 'language'],
+              default: 'application',
+            },
+            {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['application', 'title', 'category', 'domain', 'project', 'hour', 'category_top_level', 'language'],
+              },
+              minItems: 2,
+              maxItems: 3,
+            },
+          ],
         },
         response_format: {
           type: 'string',

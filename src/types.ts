@@ -263,6 +263,10 @@ export interface CanonicalEvent {
   // Category (if categorization enabled)
   readonly category?: string;
 
+  // Grouping information (for multi-level grouping)
+  readonly group_key?: string;        // Primary grouping key
+  readonly group_hierarchy?: string[]; // Hierarchical grouping path (e.g., ["Work", "activitywatcher-mcp"])
+
   // Metadata
   readonly event_count: number;
   readonly first_seen: string; // ISO 8601 timestamp
@@ -276,9 +280,11 @@ export interface CanonicalQueryResult {
   readonly total_duration_seconds: number;
 }
 
+export type GroupByOption = 'application' | 'title' | 'category' | 'domain' | 'project' | 'hour' | 'category_top_level' | 'language';
+
 export interface UnifiedActivityParams extends TimeRangeParams {
   top_n?: number;
-  group_by?: 'application' | 'title' | 'category' | 'domain' | 'project' | 'hour' | 'category_top_level';
+  group_by?: GroupByOption | GroupByOption[];
   response_format?: ResponseFormat;
   exclude_system_apps?: boolean;
   min_duration_seconds?: number;

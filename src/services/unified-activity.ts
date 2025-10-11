@@ -107,8 +107,11 @@ export class UnifiedActivityService {
     // Always apply categorization
     const categorizedEvents = await this.applyCategoriestoEvents(eventsToGroup);
 
-    // Group and aggregate
-    const activities = this.groupEvents(categorizedEvents, params.group_by ?? 'application');
+    // Group and aggregate (handle both single and multi-level grouping)
+    const groupBy = params.group_by ?? 'application';
+    const activities = Array.isArray(groupBy)
+      ? this.groupEventsMultiLevel(categorizedEvents, groupBy)
+      : this.groupEvents(categorizedEvents, groupBy);
 
     // Sort by duration and limit
     const topN = params.top_n ?? 10;
@@ -274,11 +277,11 @@ export class UnifiedActivityService {
   }
 
   /**
-   * Group events by application, title, category, domain, project, hour, or category_top_level
+   * Group events by application, title, category, domain, project, hour, language, or category_top_level
    */
   private groupEvents(
     events: EnrichedEvent[],
-    groupBy: 'application' | 'title' | 'category' | 'domain' | 'project' | 'hour' | 'category_top_level'
+    groupBy: 'application' | 'title' | 'category' | 'domain' | 'project' | 'hour' | 'category_top_level' | 'language'
   ): CanonicalEvent[] {
     const groups = new Map<string, EnrichedEvent[]>();
 
@@ -342,6 +345,12 @@ export class UnifiedActivityService {
         const existing = groups.get(key) || [];
         existing.push(event);
         groups.set(key, existing);
+      } else if (groupBy === 'language') {
+        // Group by programming language
+        const language = event.editor?.language || 'Non-editor';
+        const existing = groups.get(language) || [];
+        existing.push(event);
+        groups.set(language, existing);
       } else {
         // For application/title grouping, event appears in one group
         const key = groupBy === 'application' ? event.app : `${event.app}|${event.title}`;
@@ -396,7 +405,7 @@ export class UnifiedActivityService {
 
       // Determine app field based on grouping type
       let appField: string;
-      if (groupBy === 'category' || groupBy === 'category_top_level' || groupBy === 'domain' || groupBy === 'project' || groupBy === 'hour') {
+      if (groupBy === 'category' || groupBy === 'category_top_level' || groupBy === 'domain' || groupBy === 'project' || groupBy === 'hour' || groupBy === 'language') {
         // For these groupings, show app count if multiple apps
         appField = apps.size === 1 ? Array.from(apps)[0] : `${apps.size} apps`;
       } else {
@@ -416,6 +425,8 @@ export class UnifiedActivityService {
         titleField = groupKey; // Show the hour range as title
       } else if (groupBy === 'category_top_level') {
         titleField = groupKey; // Show the top-level category as title
+      } else if (groupBy === 'language') {
+        titleField = groupKey; // Show the language as title
       } else {
         titleField = 'Various';
       }
@@ -441,6 +452,163 @@ export class UnifiedActivityService {
         first_seen: firstSeen,
         last_seen: lastSeen,
       });
+    }
+
+    return result;
+  }
+
+  /**
+   * Group events by multiple levels (hierarchical grouping)
+   * Example: ['category_top_level', 'project'] groups by category, then by project within each category
+   */
+  private groupEventsMultiLevel(
+    events: EnrichedEvent[],
+    groupByLevels: ('application' | 'title' | 'category' | 'domain' | 'project' | 'hour' | 'category_top_level' | 'language')[]
+  ): CanonicalEvent[] {
+    if (groupByLevels.length === 0) {
+      return this.groupEvents(events, 'application');
+    }
+
+    // Build hierarchical groups
+    interface HierarchicalGroup {
+      events: EnrichedEvent[];
+      children?: Map<string, HierarchicalGroup>;
+      key: string;
+      level: number;
+    }
+
+    const rootGroups = new Map<string, HierarchicalGroup>();
+
+    // Group events hierarchically
+    for (const event of events) {
+      const keys: string[] = [];
+
+      // Extract key for each level
+      for (const groupBy of groupByLevels) {
+        let key: string;
+        if (groupBy === 'category') {
+          key = event.categories?.[0] || 'Uncategorized';
+        } else if (groupBy === 'category_top_level') {
+          const category = event.categories?.[0] || 'Uncategorized';
+          key = category.split(' > ')[0];
+        } else if (groupBy === 'domain') {
+          key = event.browser?.domain || 'Non-browser';
+        } else if (groupBy === 'project') {
+          key = event.editor?.project || 'No project';
+        } else if (groupBy === 'hour') {
+          const timestamp = new Date(event.timestamp);
+          const hour = timestamp.getUTCHours();
+          key = `${hour.toString().padStart(2, '0')}:00-${((hour + 1) % 24).toString().padStart(2, '0')}:00`;
+        } else if (groupBy === 'language') {
+          key = event.editor?.language || 'Non-editor';
+        } else if (groupBy === 'application') {
+          key = event.app;
+        } else {
+          key = event.title;
+        }
+        keys.push(key);
+      }
+
+      // Navigate/create hierarchy
+      let currentLevel = rootGroups;
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (!currentLevel.has(key)) {
+          currentLevel.set(key, {
+            events: [],
+            children: i < keys.length - 1 ? new Map() : undefined,
+            key,
+            level: i,
+          });
+        }
+        const group = currentLevel.get(key)!;
+        group.events.push(event);
+        if (group.children) {
+          currentLevel = group.children;
+        }
+      }
+    }
+
+    // Flatten hierarchy into CanonicalEvents with group_hierarchy
+    const result: CanonicalEvent[] = [];
+
+    const flattenGroup = (group: HierarchicalGroup, hierarchy: string[]) => {
+      const groupEvents = group.events;
+      const first = groupEvents[0];
+      const totalDuration = groupEvents.reduce((sum, e) => sum + e.duration, 0);
+
+      // Collect unique apps
+      const apps = new Set<string>();
+      for (const e of groupEvents) {
+        apps.add(e.app);
+      }
+
+      // Collect browser data
+      const browserUrls = new Set<string>();
+      const browserDomains = new Set<string>();
+      let hasBrowser = false;
+      for (const e of groupEvents) {
+        if (e.browser) {
+          hasBrowser = true;
+          browserUrls.add(e.browser.url);
+          browserDomains.add(e.browser.domain);
+        }
+      }
+
+      // Collect editor data
+      const editorFiles = new Set<string>();
+      const editorProjects = new Set<string>();
+      const editorLanguages = new Set<string>();
+      let hasEditor = false;
+      for (const e of groupEvents) {
+        if (e.editor) {
+          hasEditor = true;
+          editorFiles.add(e.editor.file);
+          if (e.editor.project) editorProjects.add(e.editor.project);
+          if (e.editor.language) editorLanguages.add(e.editor.language);
+        }
+      }
+
+      // Get timestamps
+      const timestamps = groupEvents.map(e => new Date(e.timestamp).getTime());
+      const firstSeen = new Date(Math.min(...timestamps)).toISOString();
+      const lastSeen = new Date(Math.max(...timestamps)).toISOString();
+
+      result.push({
+        app: apps.size === 1 ? Array.from(apps)[0] : `${apps.size} apps`,
+        title: hierarchy.join(' > '),
+        duration_seconds: totalDuration,
+        duration_hours: totalDuration / 3600,
+        percentage: 0, // Will be calculated later
+        browser: hasBrowser ? {
+          url: browserUrls.size === 1 ? Array.from(browserUrls)[0] : `${browserUrls.size} URLs`,
+          domain: browserDomains.size === 1 ? Array.from(browserDomains)[0] : `${browserDomains.size} domains`,
+          title: first.browser?.title,
+        } : undefined,
+        editor: hasEditor ? {
+          file: editorFiles.size === 1 ? Array.from(editorFiles)[0] : `${editorFiles.size} files`,
+          project: editorProjects.size === 1 ? Array.from(editorProjects)[0] : undefined,
+          language: editorLanguages.size === 1 ? Array.from(editorLanguages)[0] : undefined,
+        } : undefined,
+        category: first.categories?.[0] || first.category,
+        group_key: group.key,
+        group_hierarchy: hierarchy,
+        event_count: groupEvents.length,
+        first_seen: firstSeen,
+        last_seen: lastSeen,
+      });
+
+      // Recursively flatten children
+      if (group.children) {
+        for (const [childKey, childGroup] of group.children) {
+          flattenGroup(childGroup, [...hierarchy, childKey]);
+        }
+      }
+    };
+
+    // Flatten all root groups
+    for (const [key, group] of rootGroups) {
+      flattenGroup(group, [key]);
     }
 
     return result;
