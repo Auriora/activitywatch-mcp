@@ -14,7 +14,7 @@ describe('QueryService helper methods', () => {
     const service = new QueryService(client as any, capabilities);
 
     const queryKey = [
-      'events = query_bucket("aw-watcher-web_test");',
+      'events = merge_events([query_bucket("aw-watcher-web_test")]);',
       'RETURN = events;',
     ].join('\n');
 

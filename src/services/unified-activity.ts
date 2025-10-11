@@ -108,7 +108,7 @@ export class UnifiedActivityService {
           include_cancelled: false,
           limit: 500,
         });
-        calendarEvents = calendarResult.events;
+        calendarEvents = [...calendarResult.events];
         logger.debug('Calendar events retrieved for overlay', {
           calendar_events: calendarEvents.length,
         });

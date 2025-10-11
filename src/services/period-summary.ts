@@ -4,7 +4,7 @@
 
 import { UnifiedActivityService } from './unified-activity.js';
 import { QueryService } from './query.js';
-import { AfkActivityService } from './afk-activity.js';
+import { AfkActivityService, AfkPeriod } from './afk-activity.js';
 import { CategoryService } from './category.js';
 import {
   PeriodSummary, 
@@ -16,6 +16,7 @@ import {
   WebUsage,
   CategoryUsage,
   CalendarEventSummary,
+  AWEvent,
 } from '../types.js';
 import {
   formatDate,
@@ -33,6 +34,7 @@ import {
 import { logger } from '../utils/logger.js';
 import { getTimezoneOffset } from '../config/user-preferences.js';
 import { CalendarService } from './calendar.js';
+import { getStringProperty } from '../utils/type-guards.js';
 
 export class PeriodSummaryService {
   constructor(
@@ -87,6 +89,32 @@ export class PeriodSummaryService {
       response_format: 'detailed',
     });
 
+    // Prefetch AFK summary once for the entire period
+    const afkSummary = await this.resolveAfkSummary(start, end);
+
+    const detailLevel = params.detail_level || this.getDefaultDetailLevel(params.period_type);
+    let windowEvents: readonly AWEvent[] = [];
+    let browserEventsCache: readonly AWEvent[] | null = null;
+
+    if (detailLevel !== 'none') {
+      const windowEventsResult = await this.queryService.getWindowEventsFiltered(start, end);
+      windowEvents = windowEventsResult.events;
+    }
+
+    const loadBrowserEvents = async (): Promise<readonly AWEvent[]> => {
+      if (browserEventsCache !== null) {
+        return browserEventsCache;
+      }
+      try {
+        const browserEventsResult = await this.queryService.getBrowserEventsFiltered(start, end);
+        browserEventsCache = browserEventsResult.events;
+      } catch (error) {
+        logger.debug('Browser events unavailable for period breakdown', error);
+        browserEventsCache = [];
+      }
+      return browserEventsCache;
+    };
+
     // Extract top applications and websites
     const applications = unifiedActivity.activities
       .map(a => ({
@@ -114,20 +142,10 @@ export class PeriodSummaryService {
     const meetingOnlySeconds = calendarSummary?.meeting_only_seconds ?? Math.max(0, meetingSeconds - overlapSeconds);
     let totalActiveTime = calendarSummary?.union_seconds ?? unifiedActivity.total_time_seconds;
 
-    // Get AFK stats
-    let afkTime: number;
-
-    try {
-      const afkStats = await this.afkService.getAfkStats(start, end);
-      afkTime = afkStats.afk_seconds;
-      if (afkStats.active_seconds > 0) {
-        focusSeconds = afkStats.active_seconds;
-        totalActiveTime = focusSeconds + meetingOnlySeconds;
-      }
-    } catch (error) {
-      logger.debug('AFK tracking not available');
-      const totalPeriodSeconds = (end.getTime() - start.getTime()) / 1000;
-      afkTime = Math.max(0, totalPeriodSeconds - totalActiveTime);
+    const afkTime = afkSummary.totalAfkSeconds;
+    if (afkSummary.totalActiveSeconds > 0) {
+      focusSeconds = afkSummary.totalActiveSeconds;
+      totalActiveTime = focusSeconds + meetingOnlySeconds;
     }
 
     // Get category breakdown if available
@@ -159,17 +177,18 @@ export class PeriodSummaryService {
     }
 
     // Generate breakdowns based on detail level
-    const detailLevel = params.detail_level || this.getDefaultDetailLevel(params.period_type);
     let hourlyBreakdown: HourlyActivity[] | undefined;
     let dailyBreakdown: DailyActivity[] | undefined;
     let weeklyBreakdown: WeeklyActivity[] | undefined;
 
     if (detailLevel === 'hourly') {
-      hourlyBreakdown = await this.getHourlyBreakdown(start, end);
+      hourlyBreakdown = await this.getHourlyBreakdown(start, end, windowEvents);
     } else if (detailLevel === 'daily') {
-      dailyBreakdown = await this.getDailyBreakdown(start, end, offsetMinutes);
+      const browserEvents = await loadBrowserEvents();
+      dailyBreakdown = await this.getDailyBreakdown(start, end, offsetMinutes, windowEvents, browserEvents, afkSummary.periods);
     } else if (detailLevel === 'weekly') {
-      weeklyBreakdown = await this.getWeeklyBreakdown(start, end);
+      const browserEvents = await loadBrowserEvents();
+      weeklyBreakdown = await this.getWeeklyBreakdown(start, end, windowEvents, browserEvents, afkSummary.periods);
     }
 
     // Generate insights
@@ -279,40 +298,25 @@ export class PeriodSummaryService {
   /**
    * Get hourly breakdown of activity
    */
-  private async getHourlyBreakdown(start: Date, end: Date): Promise<HourlyActivity[]> {
-    const hourly: HourlyActivity[] = [];
-    const startHour = start.getHours();
-    const totalHours = Math.min(24, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
+  private async getHourlyBreakdown(
+    start: Date,
+    end: Date,
+    windowEvents: readonly AWEvent[]
+  ): Promise<HourlyActivity[]> {
+    const slices = this.buildHourlySlices(start, end);
+    if (slices.length === 0) return [];
 
-    for (let i = 0; i < totalHours; i++) {
-      const hourStart = new Date(start.getTime() + i * 60 * 60 * 1000);
-      const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000 - 1);
+    const aggregations = this.accumulateEventDurations(
+      windowEvents,
+      slices,
+      event => getStringProperty(event.data, 'app')
+    );
 
-      if (hourStart > end) break;
-
-      try {
-        const activityData = await this.unifiedService.getActivity({
-          time_period: 'custom',
-          custom_start: hourStart.toISOString(),
-          custom_end: (hourEnd > end ? end : hourEnd).toISOString(),
-          top_n: 1,
-          response_format: 'concise',
-        });
-
-        hourly.push({
-          hour: (startHour + i) % 24,
-          active_seconds: activityData.total_time_seconds,
-          top_app: activityData.activities[0]?.app,
-        });
-      } catch (error) {
-        hourly.push({
-          hour: (startHour + i) % 24,
-          active_seconds: 0,
-        });
-      }
-    }
-
-    return hourly;
+    return slices.map((slice, index) => ({
+      hour: slice.hour,
+      active_seconds: Math.round(aggregations[index].total),
+      top_app: this.getTopKey(aggregations[index].byKey),
+    }));
   }
 
   /**
@@ -321,86 +325,72 @@ export class PeriodSummaryService {
   private async getDailyBreakdown(
     start: Date,
     end: Date,
-    offsetMinutes: number
+    offsetMinutes: number,
+    windowEvents: readonly AWEvent[],
+    browserEvents: readonly AWEvent[],
+    afkPeriods: readonly AfkPeriod[]
   ): Promise<DailyActivity[]> {
-    const days = getDaysBetween(start, end);
-    const daily: DailyActivity[] = [];
+    const slices = this.buildDailySlices(start, end, offsetMinutes);
+    if (slices.length === 0) return [];
 
-    for (const day of days) {
-      const dayStart = getStartOfDayInTimezone(day, offsetMinutes);
-      const dayEnd = getEndOfDayInTimezone(day, offsetMinutes);
+    const windowAggregations = this.accumulateEventDurations(
+      windowEvents,
+      slices,
+      event => getStringProperty(event.data, 'app')
+    );
 
-      // Don't go beyond the period end
-      const actualEnd = dayEnd > end ? end : dayEnd;
+    const browserAggregations = this.accumulateEventDurations(
+      browserEvents,
+      slices,
+      event => this.extractBrowserDomain(event)
+    );
 
-      try {
-        const activityData = await this.unifiedService.getActivity({
-          time_period: 'custom',
-          custom_start: dayStart.toISOString(),
-          custom_end: actualEnd.toISOString(),
-          top_n: 5,
-          response_format: 'detailed',
-        });
+    const afkDurations = this.computeAfkDurations(afkPeriods, slices);
 
-        const afkStats = await this.afkService.getAfkStats(dayStart, actualEnd);
-
-        daily.push({
-          date: formatDate(day),
-          active_seconds: activityData.total_time_seconds,
-          afk_seconds: afkStats.afk_seconds,
-          top_app: activityData.activities[0]?.app,
-          top_website: activityData.activities.find(a => a.browser?.domain)?.browser?.domain,
-        });
-      } catch (error) {
-        daily.push({
-          date: formatDate(day),
-          active_seconds: 0,
-          afk_seconds: 0,
-        });
-      }
-    }
-
-    return daily;
+    return slices.map((slice, index) => ({
+      date: formatDate(slice.date),
+      active_seconds: Math.round(windowAggregations[index].total),
+      afk_seconds: Math.round(afkDurations[index]),
+      top_app: this.getTopKey(windowAggregations[index].byKey),
+      top_website: this.getTopKey(browserAggregations[index].byKey),
+    }));
   }
 
   /**
    * Get weekly breakdown of activity
    */
-  private async getWeeklyBreakdown(start: Date, end: Date): Promise<WeeklyActivity[]> {
-    const weeks = getWeeksBetween(start, end);
-    const weekly: WeeklyActivity[] = [];
+  private async getWeeklyBreakdown(
+    start: Date,
+    end: Date,
+    windowEvents: readonly AWEvent[],
+    browserEvents: readonly AWEvent[],
+    afkPeriods: readonly AfkPeriod[]
+  ): Promise<WeeklyActivity[]> {
+    const slices = this.buildWeeklySlices(start, end);
+    if (slices.length === 0) return [];
 
-    for (const week of weeks) {
-      try {
-        const activityData = await this.unifiedService.getActivity({
-          time_period: 'custom',
-          custom_start: week.start.toISOString(),
-          custom_end: week.end.toISOString(),
-          top_n: 5,
-          response_format: 'detailed',
-        });
+    const windowAggregations = this.accumulateEventDurations(
+      windowEvents,
+      slices,
+      event => getStringProperty(event.data, 'app')
+    );
 
-        const afkStats = await this.afkService.getAfkStats(week.start, week.end);
+    const browserAggregations = this.accumulateEventDurations(
+      browserEvents,
+      slices,
+      event => this.extractBrowserDomain(event)
+    );
 
-        weekly.push({
-          week_start: formatDate(week.start),
-          week_end: formatDate(week.end),
-          active_seconds: activityData.total_time_seconds,
-          afk_seconds: afkStats.afk_seconds,
-          top_app: activityData.activities[0]?.app,
-          top_website: activityData.activities.find(a => a.browser?.domain)?.browser?.domain,
-        });
-      } catch (error) {
-        weekly.push({
-          week_start: formatDate(week.start),
-          week_end: formatDate(week.end),
-          active_seconds: 0,
-          afk_seconds: 0,
-        });
-      }
-    }
+    const afkDurations = this.computeAfkDurations(afkPeriods, slices);
 
-    return weekly;
+    return slices.map((slice, index) => ({
+      week_start: formatDate(slice.weekStart),
+      week_end: formatDate(slice.weekEnd),
+      active_seconds: Math.round(windowAggregations[index].total),
+      afk_seconds: Math.round(afkDurations[index]),
+      top_app: this.getTopKey(windowAggregations[index].byKey),
+      top_website: this.getTopKey(browserAggregations[index].byKey),
+    }));
   }
 
   /**
@@ -457,6 +447,263 @@ export class PeriodSummaryService {
     return insights;
   }
 
+  private async resolveAfkSummary(
+    start: Date,
+    end: Date
+  ): Promise<ResolvedAfkSummary> {
+    const candidate = (this.afkService as unknown as {
+      getAfkActivity?: (start: Date, end: Date) => Promise<{
+        total_afk_seconds: number;
+        total_active_seconds: number;
+        afk_periods: AfkPeriod[];
+      }>;
+    }).getAfkActivity;
+
+    if (typeof candidate === 'function') {
+      try {
+        const summary = await candidate.call(this.afkService, start, end);
+        return {
+          totalAfkSeconds: summary.total_afk_seconds,
+          totalActiveSeconds: summary.total_active_seconds,
+          periods: summary.afk_periods,
+        };
+      } catch (error) {
+        logger.debug('AFK activity summary unavailable, falling back to stats', error);
+      }
+    }
+
+    try {
+      const stats = await this.afkService.getAfkStats(start, end);
+      return {
+        totalAfkSeconds: stats.afk_seconds,
+        totalActiveSeconds: stats.active_seconds,
+        periods: [],
+      };
+    } catch (error) {
+      logger.debug('AFK stats unavailable, defaulting to zero AFK time', error);
+      return {
+        totalAfkSeconds: 0,
+        totalActiveSeconds: 0,
+        periods: [],
+      };
+    }
+  }
+
+  private buildHourlySlices(
+    start: Date,
+    end: Date
+  ): Array<{ startMs: number; endMs: number; hour: number }> {
+    const slices: Array<{ startMs: number; endMs: number; hour: number }> = [];
+    const hourMs = 60 * 60 * 1000;
+    const totalMs = end.getTime() - start.getTime();
+    if (totalMs <= 0) {
+      return slices;
+    }
+
+    const totalHours = Math.min(24, Math.ceil(totalMs / hourMs));
+    for (let i = 0; i < totalHours; i++) {
+      const sliceStartMs = start.getTime() + i * hourMs;
+      const sliceEndMs = Math.min(sliceStartMs + hourMs, end.getTime());
+      slices.push({
+        startMs: sliceStartMs,
+        endMs: sliceEndMs,
+        hour: (start.getHours() + i) % 24,
+      });
+    }
+
+    return slices;
+  }
+
+  private buildDailySlices(
+    start: Date,
+    end: Date,
+    offsetMinutes: number
+  ): Array<{ startMs: number; endMs: number; date: Date }> {
+    const days = getDaysBetween(start, end);
+    const slices: Array<{ startMs: number; endMs: number; date: Date }> = [];
+
+    for (const day of days) {
+      const dayStart = getStartOfDayInTimezone(day, offsetMinutes);
+      const dayEnd = getEndOfDayInTimezone(day, offsetMinutes);
+      const sliceStartMs = Math.max(dayStart.getTime(), start.getTime());
+      const sliceEndMs = Math.min(dayEnd.getTime(), end.getTime());
+
+      if (sliceEndMs <= sliceStartMs) {
+        continue;
+      }
+
+      slices.push({
+        startMs: sliceStartMs,
+        endMs: sliceEndMs,
+        date: day,
+      });
+    }
+
+    return slices;
+  }
+
+  private buildWeeklySlices(
+    start: Date,
+    end: Date
+  ): Array<{ startMs: number; endMs: number; weekStart: Date; weekEnd: Date }> {
+    const weeks = getWeeksBetween(start, end);
+    const slices: Array<{ startMs: number; endMs: number; weekStart: Date; weekEnd: Date }> = [];
+
+    for (const week of weeks) {
+      const sliceStartMs = Math.max(week.start.getTime(), start.getTime());
+      const sliceEndMs = Math.min(week.end.getTime(), end.getTime());
+
+      if (sliceEndMs <= sliceStartMs) {
+        continue;
+      }
+
+      slices.push({
+        startMs: sliceStartMs,
+        endMs: sliceEndMs,
+        weekStart: week.start,
+        weekEnd: week.end,
+      });
+    }
+
+    return slices;
+  }
+
+  private accumulateEventDurations<TSlice extends { startMs: number; endMs: number }>(
+    events: readonly AWEvent[],
+    slices: readonly TSlice[],
+    keySelector?: (event: AWEvent) => string | null
+  ): Array<{ total: number; byKey?: Map<string, number> }> {
+    const results = slices.map(() => ({
+      total: 0,
+      byKey: keySelector ? new Map<string, number>() : undefined,
+    }));
+
+    if (events.length === 0 || slices.length === 0) {
+      return results;
+    }
+
+    for (const event of events) {
+      const eventStartMs = new Date(event.timestamp).getTime();
+      if (!Number.isFinite(eventStartMs)) {
+        continue;
+      }
+      const durationSeconds = event.duration ?? 0;
+      const eventEndMs = eventStartMs + durationSeconds * 1000;
+      if (!Number.isFinite(eventEndMs) || eventEndMs <= eventStartMs) {
+        continue;
+      }
+
+      for (let i = 0; i < slices.length; i++) {
+        const overlapSeconds = this.computeOverlapSeconds(
+          eventStartMs,
+          eventEndMs,
+          slices[i].startMs,
+          slices[i].endMs
+        );
+        if (overlapSeconds <= 0) {
+          continue;
+        }
+
+        results[i].total += overlapSeconds;
+        if (results[i].byKey && keySelector) {
+          const key = keySelector(event);
+          if (key) {
+            const current = results[i].byKey!.get(key) ?? 0;
+            results[i].byKey!.set(key, current + overlapSeconds);
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  private computeAfkDurations<TSlice extends { startMs: number; endMs: number }>(
+    afkPeriods: readonly AfkPeriod[],
+    slices: readonly TSlice[]
+  ): number[] {
+    const totals = slices.map(() => 0);
+    if (afkPeriods.length === 0 || slices.length === 0) {
+      return totals;
+    }
+
+    for (const period of afkPeriods) {
+      if (period.status !== 'afk') {
+        continue;
+      }
+      const periodStartMs = new Date(period.start).getTime();
+      const periodEndMs = new Date(period.end).getTime();
+      if (!Number.isFinite(periodStartMs) || !Number.isFinite(periodEndMs) || periodEndMs <= periodStartMs) {
+        continue;
+      }
+
+      for (let i = 0; i < slices.length; i++) {
+        const overlapSeconds = this.computeOverlapSeconds(
+          periodStartMs,
+          periodEndMs,
+          slices[i].startMs,
+          slices[i].endMs
+        );
+        if (overlapSeconds > 0) {
+          totals[i] += overlapSeconds;
+        }
+      }
+    }
+
+    return totals;
+  }
+
+  private computeOverlapSeconds(
+    startMs: number,
+    endMs: number,
+    sliceStartMs: number,
+    sliceEndMs: number
+  ): number {
+    const overlapStart = Math.max(startMs, sliceStartMs);
+    const overlapEnd = Math.min(endMs, sliceEndMs);
+    if (overlapEnd <= overlapStart) {
+      return 0;
+    }
+    return (overlapEnd - overlapStart) / 1000;
+  }
+
+  private getTopKey(map?: Map<string, number>): string | undefined {
+    if (!map || map.size === 0) {
+      return undefined;
+    }
+
+    let topKey: string | undefined;
+    let topValue = 0;
+
+    for (const [key, value] of map.entries()) {
+      if (value > topValue) {
+        topValue = value;
+        topKey = key;
+      }
+    }
+
+    return topKey;
+  }
+
+  private extractBrowserDomain(event: AWEvent): string | null {
+    const explicitDomain = getStringProperty(event.data, 'domain');
+    if (explicitDomain) {
+      return explicitDomain.toLowerCase();
+    }
+
+    const url = getStringProperty(event.data, 'url');
+    if (!url) {
+      return null;
+    }
+
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return hostname.replace(/^www\./, '');
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Get human-readable period label
    */
@@ -478,4 +725,10 @@ export class PeriodSummaryService {
         return 'Period summary';
     }
   }
+}
+
+interface ResolvedAfkSummary {
+  totalAfkSeconds: number;
+  totalActiveSeconds: number;
+  periods: AfkPeriod[];
 }

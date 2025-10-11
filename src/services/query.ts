@@ -59,27 +59,12 @@ export class QueryService {
       return { events: [], total_duration_seconds: 0 };
     }
 
-    // Build query based on whether AFK tracking is available
-    const hasAfk = afkBuckets.length > 0;
     const afkBucketId = afkBuckets[0]?.id;
+    const bucketIds = allBuckets.map(bucket => bucket.id);
+    const result = await this.executeMergedEventsQuery(bucketIds, startTime, endTime, { afkBucketId });
 
-    // Combine events from all buckets
-    const allEvents: AWEvent[] = [];
-    let totalDuration = 0;
-
-    for (const bucket of allBuckets) {
-      const query = this.buildWindowQuery(bucket.id, afkBucketId, hasAfk);
-      const result = await this.executeQuery(startTime, endTime, query);
-      allEvents.push(...result.events);
-      totalDuration += result.total_duration_seconds;
-    }
-
-    logger.info(`Combined ${allEvents.length} events from ${allBuckets.length} buckets`);
-
-    return {
-      events: allEvents,
-      total_duration_seconds: totalDuration,
-    };
+    logger.info(`Combined ${result.events.length} events from ${bucketIds.length} buckets`);
+    return result;
   }
 
   /**
@@ -105,27 +90,12 @@ export class QueryService {
       return { events: [], total_duration_seconds: 0 };
     }
 
-    // Build query based on whether AFK tracking is available
-    const hasAfk = afkBuckets.length > 0;
     const afkBucketId = afkBuckets[0]?.id;
+    const bucketIds = browserBuckets.map(bucket => bucket.id);
+    const result = await this.executeMergedEventsQuery(bucketIds, startTime, endTime, { afkBucketId });
 
-    // Combine events from all buckets
-    const allEvents: AWEvent[] = [];
-    let totalDuration = 0;
-
-    for (const bucket of browserBuckets) {
-      const query = this.buildBrowserQuery(bucket.id, afkBucketId, hasAfk);
-      const result = await this.executeQuery(startTime, endTime, query);
-      allEvents.push(...result.events);
-      totalDuration += result.total_duration_seconds;
-    }
-
-    logger.info(`Combined ${allEvents.length} events from ${browserBuckets.length} buckets`);
-
-    return {
-      events: allEvents,
-      total_duration_seconds: totalDuration,
-    };
+    logger.info(`Combined ${result.events.length} events from ${bucketIds.length} buckets`);
+    return result;
   }
 
   /**
@@ -151,87 +121,12 @@ export class QueryService {
       return { events: [], total_duration_seconds: 0 };
     }
 
-    // Build query based on whether AFK tracking is available
-    const hasAfk = afkBuckets.length > 0;
     const afkBucketId = afkBuckets[0]?.id;
+    const bucketIds = editorBuckets.map(bucket => bucket.id);
+    const result = await this.executeMergedEventsQuery(bucketIds, startTime, endTime, { afkBucketId });
 
-    // Combine events from all buckets
-    const allEvents: AWEvent[] = [];
-    let totalDuration = 0;
-
-    for (const bucket of editorBuckets) {
-      const query = this.buildEditorQuery(bucket.id, afkBucketId, hasAfk);
-      const result = await this.executeQuery(startTime, endTime, query);
-      allEvents.push(...result.events);
-      totalDuration += result.total_duration_seconds;
-    }
-
-    logger.info(`Combined ${allEvents.length} events from ${editorBuckets.length} buckets`);
-
-    return {
-      events: allEvents,
-      total_duration_seconds: totalDuration,
-    };
-  }
-
-  /**
-   * Build query for window events with optional AFK filtering
-   */
-  private buildWindowQuery(windowBucketId: string, afkBucketId?: string, hasAfk: boolean = false): string[] {
-    const query: string[] = [];
-
-    // Get window events
-    query.push(`events = query_bucket("${windowBucketId}");`);
-
-    // Apply AFK filtering if available
-    if (hasAfk && afkBucketId) {
-      query.push(`afk_events = query_bucket("${afkBucketId}");`);
-      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
-      query.push(`events = filter_period_intersect(events, not_afk);`);
-    }
-
-    query.push(`RETURN = events;`);
-    return query;
-  }
-
-  /**
-   * Build query for browser events with optional AFK filtering
-   */
-  private buildBrowserQuery(browserBucketId: string, afkBucketId?: string, hasAfk: boolean = false): string[] {
-    const query: string[] = [];
-
-    // Get browser events
-    query.push(`events = query_bucket("${browserBucketId}");`);
-
-    // Apply AFK filtering if available
-    if (hasAfk && afkBucketId) {
-      query.push(`afk_events = query_bucket("${afkBucketId}");`);
-      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
-      query.push(`events = filter_period_intersect(events, not_afk);`);
-    }
-
-    query.push(`RETURN = events;`);
-    return query;
-  }
-
-  /**
-   * Build query for editor events with optional AFK filtering
-   */
-  private buildEditorQuery(editorBucketId: string, afkBucketId?: string, hasAfk: boolean = false): string[] {
-    const query: string[] = [];
-
-    // Get editor events
-    query.push(`events = query_bucket("${editorBucketId}");`);
-
-    // Apply AFK filtering if available
-    if (hasAfk && afkBucketId) {
-      query.push(`afk_events = query_bucket("${afkBucketId}");`);
-      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
-      query.push(`events = filter_period_intersect(events, not_afk);`);
-    }
-
-    query.push(`RETURN = events;`);
-    return query;
+    logger.info(`Combined ${result.events.length} events from ${bucketIds.length} buckets`);
+    return result;
   }
 
   /**
@@ -280,6 +175,191 @@ export class QueryService {
       logger.error('Query execution failed', error);
       throw error;
     }
+  }
+
+  private async executeMergedEventsQuery(
+    bucketIds: readonly string[],
+    startTime: Date,
+    endTime: Date,
+    options?: { afkBucketId?: string }
+  ): Promise<QueryResult> {
+    if (bucketIds.length === 0) {
+      return { events: [], total_duration_seconds: 0 };
+    }
+
+    const mergedQuery = this.buildMergedEventsQuery(bucketIds, options?.afkBucketId);
+    logger.debug('Executing merged bucket query', {
+      bucketCount: bucketIds.length,
+      buckets: bucketIds,
+      afkBucketId: options?.afkBucketId,
+    });
+    return this.executeQuery(startTime, endTime, mergedQuery);
+  }
+
+  private buildMergedEventsQuery(
+    bucketIds: readonly string[],
+    afkBucketId?: string
+  ): string[] {
+    if (bucketIds.length === 0) {
+      return ['RETURN = []'];
+    }
+
+    const bucketExpressions = bucketIds
+      .map(id => `query_bucket("${id}")`)
+      .join(', ');
+
+    const query: string[] = [];
+    query.push(`events = merge_events([${bucketExpressions}]);`);
+
+    if (afkBucketId) {
+      query.push(`afk_events = query_bucket("${afkBucketId}");`);
+      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
+      query.push(`events = filter_period_intersect(events, not_afk);`);
+    }
+
+    query.push('RETURN = events;');
+    return query;
+  }
+
+  private async executeCanonicalMergedQuery(
+    windowBucketIds: readonly string[],
+    browserConfigs: ReadonlyArray<{ bucketId: string; appNames: string[] }>,
+    editorConfigs: ReadonlyArray<{ bucketId: string; appNames: string[] }>,
+    startTime: Date,
+    endTime: Date,
+    afkBucketId?: string
+  ): Promise<CanonicalQueryResult> {
+    const query = this.buildCanonicalMergedQuery(
+      windowBucketIds,
+      browserConfigs,
+      editorConfigs,
+      afkBucketId
+    );
+
+    const timeperiods = [
+      `${formatDateForAPI(startTime)}/${formatDateForAPI(endTime)}`
+    ];
+
+    logger.debug('Executing canonical merged query', {
+      windowBucketCount: windowBucketIds.length,
+      browserBucketCount: browserConfigs.length,
+      editorBucketCount: editorConfigs.length,
+      afkBucketId,
+    });
+
+    try {
+      const results = await this.client.query(timeperiods, query);
+      if (!Array.isArray(results) || results.length === 0) {
+        logger.warn('Canonical query returned no results');
+        return {
+          window_events: [],
+          browser_events: [],
+          editor_events: [],
+          total_duration_seconds: 0,
+        };
+      }
+
+      const payload = results[0] as {
+        window_events?: AWEvent[];
+        browser_events?: AWEvent[];
+        editor_events?: AWEvent[];
+      };
+
+      const windowEvents = Array.isArray(payload?.window_events) ? payload.window_events : [];
+      const browserEvents = Array.isArray(payload?.browser_events) ? payload.browser_events : [];
+      const editorEvents = Array.isArray(payload?.editor_events) ? payload.editor_events : [];
+      const totalDuration = windowEvents.reduce((sum, event) => sum + event.duration, 0);
+
+      return {
+        window_events: windowEvents,
+        browser_events: browserEvents,
+        editor_events: editorEvents,
+        total_duration_seconds: totalDuration,
+      };
+    } catch (error) {
+      logger.error('Canonical merged query execution failed', error);
+      throw error;
+    }
+  }
+
+  private buildCanonicalMergedQuery(
+    windowBucketIds: readonly string[],
+    browserConfigs: ReadonlyArray<{ bucketId: string; appNames: string[] }>,
+    editorConfigs: ReadonlyArray<{ bucketId: string; appNames: string[] }>,
+    afkBucketId?: string
+  ): string[] {
+    const query: string[] = [];
+
+    if (afkBucketId) {
+      query.push(`afk_events = query_bucket("${afkBucketId}");`);
+      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
+    }
+
+    if (windowBucketIds.length > 0) {
+      const windowBucketsExpr = windowBucketIds
+        .map(id => `query_bucket("${id}")`)
+        .join(', ');
+      query.push(`window_events = merge_events([${windowBucketsExpr}]);`);
+      if (afkBucketId) {
+        query.push('window_events = filter_period_intersect(window_events, not_afk);');
+      }
+    } else {
+      query.push('window_events = [];');
+    }
+
+    if (browserConfigs.length > 0) {
+    const browserComponents = browserConfigs.map(({ bucketId, appNames }) => {
+        if (windowBucketIds.length > 0 && appNames.length > 0) {
+          const appNamesJson = JSON.stringify(appNames);
+          return [
+            `filter_period_intersect(` +
+            `query_bucket("${bucketId}"), ` +
+            `filter_keyvals(window_events, "app", ${appNamesJson})` +
+            `)`
+          ].join('');
+        }
+        return `query_bucket("${bucketId}")`;
+      });
+
+      query.push(`browser_components = [${browserComponents.join(', ')}];`);
+      query.push('browser_events = merge_events(browser_components);');
+      if (windowBucketIds.length === 0 && afkBucketId) {
+        query.push('browser_events = filter_period_intersect(browser_events, not_afk);');
+      }
+    } else {
+      query.push('browser_events = [];');
+    }
+
+    if (editorConfigs.length > 0) {
+    const editorComponents = editorConfigs.map(({ bucketId, appNames }) => {
+        if (windowBucketIds.length > 0 && appNames.length > 0) {
+          const appNamesJson = JSON.stringify(appNames);
+          return [
+            `filter_period_intersect(` +
+            `query_bucket("${bucketId}"), ` +
+            `filter_keyvals(window_events, "app", ${appNamesJson})` +
+            `)`
+          ].join('');
+        }
+        return `query_bucket("${bucketId}")`;
+      });
+
+      query.push(`editor_components = [${editorComponents.join(', ')}];`);
+      query.push('editor_events = merge_events(editor_components);');
+      if (windowBucketIds.length === 0 && afkBucketId) {
+        query.push('editor_events = filter_period_intersect(editor_events, not_afk);');
+      }
+    } else {
+      query.push('editor_events = [];');
+    }
+
+    query.push('RETURN = {');
+    query.push('  "window_events": window_events,');
+    query.push('  "browser_events": browser_events,');
+    query.push('  "editor_events": editor_events');
+    query.push('};');
+
+    return query;
   }
 
   /**
@@ -333,181 +413,50 @@ export class QueryService {
       this.capabilities.findAfkBuckets(),
     ]);
 
-    const hasAfk = afkBuckets.length > 0;
     const afkBucketId = afkBuckets[0]?.id;
+    const windowBucketIds = windowBuckets.map(bucket => bucket.id);
 
-    // Get window events (base layer, AFK-filtered)
-    const windowEvents: AWEvent[] = [];
-    let totalDuration = 0;
-
-    for (const bucket of windowBuckets) {
-      const query = this.buildWindowQuery(bucket.id, afkBucketId, hasAfk);
-      const result = await this.executeQuery(startTime, endTime, query);
-      windowEvents.push(...result.events);
-      totalDuration += result.total_duration_seconds;
-    }
-
-    logger.info(`Got ${windowEvents.length} window events`);
-
-    // Get browser events filtered by active browser windows
-    const browserEvents: AWEvent[] = [];
-
-    for (const browserBucket of browserBuckets) {
-      // Determine which browser this is (chrome, firefox, etc.)
-      const browserType = detectBrowserType(browserBucket.id);
+    const browserConfigs = browserBuckets.reduce<Array<{ bucketId: string; appNames: string[] }>>((acc, bucket) => {
+      const browserType = detectBrowserType(bucket.id);
       const appNames = browserType ? getBrowserAppNames(browserType) : [];
-
       if (appNames.length === 0) {
-        logger.warn(`Could not detect browser type for bucket ${browserBucket.id}`);
-        continue;
+        logger.warn(`Could not detect browser type for bucket ${bucket.id}`);
+        return acc;
       }
+      acc.push({ bucketId: bucket.id, appNames });
+      return acc;
+    }, []);
 
-      // Build query that filters browser events by active window
-      const query = this.buildCanonicalBrowserQuery(
-        browserBucket.id,
-        windowBuckets[0]?.id, // Use first window bucket
-        appNames,
-        afkBucketId,
-        hasAfk
-      );
-
-      const result = await this.executeQuery(startTime, endTime, query);
-      browserEvents.push(...result.events);
-    }
-
-    logger.info(`Got ${browserEvents.length} browser events (filtered by active window)`);
-
-    // Get editor events filtered by active editor windows
-    const editorEvents: AWEvent[] = [];
-
-    for (const editorBucket of editorBuckets) {
-      // Determine which editor this is (vscode, vim, etc.)
-      const editorType = detectEditorType(editorBucket.id);
+    const editorConfigs = editorBuckets.reduce<Array<{ bucketId: string; appNames: string[] }>>((acc, bucket) => {
+      const editorType = detectEditorType(bucket.id);
       const appNames = editorType ? getEditorAppNames(editorType) : [];
-
       if (appNames.length === 0) {
-        logger.warn(`Could not detect editor type for bucket ${editorBucket.id}`);
-        continue;
+        logger.warn(`Could not detect editor type for bucket ${bucket.id}`);
+        return acc;
       }
+      acc.push({ bucketId: bucket.id, appNames });
+      return acc;
+    }, []);
 
-      // Build query that filters editor events by active window
-      const query = this.buildCanonicalEditorQuery(
-        editorBucket.id,
-        windowBuckets[0]?.id, // Use first window bucket
-        appNames,
-        afkBucketId,
-        hasAfk
-      );
+    const result = await this.executeCanonicalMergedQuery(
+      windowBucketIds,
+      browserConfigs,
+      editorConfigs,
+      startTime,
+      endTime,
+      afkBucketId
+    );
 
-      const result = await this.executeQuery(startTime, endTime, query);
-      editorEvents.push(...result.events);
-    }
+    logger.info('Canonical query aggregated events', {
+      windowEventCount: result.window_events.length,
+      browserEventCount: result.browser_events.length,
+      editorEventCount: result.editor_events.length,
+      windowBucketCount: windowBucketIds.length,
+      browserBucketCount: browserConfigs.length,
+      editorBucketCount: editorConfigs.length,
+    });
 
-    logger.info(`Got ${editorEvents.length} editor events (filtered by active window)`);
-
-    return {
-      window_events: windowEvents,
-      browser_events: browserEvents,
-      editor_events: editorEvents,
-      total_duration_seconds: totalDuration,
-    };
-  }
-
-  /**
-   * Build canonical browser query - filters browser events by active browser window
-   */
-  private buildCanonicalBrowserQuery(
-    browserBucketId: string,
-    windowBucketId: string | undefined,
-    browserAppNames: string[],
-    afkBucketId?: string,
-    hasAfk: boolean = false
-  ): string[] {
-    const query: string[] = [];
-
-    if (!windowBucketId) {
-      // No window tracking, just return browser events with AFK filter
-      query.push(`events = query_bucket("${browserBucketId}");`);
-      if (hasAfk && afkBucketId) {
-        query.push(`afk_events = query_bucket("${afkBucketId}");`);
-        query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
-        query.push(`events = filter_period_intersect(events, not_afk);`);
-      }
-      query.push(`RETURN = events;`);
-      return query;
-    }
-
-    // Get window events
-    query.push(`window_events = query_bucket("${windowBucketId}");`);
-
-    // Apply AFK filtering to window events
-    if (hasAfk && afkBucketId) {
-      query.push(`afk_events = query_bucket("${afkBucketId}");`);
-      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
-      query.push(`window_events = filter_period_intersect(window_events, not_afk);`);
-    }
-
-    // Filter window events to only browser windows
-    const appNamesJson = JSON.stringify(browserAppNames);
-    query.push(`browser_windows = filter_keyvals(window_events, "app", ${appNamesJson});`);
-
-    // Get browser events
-    query.push(`browser_events = query_bucket("${browserBucketId}");`);
-
-    // Filter browser events to only when browser window was active
-    query.push(`events = filter_period_intersect(browser_events, browser_windows);`);
-
-    query.push(`RETURN = events;`);
-    return query;
-  }
-
-  /**
-   * Build canonical editor query - filters editor events by active editor window
-   */
-  private buildCanonicalEditorQuery(
-    editorBucketId: string,
-    windowBucketId: string | undefined,
-    editorAppNames: string[],
-    afkBucketId?: string,
-    hasAfk: boolean = false
-  ): string[] {
-    const query: string[] = [];
-
-    if (!windowBucketId) {
-      // No window tracking, just return editor events with AFK filter
-      query.push(`events = query_bucket("${editorBucketId}");`);
-      if (hasAfk && afkBucketId) {
-        query.push(`afk_events = query_bucket("${afkBucketId}");`);
-        query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
-        query.push(`events = filter_period_intersect(events, not_afk);`);
-      }
-      query.push(`RETURN = events;`);
-      return query;
-    }
-
-    // Get window events
-    query.push(`window_events = query_bucket("${windowBucketId}");`);
-
-    // Apply AFK filtering to window events
-    if (hasAfk && afkBucketId) {
-      query.push(`afk_events = query_bucket("${afkBucketId}");`);
-      query.push(`not_afk = filter_keyvals(afk_events, "status", ["not-afk"]);`);
-      query.push(`window_events = filter_period_intersect(window_events, not_afk);`);
-    }
-
-    // Filter window events to only editor windows
-    const appNamesJson = JSON.stringify(editorAppNames);
-    query.push(`editor_windows = filter_keyvals(window_events, "app", ${appNamesJson});`);
-
-    // Get editor events
-    query.push(`editor_events = query_bucket("${editorBucketId}");`);
-
-    // Filter editor events to only when editor window was active
-    query.push(`events = filter_period_intersect(editor_events, editor_windows);`);
-
-    query.push(`RETURN = events;`);
-    return query;
+    return result;
   }
 
 }
-
