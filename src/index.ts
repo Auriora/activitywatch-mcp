@@ -122,15 +122,22 @@ NO PARAMETERS REQUIRED - just call it to discover what's available.`,
     name: 'aw_get_activity',
     description: `Analyzes computer activity with unified window, browser, and editor data.
 
-**RECOMMENDED TOOL**: This is the primary tool for activity analysis. It provides accurate, enriched data by combining:
-- Window activity (base layer - which apps were active)
-- Browser activity (enrichment - only when browser window was active)
-- Editor activity (enrichment - only when editor window was active)
+✅ **RECOMMENDED TOOL FOR ACCURATE TIME TRACKING**: This is the primary tool for activity analysis.
+It provides accurate, enriched data by combining:
+- Window activity (base layer - which apps were ACTIVELY FOCUSED)
+- Browser activity (enrichment - only when browser window was ACTIVELY FOCUSED)
+- Editor activity (enrichment - only when editor window was ACTIVELY FOCUSED)
+
+🎯 **KEY ACCURACY FEATURE**:
+Unlike raw bucket queries, this tool uses window-based filtering to ensure browser/editor
+time only counts when those windows were actually active. A browser tab open for 30 minutes
+but only viewed for 2 minutes will correctly show 2 minutes, not 30.
 
 WHEN TO USE:
 - User asks about time spent on applications, websites, or coding
 - Questions like "What did I work on today?" or "How much time on GitHub?"
 - Productivity analysis across apps, browsing, and coding
+- When you need accurate "time spent" metrics
 - When you need context about what was done in each application
 - Any general activity analysis question
 
@@ -306,6 +313,13 @@ Always returns human-readable formatted summary optimized for user presentation.
     name: 'aw_get_raw_events',
     description: `Retrieves raw, unprocessed events from a specific ActivityWatch data bucket.
 
+⚠️ **DATA ACCURACY WARNING**:
+- Browser/web buckets contain ALL tab activity (AFK-filtered only)
+- Editor buckets contain ALL file activity (AFK-filtered only)
+- These do NOT filter by whether the window was actively focused
+- For accurate "time spent" metrics, use aw_get_activity instead
+- Use this tool only for debugging, exploration, or when you need raw event data
+
 WHEN TO USE:
 - User needs exact timestamps for specific events
 - Questions about precise timing (e.g., "What was I doing at exactly 2:15pm?")
@@ -315,7 +329,8 @@ WHEN TO USE:
 - Advanced users who understand ActivityWatch bucket structure
 
 WHEN NOT TO USE:
-- For general activity analysis → use aw_get_activity or aw_get_daily_summary
+- For general activity analysis → use aw_get_activity or aw_get_daily_summary (RECOMMENDED)
+- For accurate "time spent" metrics → use aw_get_activity instead (RECOMMENDED)
 - When you don't know the bucket_id → use aw_get_capabilities first to discover buckets
 - For aggregated statistics → high-level tools are more efficient
 - For user-friendly summaries → this returns technical data
@@ -329,6 +344,7 @@ CAPABILITIES:
 - Works with any bucket type (window, web, AFK, custom)
 
 LIMITATIONS:
+- **Browser/editor buckets do NOT filter by active window** (only AFK-filtered)
 - Requires knowing the exact bucket_id (use aw_get_capabilities to find it)
 - Returns unprocessed data (no aggregation, filtering, or normalization)
 - No automatic multi-device aggregation
@@ -379,19 +395,28 @@ IMPORTANT: This is a low-level tool. For most user queries, the high-level analy
     name: 'aw_query_events',
     description: `Build and execute custom queries to retrieve ActivityWatch events with flexible filtering.
 
+⚠️ **IMPORTANT DATA ACCURACY WARNING**:
+- Browser/editor queries return ALL events from those buckets (AFK-filtered only)
+- They do NOT filter by whether the browser/editor window was actually active
+- A browser tab can be "open" for 30 minutes but only actively viewed for 2 minutes
+- For accurate "time spent" analysis, use aw_get_activity instead (window-based filtering)
+- Use this tool for enrichment/exploration, not primary time tracking
+
 WHEN TO USE:
 - Need to filter events by specific applications, domains, or titles
 - Want to combine multiple filtering criteria (e.g., "Chrome activity on github.com")
 - Need custom time-based queries beyond standard tools
 - Advanced analysis requiring specific event filtering
 - Building complex queries with AFK filtering and event merging
+- Exploring what tabs/files were open (not necessarily active)
 - When standard tools don't provide the exact filtering needed
 
 WHEN NOT TO USE:
-- For general activity overview → use aw_get_activity instead
+- For general activity overview → use aw_get_activity instead (RECOMMENDED)
+- For accurate "time spent" metrics → use aw_get_activity instead (RECOMMENDED)
 - For daily summaries → use aw_get_daily_summary instead
 - When you need aggregated statistics → high-level tools are more efficient
-- For simple queries → aw_get_activity is easier to use
+- For simple queries → aw_get_activity is easier to use and more accurate
 
 CAPABILITIES:
 - **Flexible Query Types**: window, browser, editor, afk, or custom queries
@@ -403,9 +428,9 @@ CAPABILITIES:
 - **Duration Filtering**: Filter out short events (noise reduction)
 
 QUERY TYPES:
-- "window": Query application/window events
-- "browser": Query web browsing events
-- "editor": Query code editor events
+- "window": Query application/window events (AFK-filtered)
+- "browser": Query web browsing events (AFK-filtered, NOT window-filtered)
+- "editor": Query code editor events (AFK-filtered, NOT window-filtered)
 - "afk": Query AFK (away from keyboard) events
 - "custom": Build custom query with full control
 
@@ -421,6 +446,7 @@ EXAMPLES:
 1. Chrome activity on GitHub:
    query_type: "browser"
    filter_domains: ["github.com"]
+   ⚠️ Returns time tab was open, not time window was active
 
 2. VS Code excluding system files:
    query_type: "window"
@@ -430,14 +456,16 @@ EXAMPLES:
 3. All coding activity:
    query_type: "editor"
    merge_events: true
+   ⚠️ Returns time files were open, not time editor window was active
 
 RETURNS:
 - events: Array of filtered events
-- total_duration_seconds: Total time in filtered events
+- total_duration_seconds: Total time in filtered events (⚠️ may not equal active window time)
 - query_used: The actual query executed (for debugging)
 - buckets_queried: Which buckets were queried
 
 LIMITATIONS:
+- **Browser/editor queries do NOT filter by active window** (only AFK-filtered)
 - Requires understanding of query parameters
 - Custom queries require knowledge of ActivityWatch query language
 - Time range must be specified in ISO 8601 format
