@@ -36,8 +36,7 @@ docs/
 └── archive/                      # Historical docs only
 ```
 
-- Entry point: Link users to `docs/index.md` from READMEs and PRs where relevant.
-- Do NOT add documentation files outside `docs/`.
+pe- Do NOT add documentation files outside `docs/`.
 
 ## MUST: Write "What Was Implemented" docs in docs/updates
 
