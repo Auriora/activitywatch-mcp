@@ -88,8 +88,7 @@ export class UnifiedActivityService {
     const enrichedEvents = this.enrichWindowEvents(
       canonical.window_events,
       canonical.browser_events,
-      canonical.editor_events,
-      params
+      canonical.editor_events
     );
 
     // Filter by minimum duration
@@ -140,8 +139,7 @@ export class UnifiedActivityService {
   private enrichWindowEvents(
     windowEvents: readonly AWEvent[],
     browserEvents: readonly AWEvent[],
-    editorEvents: readonly AWEvent[],
-    params: UnifiedActivityParams
+    editorEvents: readonly AWEvent[]
   ): EnrichedEvent[] {
     const enriched: EnrichedEvent[] = [];
 
@@ -384,23 +382,24 @@ export class UnifiedActivityService {
   }
 
   /**
-   * Apply category classification to activities
+   * Apply category classification to enriched events
    */
-  private async applyCategories(activities: CanonicalEvent[]): Promise<CanonicalEvent[]> {
+  private async applyCategoriestoEvents(events: EnrichedEvent[]): Promise<EnrichedEvent[]> {
     const categories = await this.categoryService.getCategories();
 
-    return activities.map(activity => {
-      // Find matching category
-      let matchedCategory: string | undefined;
+    logger.debug(`Applying categories to ${events.length} events using ${categories.length} category rules`);
+
+    return events.map(event => {
+      // Find all matching categories
+      const matchedCategories: string[] = [];
 
       for (const cat of categories) {
         if (cat.rule.type === 'regex' && cat.rule.regex) {
           try {
             const regex = new RegExp(cat.rule.regex, cat.rule.ignore_case ? 'i' : '');
-            const text = `${activity.app} ${activity.title}`;
+            const text = `${event.app} ${event.title}`;
             if (regex.test(text)) {
-              matchedCategory = cat.name.join(' > ');
-              break;
+              matchedCategories.push(cat.name.join(' > '));
             }
           } catch (error) {
             logger.warn(`Invalid regex in category ${cat.name.join(' > ')}`, error);
@@ -408,11 +407,17 @@ export class UnifiedActivityService {
         }
       }
 
+      if (matchedCategories.length > 0) {
+        logger.debug(`Event "${event.app}" matched categories: ${matchedCategories.join(', ')}`);
+      }
+
       return {
-        ...activity,
-        category: matchedCategory || activity.category,
+        ...event,
+        category: matchedCategories[0], // Deprecated: first match for backward compatibility
+        categories: matchedCategories.length > 0 ? matchedCategories : undefined,
       };
     });
   }
+
 }
 
