@@ -1,0 +1,186 @@
+{
+  "$schema": "./app-names.schema.json",
+  "browsers": {
+    "chrome": [
+      "Google Chrome",
+      "chrome.exe",
+      "Google-chrome",
+      "google-chrome",
+      "google-chrome-stable",
+      "chrome",
+      "Chromium",
+      "Chromium-browser",
+      "Chromium-browser-chromium",
+      "chromium.exe",
+      "Google-chrome-beta",
+      "Google-chrome-unstable"
+    ],
+    "firefox": [
+      "Firefox",
+      "Firefox.exe",
+      "firefox",
+      "firefox.exe",
+      "Firefox Developer Edition",
+      "firefoxdeveloperedition",
+      "Firefox-esr",
+      "Firefox Beta",
+      "Nightly",
+      "org.mozilla.firefox"
+    ],
+    "opera": [
+      "opera.exe",
+      "Opera"
+    ],
+    "brave": [
+      "brave.exe",
+      "Brave",
+      "brave-browser",
+      "Brave-browser"
+    ],
+    "edge": [
+      "msedge.exe",
+      "Microsoft Edge",
+      "microsoft-edge"
+    ],
+    "vivaldi": [
+      "Vivaldi-stable",
+      "Vivaldi-snapshot",
+      "vivaldi.exe",
+      "Vivaldi"
+    ],
+    "safari": [
+      "Safari"
+    ]
+  },
+  "editors": {
+    "vscode": [
+      "Code",
+      "code.exe",
+      "Visual Studio Code",
+      "VSCode",
+      "code"
+    ],
+    "vim": [
+      "vim",
+      "nvim",
+      "gvim",
+      "neovim"
+    ],
+    "emacs": [
+      "emacs",
+      "Emacs"
+    ],
+    "sublime": [
+      "sublime_text",
+      "Sublime Text",
+      "subl"
+    ],
+    "atom": [
+      "atom",
+      "Atom"
+    ],
+    "intellij": [
+      "idea",
+      "IntelliJ IDEA",
+      "jetbrains-idea"
+    ],
+    "pycharm": [
+      "pycharm",
+      "PyCharm",
+      "jetbrains-pycharm"
+    ],
+    "webstorm": [
+      "webstorm",
+      "WebStorm",
+      "jetbrains-webstorm"
+    ],
+    "phpstorm": [
+      "phpstorm",
+      "PhpStorm",
+      "jetbrains-phpstorm"
+    ],
+    "goland": [
+      "goland",
+      "GoLand",
+      "jetbrains-goland"
+    ],
+    "rustrover": [
+      "rustrover",
+      "RustRover",
+      "jetbrains-rustrover"
+    ],
+    "clion": [
+      "clion",
+      "CLion",
+      "jetbrains-clion"
+    ],
+    "datagrip": [
+      "datagrip",
+      "DataGrip",
+      "jetbrains-datagrip"
+    ],
+    "dataspell": [
+      "dataspell",
+      "DataSpell",
+      "jetbrains-dataspell"
+    ],
+    "rider": [
+      "rider",
+      "Rider",
+      "jetbrains-rider"
+    ],
+    "obsidian": [
+      "obsidian",
+      "Obsidian"
+    ],
+    "notepadpp": [
+      "notepad++.exe",
+      "Notepad++"
+    ],
+    "gedit": [
+      "gedit",
+      "Text Editor"
+    ],
+    "kate": [
+      "kate",
+      "Kate"
+    ],
+    "nano": [
+      "nano"
+    ]
+  },
+  "bucketDetection": {
+    "browsers": {
+      "chrome": ["chrome", "chromium"],
+      "firefox": ["firefox"],
+      "opera": ["opera"],
+      "brave": ["brave"],
+      "edge": ["edge"],
+      "vivaldi": ["vivaldi"],
+      "safari": ["safari"]
+    },
+    "editors": {
+      "vscode": ["vscode", "code"],
+      "vim": ["vim"],
+      "emacs": ["emacs"],
+      "sublime": ["sublime"],
+      "atom": ["atom"],
+      "intellij": ["intellij", "idea"],
+      "pycharm": ["pycharm"],
+      "webstorm": ["webstorm"],
+      "phpstorm": ["phpstorm"],
+      "goland": ["goland"],
+      "rustrover": ["rustrover"],
+      "clion": ["clion"],
+      "datagrip": ["datagrip"],
+      "dataspell": ["dataspell"],
+      "rider": ["rider"],
+      "obsidian": ["obsidian"],
+      "notepadpp": ["notepad"],
+      "gedit": ["gedit"],
+      "kate": ["kate"],
+      "nano": ["nano"]
+    }
+  }
+}
+

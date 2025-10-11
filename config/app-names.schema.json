@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ActivityWatch App Names Configuration",
+  "description": "Configuration for browser and editor app name mappings used in canonical queries",
+  "type": "object",
+  "required": ["browsers", "editors", "bucketDetection"],
+  "properties": {
+    "browsers": {
+      "type": "object",
+      "description": "Browser app names for matching window events. Key is the browser type, value is an array of possible app names.",
+      "patternProperties": {
+        "^[a-z]+$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "editors": {
+      "type": "object",
+      "description": "Editor app names for matching window events. Key is the editor type, value is an array of possible app names.",
+      "patternProperties": {
+        "^[a-z]+$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "bucketDetection": {
+      "type": "object",
+      "description": "Patterns for detecting browser/editor type from bucket IDs",
+      "required": ["browsers", "editors"],
+      "properties": {
+        "browsers": {
+          "type": "object",
+          "description": "Browser detection patterns. Key is browser type, value is array of strings to search for in bucket ID.",
+          "patternProperties": {
+            "^[a-z]+$": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "editors": {
+          "type": "object",
+          "description": "Editor detection patterns. Key is editor type, value is array of strings to search for in bucket ID.",
+          "patternProperties": {
+            "^[a-z]+$": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

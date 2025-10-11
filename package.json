@@ -1,6 +1,8 @@
 {
   "name": "activitywatcher-mcp",
   "version": "1.0.0",
+  "license": "GPL-3.0-or-later",
+  "author": "Bruce Cherrington",
   "description": "ActivityWatch MCP Server - Query and analyze activity data with LLM agents",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +12,15 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "vitest run tests/e2e",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "check:links": "node scripts/check-doc-links.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
@@ -18,7 +28,11 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.20",
-    "typescript": "^5.5.3"
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "happy-dom": "^20.0.0",
+    "typescript": "^5.5.3",
+    "vitest": "^3.2.4"
   },
   "private": true
 }
