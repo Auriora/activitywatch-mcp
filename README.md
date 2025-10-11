@@ -16,6 +16,31 @@ A Model Context Protocol (MCP) server that enables LLM agents to query and analy
 - **Comprehensive Logging**: Configurable logging for debugging and monitoring
 - **Production Ready**: Error handling, graceful degradation, and operational visibility
 
+## Codebase Overview
+
+### General Architecture
+
+- The project is an MCP (Model Context Protocol) server that enables LLM agents to analyze ActivityWatch data. Both the stdio (`src/index.ts`) and HTTP/SSE (`src/http-server.ts`) entry points construct the same MCP server instance so transports share the same behavior.
+- Runtime logic is layered: transports depend on service classes that implement business rules, which in turn use the dedicated ActivityWatch API client plus shared utilities.
+
+### Important Components
+
+- `src/client/ActivityWatchClient` standardizes access to the ActivityWatch REST API (buckets, events, queries, settings) and centralizes error handling so it is easy to mock or extend.
+- The `src/services/` directory contains the core business logic for capability detection, canonical queries, unified activity aggregation, category management, summaries, and calendar integration. These services are composed when creating the MCP server instance so every transport exposes identical tools.
+- Tool schemas, formatting helpers, and utilities ensure LLM-friendly defaults, canonical filtering, and multiple presentation formats.
+
+### Development Workflow, Commands, and Tests
+
+- Day-to-day development typically uses the HTTP transport via `npm run start:http` for quick restarts. Supporting docs cover IDE configuration, environment variables, and troubleshooting connectivity.
+- Testing uses Vitest with unit, integration, and end-to-end suites organized under `tests/`, with helper and fixture folders to avoid duplication. The test README explains what each layer covers and how to run them.
+
+### Suggested Next Steps for Newcomers
+
+1. Follow the quick start guide to build the project, configure Claude (or another MCP client), and try the discovery tools to confirm the environment works end to end.
+2. Study the architecture and concept docs (canonical events, categories, tool reference) to understand how unified activity data is derived and why canonical filtering matters when extending or debugging tools.
+3. Explore individual services and tests by pairing source files with their corresponding specs in `tests/` to clarify expected behavior before making changes or adding new tools.
+4. Review operational docs (logging, health checks, HTTP server guide) to learn how to monitor the server, tweak log levels, and expose the MCP endpoint during development or deployment.
+
 ## Prerequisites
 
 - [ActivityWatch](https://activitywatch.net/) installed and running
