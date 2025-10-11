@@ -173,6 +173,8 @@ LLM calls: aw_get_capabilities()
 
 Recommended unified analysis combining window, browser, and editor data with AFK filtering and canonical events. Prevents double-counting and enriches app usage with browsing/editor details when available. Categories are always included when configured.
 
+Calendar meetings are overlaid on top of focus time: overlapping meetings annotate the relevant activity, while calendar-only segments are surfaced as dedicated `Calendar` events. Totals break down focus versus meeting hours, ensuring scheduled time still appears even when the user was marked AFK.
+
 **Parameters (common):**
 - `time_period`, `custom_start`, `custom_end`, `top_n`, `group_by` (application/title/category)
 - `exclude_system_apps`, `min_duration_seconds`, `response_format` (concise/detailed)
@@ -286,7 +288,7 @@ LLM calls: aw_get_editor_activity({ time_period: "today", group_by: "project" })
 
 ### 7. `aw_get_period_summary`
 
-Get a comprehensive summary of activity for various time periods with flexible detail levels.
+Get a comprehensive summary of activity for various time periods with flexible detail levels. Summaries now report **Focus Time** separately from **Meeting Time**, so calendar-only commitments are visible even when no app activity was recorded.
 
 **Parameters:**
 - `period_type`: "daily" | "weekly" | "monthly" | "last_24_hours" | "last_7_days" | "last_30_days" (required)
@@ -309,7 +311,8 @@ Get a comprehensive summary of activity for various time periods with flexible d
 - `none`: No breakdown, just totals
 
 **Returns:**
-- Total active time and AFK time for the period
+- Total active time (focus + calendar-only) and AFK time for the period
+- Focus and meeting hour breakdown
 - Top 5 applications and websites
 - Period-appropriate breakdown (hourly/daily/weekly)
 - Auto-generated insights including averages

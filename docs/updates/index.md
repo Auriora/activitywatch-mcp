@@ -8,6 +8,8 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 - 2025-10-12 — Calendar support and aw_get_calendar_events tool  
   File: [2025-10-12-calendar-integration.md](./2025-10-12-calendar-integration.md)
+- 2025-10-12 — Calendar-fused focus metrics in unified activity  
+  File: [2025-10-12-calendar-focus-union.md](./2025-10-12-calendar-focus-union.md)
 - 2025-10-11 — Retire aw_get_daily_summary tool  
   File: [2025-10-11-remove-daily-summary-tool.md](./2025-10-11-remove-daily-summary-tool.md)
 - 2025-10-11 — Docs Restructuring, Phase 1: Structure & Consolidation  

@@ -239,7 +239,13 @@ export function formatPeriodSummaryConcise(summary: PeriodSummary): string {
   lines.push(`Period: ${startDate} to ${endDate} (${summary.timezone})`);
   lines.push('='.repeat(60));
   lines.push('');
-  lines.push(`Active Time: ${summary.total_active_time_hours}h`);
+  lines.push(`Active Time (focus + meetings): ${summary.total_active_time_hours}h`);
+  if (summary.focus_time_hours !== undefined) {
+    lines.push(`  Focus Time: ${summary.focus_time_hours}h`);
+  }
+  if (summary.meeting_time_hours !== undefined) {
+    lines.push(`  Meeting Time: ${summary.meeting_time_hours}h`);
+  }
   lines.push(`AFK Time: ${summary.total_afk_time_hours}h`);
   lines.push('');
 

@@ -149,6 +149,28 @@ export interface CalendarEvent {
   readonly duration_seconds: number;
 }
 
+export interface CalendarEnrichment {
+  readonly meeting_id: string;
+  readonly summary: string;
+  readonly start: string;
+  readonly end: string;
+  readonly status?: string;
+  readonly all_day: boolean;
+  readonly location?: string;
+  readonly calendar?: string;
+  readonly overlap_seconds: number;
+  readonly meeting_only_seconds?: number;
+}
+
+export interface CalendarSummary {
+  readonly focus_seconds: number;
+  readonly meeting_seconds: number;
+  readonly meeting_only_seconds: number;
+  readonly overlap_seconds: number;
+  readonly union_seconds: number;
+  readonly meeting_count: number;
+}
+
 export interface CalendarEventSummary {
   readonly summary: string;
   readonly start: string;
@@ -206,6 +228,8 @@ export interface PeriodSummary {
   readonly timezone: string;
   readonly total_active_time_hours: number;
   readonly total_afk_time_hours: number;
+  readonly focus_time_hours?: number;
+  readonly meeting_time_hours?: number;
   readonly top_applications: readonly AppUsage[];
   readonly top_websites: readonly WebUsage[];
   readonly top_categories?: readonly CategoryUsage[];
@@ -343,6 +367,11 @@ export interface CanonicalEvent {
   // Custom enrichment (any other parsed data from window title)
   readonly custom?: CustomEnrichment;
 
+  // Calendar enrichment (meetings that overlapped this event)
+  readonly calendar?: readonly CalendarEnrichment[];
+  readonly meeting_overlap_seconds?: number;
+  readonly calendar_only?: boolean;
+
   // Category (if categorization enabled)
   readonly category?: string;
 
@@ -371,4 +400,11 @@ export interface UnifiedActivityParams extends TimeRangeParams {
   response_format?: ResponseFormat;
   exclude_system_apps?: boolean;
   min_duration_seconds?: number;
+}
+
+export interface UnifiedActivityResult {
+  readonly total_time_seconds: number;
+  readonly activities: readonly CanonicalEvent[];
+  readonly time_range: { readonly start: string; readonly end: string };
+  readonly calendar_summary?: CalendarSummary;
 }

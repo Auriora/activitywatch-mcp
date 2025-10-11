@@ -823,6 +823,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           lines.push(`# Activity Summary`);
           lines.push(`**Period**: ${params.time_period || 'today'}`);
           lines.push(`**Total Active Time**: ${(result.total_time_seconds / 3600).toFixed(2)} hours`);
+          if (result.calendar_summary) {
+            const focusHours = (result.calendar_summary.focus_seconds / 3600).toFixed(2);
+            const meetingHours = (result.calendar_summary.meeting_seconds / 3600).toFixed(2);
+            const meetingOnlyHours = (result.calendar_summary.meeting_only_seconds / 3600).toFixed(2);
+            lines.push(`**Focus Time**: ${focusHours} hours`);
+            lines.push(`**Meeting Time**: ${meetingHours} hours (calendar-only: ${meetingOnlyHours}h)`);
+          }
           lines.push('');
           lines.push(`## Top ${result.activities.length} Activities`);
           lines.push('');

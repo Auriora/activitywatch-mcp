@@ -107,15 +107,22 @@ export class PeriodSummaryService {
       }))
       .slice(0, 5);
 
+    const calendarSummary = unifiedActivity.calendar_summary;
+    let focusSeconds = calendarSummary?.focus_seconds ?? unifiedActivity.total_time_seconds;
+    const meetingSeconds = calendarSummary?.meeting_seconds ?? 0;
+    const overlapSeconds = calendarSummary?.overlap_seconds ?? 0;
+    const meetingOnlySeconds = calendarSummary?.meeting_only_seconds ?? Math.max(0, meetingSeconds - overlapSeconds);
+    let totalActiveTime = calendarSummary?.union_seconds ?? unifiedActivity.total_time_seconds;
+
     // Get AFK stats
     let afkTime = 0;
-    let totalActiveTime = unifiedActivity.total_time_seconds;
 
     try {
       const afkStats = await this.afkService.getAfkStats(start, end);
       afkTime = afkStats.afk_seconds;
       if (afkStats.active_seconds > 0) {
-        totalActiveTime = afkStats.active_seconds;
+        focusSeconds = afkStats.active_seconds;
+        totalActiveTime = focusSeconds + meetingOnlySeconds;
       }
     } catch (error) {
       logger.debug('AFK tracking not available');
@@ -175,6 +182,9 @@ export class PeriodSummaryService {
       end
     );
 
+    const focusTimeHours = secondsToHours(focusSeconds);
+    const meetingTimeHours = secondsToHours(meetingSeconds);
+
     return {
       period_type: params.period_type,
       period_start: start.toISOString(),
@@ -182,6 +192,8 @@ export class PeriodSummaryService {
       timezone,
       total_active_time_hours: secondsToHours(totalActiveTime),
       total_afk_time_hours: secondsToHours(afkTime),
+      focus_time_hours: focusTimeHours,
+      meeting_time_hours: meetingTimeHours,
       top_applications: applications,
       top_websites: websites,
       top_categories: topCategories,

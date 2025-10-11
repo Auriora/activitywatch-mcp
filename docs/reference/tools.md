@@ -59,6 +59,10 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 }
 ```
 
+Focus vs meeting time:
+- `focus_time_hours` reflects at-keyboard activity (AFK-filtered).
+- `meeting_time_hours` includes scheduled meetings, even when you were marked AFK. Calendar-only portions are added without double-counting overlaps.
+
 ### Example
 ```json
 {
@@ -88,6 +92,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 - **Window-Based Filtering**: Browser/editor data only when those windows were active
 - **No Double-Counting**: Prevents inflated metrics
 - **Rich Enrichment**: Browser URLs/domains and editor files/projects
+- **Calendar Overlay**: Merges meetings, annotates overlapping focus time, and adds calendar-only segments without double-counting
 
 ### Parameters
 
@@ -105,7 +110,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 ### Returns
 ```typescript
 {
-  total_time_seconds: number;          // Total active time (AFK-filtered)
+  total_time_seconds: number;          // Focus time plus meeting-only time (calendar overrides AFK)
   activities: Array<{
     app: string;                       // Application name
     title: string;                     // Window title
@@ -128,6 +133,19 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
       };
     };
     category?: string;                 // Always included when categories configured
+    calendar?: Array<{
+      meeting_id: string;
+      summary: string;
+      start: string;
+      end: string;
+      overlap_seconds: number;
+      meeting_only_seconds?: number;
+      status?: string;
+      calendar?: string;
+      location?: string;
+    }>;
+    meeting_overlap_seconds?: number;
+    calendar_only?: boolean;
     event_count: number;
     first_seen: string;                // ISO 8601 timestamp
     last_seen: string;                 // ISO 8601 timestamp
@@ -135,6 +153,14 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
   time_range: {
     start: string;                     // ISO 8601 timestamp  
     end: string;                       // ISO 8601 timestamp
+  };
+  calendar_summary?: {
+    focus_seconds: number;
+    meeting_seconds: number;
+    meeting_only_seconds: number;
+    overlap_seconds: number;
+    union_seconds: number;
+    meeting_count: number;
   };
 }
 ```
@@ -280,6 +306,8 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
   timezone: string;
   total_active_time_hours: number;
   total_afk_time_hours: number;
+  focus_time_hours?: number;          // Focus/at-keyboard time (AFK-filtered)
+  meeting_time_hours?: number;        // Total scheduled meeting hours (overlap + calendar-only)
   top_applications: Array<{
     name: string;
     duration_hours: number;

@@ -11,12 +11,17 @@
 
 import { QueryService } from './query.js';
 import { CategoryService } from './category.js';
+import { CalendarService } from './calendar.js';
 import {
   CanonicalEvent,
   BrowserEnrichment,
   EditorEnrichment,
   AWEvent,
-  UnifiedActivityParams
+  UnifiedActivityParams,
+  CalendarEvent,
+  CalendarEnrichment,
+  CalendarSummary,
+  UnifiedActivityResult
 } from '../types.js';
 import { getTimeRange } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
@@ -26,6 +31,7 @@ import {
   hasParsingRules
 } from '../utils/configurable-title-parser.js';
 import { getTitleParsingConfig } from '../config/app-names.js';
+import { mergeIntervals, calculateOverlap, intersectIntervals, Interval } from '../utils/intervals.js';
 
 interface EnrichedEvent {
   app: string;
@@ -39,12 +45,23 @@ interface EnrichedEvent {
   custom?: Record<string, any>;
   category?: string; // Deprecated: kept for backward compatibility
   categories?: string[]; // Array of all matching categories
+  calendar?: CalendarEnrichment[];
+  meetingOverlapSeconds?: number;
+  calendarOnly?: boolean;
+}
+
+interface CalendarOverlayStats {
+  meetingSeconds: number;
+  overlapSeconds: number;
+  meetingOnlySeconds: number;
+  meetingCount: number;
 }
 
 export class UnifiedActivityService {
   constructor(
     private queryService: QueryService,
-    private categoryService: CategoryService
+    private categoryService: CategoryService,
+    private calendarService?: CalendarService
   ) {
     // Initialize title parser with config
     const titleParsingConfig = getTitleParsingConfig();
@@ -54,11 +71,7 @@ export class UnifiedActivityService {
   /**
    * Get unified activity data with browser/editor enrichment
    */
-  async getActivity(params: UnifiedActivityParams): Promise<{
-    total_time_seconds: number;
-    activities: CanonicalEvent[];
-    time_range: { start: string; end: string };
-  }> {
+  async getActivity(params: UnifiedActivityParams): Promise<UnifiedActivityResult> {
     // Parse time range
     const timeRange = getTimeRange(
       params.time_period,
@@ -84,6 +97,26 @@ export class UnifiedActivityService {
       editor_events: canonical.editor_events.length,
     });
 
+    // Fetch calendar events if service is available
+    let calendarEvents: CalendarEvent[] = [];
+    if (this.calendarService) {
+      try {
+        const calendarResult = await this.calendarService.getEvents({
+          time_period: 'custom',
+          custom_start: timeRange.start.toISOString(),
+          custom_end: timeRange.end.toISOString(),
+          include_cancelled: false,
+          limit: 500,
+        });
+        calendarEvents = calendarResult.events;
+        logger.debug('Calendar events retrieved for overlay', {
+          calendar_events: calendarEvents.length,
+        });
+      } catch (error) {
+        logger.debug('Calendar overlay unavailable', error);
+      }
+    }
+
     // Merge browser and editor data into window events
     const enrichedEvents = this.enrichWindowEvents(
       canonical.window_events,
@@ -91,17 +124,26 @@ export class UnifiedActivityService {
       canonical.editor_events
     );
 
-    // Filter by minimum duration
-    const minDuration = params.min_duration_seconds ?? 5;
-    const filteredEvents = enrichedEvents.filter(e => e.duration >= minDuration);
+    const overlay = this.applyCalendarOverlay(enrichedEvents, calendarEvents);
 
-    logger.debug(`Filtered to ${filteredEvents.length} events (min duration: ${minDuration}s)`);
+    // Filter by minimum duration (calendar-only events are always retained)
+    const minDuration = params.min_duration_seconds ?? 5;
+    const filteredWindowEvents = enrichedEvents.filter(e => e.duration >= minDuration);
+    const combinedEvents = [...filteredWindowEvents, ...overlay.calendarOnlyEvents];
+
+    logger.debug('Calendar overlay statistics', {
+      min_duration: minDuration,
+      retained_window_events: filteredWindowEvents.length,
+      calendar_only_events: overlay.calendarOnlyEvents.length,
+      meeting_seconds: overlay.stats.meetingSeconds,
+      meeting_overlap_seconds: overlay.stats.overlapSeconds,
+    });
 
     // Exclude system apps if requested (before grouping)
-    let eventsToGroup = filteredEvents;
+    let eventsToGroup = combinedEvents;
     if (params.exclude_system_apps) {
       const systemApps = ['Finder', 'Dock', 'Window Server', 'explorer.exe', 'dwm.exe'];
-      eventsToGroup = filteredEvents.filter(e => !systemApps.includes(e.app));
+      eventsToGroup = combinedEvents.filter(e => !systemApps.includes(e.app));
     }
 
     // Always apply categorization
@@ -119,12 +161,26 @@ export class UnifiedActivityService {
       .sort((a, b) => b.duration_seconds - a.duration_seconds)
       .slice(0, topN);
 
-    // Calculate percentages
-    const totalTime = canonical.total_duration_seconds;
+    const calendarSummary = this.buildCalendarSummary(
+      canonical.total_duration_seconds,
+      overlay.stats
+    );
+
+    // Calculate percentages using union time (focus + meeting-only)
+    const totalTime = calendarSummary.union_seconds;
     const withPercentages = sorted.map(activity => ({
       ...activity,
       percentage: totalTime > 0 ? (activity.duration_seconds / totalTime) * 100 : 0,
     }));
+
+    logger.info('Unified activity prepared', {
+      focus_seconds: calendarSummary.focus_seconds,
+      meeting_seconds: calendarSummary.meeting_seconds,
+      meeting_only_seconds: calendarSummary.meeting_only_seconds,
+      overlap_seconds: calendarSummary.overlap_seconds,
+      union_seconds: calendarSummary.union_seconds,
+      meeting_count: calendarSummary.meeting_count,
+    });
 
     return {
       total_time_seconds: totalTime,
@@ -133,6 +189,7 @@ export class UnifiedActivityService {
         start: timeRange.start.toISOString(),
         end: timeRange.end.toISOString(),
       },
+      calendar_summary: calendarSummary,
     };
   }
 
@@ -273,6 +330,214 @@ export class UnifiedActivityService {
         commit: event.data.commit as string,
         repository: event.data.repository as string,
       } : undefined,
+    };
+  }
+
+  /**
+   * Overlay calendar data onto enriched events and create calendar-only segments
+   */
+  private applyCalendarOverlay(
+    events: EnrichedEvent[],
+    calendarEvents: readonly CalendarEvent[]
+  ): {
+    events: EnrichedEvent[];
+    calendarOnlyEvents: EnrichedEvent[];
+    stats: CalendarOverlayStats;
+  } {
+    if (!calendarEvents || calendarEvents.length === 0) {
+      return {
+        events,
+        calendarOnlyEvents: [],
+        stats: {
+          meetingSeconds: 0,
+          overlapSeconds: 0,
+          meetingOnlySeconds: 0,
+          meetingCount: 0,
+        },
+      };
+    }
+
+    const calendarOnlyEvents: EnrichedEvent[] = [];
+    let totalMeetingSeconds = 0;
+    let totalOverlapSeconds = 0;
+    let totalMeetingOnlySeconds = 0;
+    let meetingCount = 0;
+
+    const eventIntervals = events.map(event => {
+      const start = new Date(event.timestamp).getTime();
+      const end = start + (event.duration * 1000);
+      return {
+        event,
+        start,
+        end,
+      };
+    }).filter(interval => Number.isFinite(interval.start) && Number.isFinite(interval.end) && interval.end > interval.start);
+
+    const mergedWindowIntervals: Interval[] = mergeIntervals(
+      eventIntervals.map(interval => ({
+        start: interval.start,
+        end: interval.end,
+      }))
+    );
+
+    for (const meeting of calendarEvents) {
+      const meetingStart = new Date(meeting.start).getTime();
+      const meetingEnd = new Date(meeting.end).getTime();
+
+      if (!Number.isFinite(meetingStart) || !Number.isFinite(meetingEnd) || meetingEnd <= meetingStart) {
+        continue;
+      }
+
+      const meetingDurationSeconds = Math.max(0, (meetingEnd - meetingStart) / 1000);
+      if (meetingDurationSeconds === 0) {
+        continue;
+      }
+
+      meetingCount += 1;
+      totalMeetingSeconds += meetingDurationSeconds;
+
+      const overlapMs = calculateOverlap({ start: meetingStart, end: meetingEnd }, mergedWindowIntervals);
+      const overlapSeconds = Math.min(meetingDurationSeconds, overlapMs / 1000);
+      totalOverlapSeconds += overlapSeconds;
+
+      // Attach calendar metadata to overlapping window events
+      for (const interval of eventIntervals) {
+        const intersection = intersectIntervals(
+          { start: interval.start, end: interval.end },
+          { start: meetingStart, end: meetingEnd }
+        );
+
+        if (!intersection) {
+          continue;
+        }
+
+        const overlapSecondsForEvent = (intersection.end - intersection.start) / 1000;
+        if (overlapSecondsForEvent <= 0) {
+          continue;
+        }
+
+        const enrichment: CalendarEnrichment = {
+          meeting_id: meeting.id,
+          summary: meeting.summary,
+          start: meeting.start,
+          end: meeting.end,
+          status: meeting.status,
+          all_day: meeting.all_day,
+          location: meeting.location,
+          calendar: meeting.calendar,
+          overlap_seconds: overlapSecondsForEvent,
+        };
+
+        if (interval.event.calendar) {
+          interval.event.calendar = [...interval.event.calendar, enrichment];
+        } else {
+          interval.event.calendar = [enrichment];
+        }
+
+        interval.event.meetingOverlapSeconds = (interval.event.meetingOverlapSeconds ?? 0) + overlapSecondsForEvent;
+      }
+
+      const meetingOnlySeconds = Math.max(0, meetingDurationSeconds - overlapSeconds);
+      if (meetingOnlySeconds > 0) {
+        totalMeetingOnlySeconds += meetingOnlySeconds;
+
+        const meetingEnrichment: CalendarEnrichment = {
+          meeting_id: meeting.id,
+          summary: meeting.summary,
+          start: meeting.start,
+          end: meeting.end,
+          status: meeting.status,
+          all_day: meeting.all_day,
+          location: meeting.location,
+          calendar: meeting.calendar,
+          overlap_seconds: 0,
+          meeting_only_seconds: meetingOnlySeconds,
+        };
+
+        calendarOnlyEvents.push({
+          app: meeting.calendar || 'Calendar',
+          title: meeting.summary,
+          duration: meetingOnlySeconds,
+          timestamp: meeting.start,
+          calendar: [meetingEnrichment],
+          calendarOnly: true,
+        });
+      }
+    }
+
+    return {
+      events,
+      calendarOnlyEvents,
+      stats: {
+        meetingSeconds: totalMeetingSeconds,
+        overlapSeconds: totalOverlapSeconds,
+        meetingOnlySeconds: totalMeetingOnlySeconds,
+        meetingCount,
+      },
+    };
+  }
+
+  private buildCalendarSummary(focusSeconds: number, stats: CalendarOverlayStats): CalendarSummary {
+    const meetingSeconds = stats.meetingSeconds;
+    const overlapSeconds = Math.min(meetingSeconds, stats.overlapSeconds);
+    const meetingOnlySeconds = Math.max(
+      0,
+      stats.meetingOnlySeconds > 0 ? stats.meetingOnlySeconds : meetingSeconds - overlapSeconds
+    );
+    const unionSeconds = focusSeconds + meetingOnlySeconds;
+
+    return {
+      focus_seconds: focusSeconds,
+      meeting_seconds: meetingSeconds,
+      meeting_only_seconds: meetingOnlySeconds,
+      overlap_seconds: overlapSeconds,
+      union_seconds: unionSeconds,
+      meeting_count: stats.meetingCount,
+    };
+  }
+
+  private aggregateCalendarData(events: EnrichedEvent[]): {
+    calendar?: CalendarEnrichment[];
+    meetingOverlapSeconds?: number;
+    calendarOnly: boolean;
+  } {
+    let meetingOverlapSeconds = 0;
+    const calendarMap = new Map<string, CalendarEnrichment>();
+
+    for (const event of events) {
+      if (event.meetingOverlapSeconds) {
+        meetingOverlapSeconds += event.meetingOverlapSeconds;
+      }
+
+      if (!event.calendar) {
+        continue;
+      }
+
+      for (const entry of event.calendar) {
+        const existing = calendarMap.get(entry.meeting_id);
+        if (existing) {
+          const overlapSeconds = existing.overlap_seconds + entry.overlap_seconds;
+          const meetingOnlySeconds =
+            (existing.meeting_only_seconds ?? 0) + (entry.meeting_only_seconds ?? 0);
+
+          calendarMap.set(entry.meeting_id, {
+            ...existing,
+            overlap_seconds: overlapSeconds,
+            meeting_only_seconds: meetingOnlySeconds > 0 ? meetingOnlySeconds : undefined,
+          });
+        } else {
+          calendarMap.set(entry.meeting_id, { ...entry });
+        }
+      }
+    }
+
+    const calendar = calendarMap.size > 0 ? Array.from(calendarMap.values()) : undefined;
+    const calendarOnly = events.every(e => e.calendarOnly === true);
+
+    return {
+      calendar,
+      meetingOverlapSeconds: meetingOverlapSeconds > 0 ? meetingOverlapSeconds : undefined,
+      calendarOnly,
     };
   }
 
@@ -431,6 +696,8 @@ export class UnifiedActivityService {
         titleField = 'Various';
       }
 
+      const calendarAggregate = this.aggregateCalendarData(groupEvents);
+
       result.push({
         app: appField,
         title: titleField,
@@ -451,6 +718,9 @@ export class UnifiedActivityService {
         event_count: groupEvents.length,
         first_seen: firstSeen,
         last_seen: lastSeen,
+        calendar: calendarAggregate.calendar,
+        meeting_overlap_seconds: calendarAggregate.meetingOverlapSeconds,
+        calendar_only: calendarAggregate.calendarOnly ? true : undefined,
       });
     }
 
@@ -574,6 +844,8 @@ export class UnifiedActivityService {
       const firstSeen = new Date(Math.min(...timestamps)).toISOString();
       const lastSeen = new Date(Math.max(...timestamps)).toISOString();
 
+      const calendarAggregate = this.aggregateCalendarData(groupEvents);
+
       result.push({
         app: apps.size === 1 ? Array.from(apps)[0] : `${apps.size} apps`,
         title: hierarchy.join(' > '),
@@ -596,6 +868,9 @@ export class UnifiedActivityService {
         event_count: groupEvents.length,
         first_seen: firstSeen,
         last_seen: lastSeen,
+        calendar: calendarAggregate.calendar,
+        meeting_overlap_seconds: calendarAggregate.meetingOverlapSeconds,
+        calendar_only: calendarAggregate.calendarOnly ? true : undefined,
       });
 
       // Recursively flatten children
@@ -653,4 +928,3 @@ export class UnifiedActivityService {
   }
 
 }
-
