@@ -1,6 +1,11 @@
 ---
 type:        "agent_requested"
+name:        "Documentation conventions"
+priority:    20
+scope:       "docs/**"
 description: "This rule provides a standardized documentation format and policy for all projects."
+cross_reference: ["preferences.md"]
+apply_when:   "task_changes_documentation == true"
 ---
 
 # Documentation

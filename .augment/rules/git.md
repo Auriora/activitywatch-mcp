@@ -1,6 +1,11 @@
 ---
 type:        "agent_requested"
+name:        "Git commit & branching conventions"
+priority:    15
+scope:       "git-*"
 description: "This rule provides a standardized commit message format and policy for all projects."
+cross_reference: ["preferences.md"]
+apply_when:   "task_creates_commits == true"
 ---
 
 # Git
