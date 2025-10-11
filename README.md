@@ -77,9 +77,37 @@ See [tests/README.md](tests/README.md) for detailed testing documentation.
 
 ## Configuration
 
-### Claude Desktop
+### Development Mode (HTTP Server)
 
-Add to your Claude Desktop configuration file:
+For faster development without restarting your IDE:
+
+```bash
+npm run start:http
+```
+
+Then configure Claude Desktop to use HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "activitywatch": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+**Benefits:**
+- ✅ Restart only the MCP server, not your IDE
+- ✅ Fast development iteration
+- ✅ Easy debugging with HTTP tools
+- ✅ Health check endpoint at `http://localhost:3000/health`
+
+See [HTTP-SERVER.md](HTTP-SERVER.md) for complete HTTP server documentation.
+
+### Production Mode (stdio)
+
+For production use with Claude Desktop:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
