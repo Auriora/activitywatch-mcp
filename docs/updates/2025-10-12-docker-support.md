@@ -13,7 +13,7 @@ Tags: containerization, deployment
 ## Changes
 - New `docker/` build context with `Dockerfile`, entrypoint script, and ignore rules
 - Root-level `docker-compose.yml` orchestrating HTTP and optional stdio profiles
-- `scripts/docker-publish.sh` helper for GHCR pushes and `.env.example` defaults (supports `--build-only` and `--push-only` modes for flexible pipelines)
+- `scripts/docker-publish.sh` helper for GHCR pushes and `.env.example` defaults (supports `--build-only`, `--push-only`, and auto-applies the OCI source label for package linking)
 - GitHub Action workflow `.github/workflows/docker-release.yml` for release tagging
 - Documentation updates in `README.md` and `docs/developer/docker.md`
 - Added `.env.example` for docker-compose defaults

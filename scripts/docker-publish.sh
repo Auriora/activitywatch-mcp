@@ -129,11 +129,12 @@ fi
 
 IMAGE_PATH=$(printf '%s' "$REPO_SLUG" | tr '[:upper:]' '[:lower:]')
 IMAGE_REF="${REGISTRY}/${IMAGE_PATH}:${TAG}"
+SOURCE_LABEL="org.opencontainers.image.source=https://github.com/${REPO_SLUG}"
 
 if [[ "$DO_BUILD" == 1 ]]; then
   printf 'Building image %s\n' "$IMAGE_REF"
 
-  BUILD_CMD=(docker build -f "$DOCKERFILE" -t "$IMAGE_REF")
+  BUILD_CMD=(docker build -f "$DOCKERFILE" -t "$IMAGE_REF" --label "$SOURCE_LABEL")
   if [[ ${#EXTRA_BUILD_ARGS[@]} -gt 0 ]]; then
     BUILD_CMD+=("${EXTRA_BUILD_ARGS[@]}")
   fi

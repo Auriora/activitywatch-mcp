@@ -6,11 +6,22 @@
  */
 
 import type { AWBucket, AWEvent } from '../../src/types.js';
+import { AWError } from '../../src/types.js';
+
+type MockMethodName = 'getBuckets' | 'getEvents' | 'query' | 'getBucketInfo';
 
 export class MockActivityWatchClient {
   private buckets: Map<string, AWBucket> = new Map();
   private events: Map<string, AWEvent[]> = new Map();
   private queryResponses: Map<string, any> = new Map();
+  private methodFailures: Map<MockMethodName, () => Promise<never>> = new Map();
+
+  private async maybeFail(method: MockMethodName): Promise<void> {
+    const failure = this.methodFailures.get(method);
+    if (failure) {
+      await failure();
+    }
+  }
 
   /**
    * Set mock buckets
@@ -36,10 +47,28 @@ export class MockActivityWatchClient {
     this.queryResponses.set(query, response);
   }
 
+  setMethodError(method: MockMethodName, error: Error | (() => Error)): void {
+    this.methodFailures.set(method, async () => {
+      const toThrow = typeof error === 'function' ? error() : error;
+      throw toThrow;
+    });
+  }
+
+  setMethodTimeout(method: MockMethodName, timeoutMs: number = 30000, path?: string): void {
+    this.methodFailures.set(method, async () => {
+      throw createTimeoutError(timeoutMs, path ?? method);
+    });
+  }
+
+  clearMethodFailures(): void {
+    this.methodFailures.clear();
+  }
+
   /**
    * Mock getBuckets implementation
    */
   async getBuckets(): Promise<Record<string, AWBucket>> {
+    await this.maybeFail('getBuckets');
     const result: Record<string, AWBucket> = {};
     this.buckets.forEach((bucket, id) => {
       result[id] = bucket;
@@ -54,6 +83,7 @@ export class MockActivityWatchClient {
     bucketId: string,
     params?: { start?: string | Date; end?: string | Date; limit?: number }
   ): Promise<AWEvent[]> {
+    await this.maybeFail('getEvents');
     const events = this.events.get(bucketId) || [];
     
     // Apply filters if provided
@@ -87,6 +117,7 @@ export class MockActivityWatchClient {
     timeperiods: Array<{ start: Date; end: Date }>,
     query: string[]
   ): Promise<any[]> {
+    await this.maybeFail('query');
     const queryKey = query.join('\n');
     const response = this.queryResponses.get(queryKey);
     
@@ -102,6 +133,7 @@ export class MockActivityWatchClient {
    * Mock getBucketInfo implementation
    */
   async getBucketInfo(bucketId: string): Promise<AWBucket | null> {
+    await this.maybeFail('getBucketInfo');
     return this.buckets.get(bucketId) || null;
   }
 
@@ -112,6 +144,7 @@ export class MockActivityWatchClient {
     this.buckets.clear();
     this.events.clear();
     this.queryResponses.clear();
+    this.clearMethodFailures();
   }
 }
 
@@ -228,4 +261,45 @@ export function createMockAFKEvents(
   }
   
   return events;
+}
+
+export function createApiError(
+  status: number,
+  statusText: string = 'Internal Server Error',
+  body: string = ''
+): AWError {
+  return new AWError(
+    `ActivityWatch API error: ${status} ${statusText}`,
+    'API_ERROR',
+    { status, statusText, body }
+  );
+}
+
+export function createTimeoutError(
+  timeoutMs: number,
+  path: string
+): AWError {
+  return new AWError(
+    `Request to ActivityWatch timed out after ${timeoutMs}ms`,
+    'TIMEOUT_ERROR',
+    { timeout: timeoutMs, path }
+  );
+}
+
+export function createConnectionError(message: string): AWError {
+  return new AWError(
+    `Failed to connect to ActivityWatch: ${message}`,
+    'CONNECTION_ERROR',
+    { originalError: message }
+  );
+}
+
+export function createAbortError(message: string = 'The operation was aborted'): Error {
+  if (typeof DOMException !== 'undefined') {
+    return new DOMException(message, 'AbortError');
+  }
+
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
 }

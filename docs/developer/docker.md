@@ -60,6 +60,8 @@ Override the tag with `--tag` or set `IMAGE_REPOSITORY`/`REGISTRY` to publish el
 
 `--build-only` skips the push step (handy for local testing) and `--push-only` reuses an already built image for the given tag.
 
+The script labels images with `org.opencontainers.image.source` so pushes automatically link back to this repository on GitHub.
+
 ### Release automation
 
 The workflow at `.github/workflows/docker-release.yml` triggers on GitHub releases and builds tags for the published version (release tag without the leading `v`) and `latest`. The action uses the `docker/build-push-action` runner with Buildx and requires no extra secrets beyond the default `GITHUB_TOKEN` (packages write permission maintained in the workflow). You can also run it manually from the Actions tab and override the version tag when testing.
