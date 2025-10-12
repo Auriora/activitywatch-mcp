@@ -114,4 +114,62 @@ describe('UnifiedActivityService calendar overlay', () => {
     expect(calendarEntry?.calendar_only).toBe(true);
     expect(calendarEntry?.duration_seconds).toBeCloseTo(1800);
   });
+
+  it('respects system app filtering and multi-level grouping', async () => {
+    const focusWindow = makeAwEvent('2025-01-01T09:00:00.000Z', 1200, {
+      app: 'FocusApp',
+      title: 'Feature Work',
+    });
+    const finderWindow = makeAwEvent('2025-01-01T09:05:00.000Z', 300, {
+      app: 'Finder',
+      title: 'System',
+    });
+
+    queryService.getCanonicalEvents.mockResolvedValue({
+      window_events: [focusWindow, finderWindow],
+      browser_events: [
+        makeAwEvent('2025-01-01T09:10:00.000Z', 600, {
+          url: 'https://example.com/docs',
+          title: 'Docs',
+        }),
+      ],
+      editor_events: [
+        makeAwEvent('2025-01-01T09:00:00.000Z', 1200, {
+          file: 'main.ts',
+          project: 'ProjectX',
+          language: 'TypeScript',
+        }),
+      ],
+      total_duration_seconds: 1500,
+    });
+
+    categoryService.getCategories.mockReturnValue([
+      {
+        id: 1,
+        name: ['Work', 'Coding'],
+        rule: { type: 'regex', regex: 'Focus' },
+      },
+    ]);
+
+    const params = {
+      time_period: 'custom',
+      custom_start: '2025-01-01T09:00:00.000Z',
+      custom_end: '2025-01-01T11:00:00.000Z',
+      exclude_system_apps: true,
+      min_duration_seconds: 600,
+      group_by: ['category', 'application'] as const,
+      top_n: 5,
+    };
+
+    const result: UnifiedActivityResult = await service.getActivity(params);
+
+    expect(result.activities.some(a => a.app.includes('Finder'))).toBe(false);
+    const activity = result.activities.find(a => a.app.includes('FocusApp'));
+    expect(activity).toBeDefined();
+    if (!activity) return;
+    expect(activity.browser?.domain).toBe('example.com');
+    expect(activity.editor?.project).toBe('ProjectX');
+    expect(activity.category).toBe('Work > Coding');
+    expect(categoryService.getCategories).toHaveBeenCalled();
+  });
 });

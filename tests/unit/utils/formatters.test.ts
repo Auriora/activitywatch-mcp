@@ -54,6 +54,21 @@ describe('formatQueryResults', () => {
     expect(formatted).toContain('Event 1:');
     expect(formatted).toContain('title: "Focused work"');
   });
+
+  it('renders additional events and preserves browser metadata', () => {
+    const formatted = formatQueryResultsDetailed({
+      events: [
+        sampleEvent({ app: 'Editor' }),
+        sampleEvent({ url: 'https://example.com/docs', title: 'Docs' }),
+      ],
+      total_duration_seconds: 7200,
+      query_used: ['RETURN = events;'],
+      buckets_queried: ['aw-watcher-window'],
+    });
+
+    expect(formatted).toContain('Event 2:');
+    expect(formatted).toContain('url');
+  });
 });
 
 describe('formatCalendarEvents', () => {
@@ -101,5 +116,28 @@ describe('formatCalendarEvents', () => {
 
     expect(formatCalendarEventsConcise(baseEmpty)).toContain('No calendar events scheduled in this window.');
     expect(formatCalendarEventsDetailed(baseEmpty)).toContain('No calendar events scheduled in this window.');
+  });
+
+  it('prints optional calendar fields when present', () => {
+    const formatted = formatCalendarEventsDetailed({
+      ...baseResult,
+      events: [
+        {
+          summary: 'All Hands',
+          start: '2025-01-02T09:00:00.000Z',
+          end: '2025-01-02T10:00:00.000Z',
+          duration_seconds: 3600,
+          all_day: true,
+          status: 'tentative',
+          location: 'Room 1',
+          calendar: 'Org',
+          attendees: [],
+        },
+      ],
+    });
+
+    expect(formatted).toContain('All Day: yes');
+    expect(formatted).toContain('Status: tentative');
+    expect(formatted).toContain('Location: Room 1');
   });
 });

@@ -21,6 +21,7 @@ export default defineConfig({
         '**/*.spec.ts',
         'vitest.config.ts',
         'test-*.js',
+        'scripts/**',
       ],
       all: true,
       lines: 80,
@@ -69,4 +70,3 @@ export default defineConfig({
     },
   },
 });
-
