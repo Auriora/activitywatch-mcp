@@ -25,7 +25,7 @@ A Model Context Protocol (MCP) server that enables LLM agents to query and analy
 
 ### Important Components
 
-- `src/client/ActivityWatchClient` standardizes access to the ActivityWatch REST API (buckets, events, queries, settings) and centralizes error handling so it is easy to mock or extend.
+- `src/client/ActivityWatchClient` (`ActivityWatchClient`) standardizes access to the ActivityWatch REST API (buckets, events, queries, settings) and centralizes error handling so it is easy to mock or extend.
 - The `src/services/` directory contains the core business logic for capability detection, canonical queries, unified activity aggregation, category management, summaries, and calendar integration. These services are composed when creating the MCP server instance so every transport exposes identical tools.
 - Tool schemas, formatting helpers, and utilities ensure LLM-friendly defaults, canonical filtering, and multiple presentation formats.
 
