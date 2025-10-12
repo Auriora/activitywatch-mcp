@@ -6,6 +6,8 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2025-10-12 — Docker support for MCP server  
+  File: [2025-10-12-docker-support.md](./2025-10-12-docker-support.md)
 - 2025-10-11 — Code inspection cleanup and helper coverage  
   File: [2025-10-11-codeinspection-cleanup.md](./2025-10-11-codeinspection-cleanup.md)
 - 2025-10-12 — Calendar support and aw_get_calendar_events tool  

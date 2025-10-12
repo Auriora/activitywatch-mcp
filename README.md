@@ -77,6 +77,39 @@ See [tests/README.md](tests/README.md) for detailed testing documentation.
 
 ## Configuration
 
+## Docker
+
+Container artifacts live in `docker/`. Build and run the image directly:
+
+```bash
+docker build -f docker/Dockerfile -t activitywatcher-mcp .
+docker run --rm -p 3000:3000 activitywatcher-mcp http
+```
+
+`docker-compose.yml` provides an HTTP/SSE stack wired to `http://localhost:3000/mcp`:
+
+```bash
+docker compose up
+```
+
+Customize defaults by copying `.env.example` to `.env` before running compose.
+
+Publish a development image to GitHub Container Registry via:
+
+```bash
+./scripts/docker-publish.sh
+```
+
+Pass `--build-only` to skip the push or `--push-only` to reuse an existing image tag.
+
+Switch to stdio mode by invoking the container with the `stdio` command:
+
+```bash
+docker run --rm -it activitywatcher-mcp stdio
+```
+
+See [docs/developer/docker.md](docs/developer/docker.md) for environment variables, profiles, and troubleshooting tips.
+
 ### Development Mode (HTTP Server)
 
 For faster development without restarting your IDE:
