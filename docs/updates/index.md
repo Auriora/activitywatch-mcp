@@ -6,6 +6,10 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2025-10-12 — Coverage improvement execution  
+  File: [2025-10-12-coverage-improvement-execution.md](./2025-10-12-coverage-improvement-execution.md)
+- 2025-10-12 — Coverage improvement plan  
+  File: [2025-10-12-coverage-improvement-plan.md](./2025-10-12-coverage-improvement-plan.md)
 - 2025-10-12 — Server factory seam and handler coverage  
   File: [2025-10-12-server-factory-tests.md](./2025-10-12-server-factory-tests.md)
 - 2025-10-12 — Service layer test coverage expansion  

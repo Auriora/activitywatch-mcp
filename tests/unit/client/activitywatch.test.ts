@@ -31,6 +31,20 @@ describe('ActivityWatchClient', () => {
     vi.restoreAllMocks();
   });
 
+  it('fetches server info via GET', async () => {
+    const payload = { version: '0.1' };
+    const fetchMock = setFetchMock(() =>
+      Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
+    );
+
+    const result = await client.getServerInfo();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/api/0/info`,
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(result).toEqual(payload);
+  });
+
   it('returns parsed data for successful requests', async () => {
     const payload = { buckets: ['one', 'two'] };
     const fetchMock = setFetchMock(() =>
@@ -112,6 +126,150 @@ describe('ActivityWatchClient', () => {
           code: expected.code,
           details: expected.details,
         });
+      }
+    );
+  });
+
+  it('fetches events with query params applied', async () => {
+    const fetchMock = setFetchMock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify([{ id: 1 }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+
+    await client.getEvents('aw-watcher-window_test', {
+      start: '2025-01-01T00:00:00.000Z',
+      end: '2025-01-02T00:00:00.000Z',
+      limit: 5,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/api/0/buckets/aw-watcher-window_test/events?start=2025-01-01T00%3A00%3A00.000Z&end=2025-01-02T00%3A00%3A00.000Z&limit=5`,
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('fetches event count with optional range', async () => {
+    const fetchMock = setFetchMock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(42), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+
+    const count = await client.getEventCount('aw-watcher-window_test', {
+      start: '2025-01-01T00:00:00.000Z',
+      end: '2025-01-02T00:00:00.000Z',
+    });
+
+    expect(count).toBe(42);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/api/0/buckets/aw-watcher-window_test/events/count?start=2025-01-01T00%3A00%3A00.000Z&end=2025-01-02T00%3A00%3A00.000Z`,
+      expect.anything()
+    );
+  });
+
+  it('executes query with POST payload', async () => {
+    const fetchMock = setFetchMock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify([{ result: true }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+
+    const query = ['events = query_bucket("aw");', 'RETURN = events;'];
+    const timeperiods = ['2025-01-01T00:00:00Z/2025-01-02T00:00:00Z'];
+
+    const result = await client.query(timeperiods, query);
+    expect(result).toEqual([{ result: true }]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/api/0/query/`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          timeperiods,
+          query,
+        }),
+      })
+    );
+  });
+
+  it('exposes settings helpers for global and scoped keys', async () => {
+    const responses = [
+      new Response(JSON.stringify({ theme: 'dark' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+      new Response(JSON.stringify({ value: 'nested' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+      new Response('null', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ];
+
+    const fetchMock = setFetchMock(() => Promise.resolve(responses.shift()!));
+
+    const allSettings = await client.getSettings();
+    expect(allSettings).toEqual({ theme: 'dark' });
+
+    const scopedSettings = await client.getSettings('appearance');
+    expect(scopedSettings).toEqual({ value: 'nested' });
+
+    await client.updateSettings('appearance', { value: 'nested' });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${baseUrl}/api/0/settings`);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`${baseUrl}/api/0/settings/appearance`);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/api/0/settings/appearance`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ value: 'nested' }),
+      })
+    );
+  });
+
+  it('wraps JSON parse failures as connection errors', async () => {
+    setFetchMock(() =>
+      Promise.resolve(
+        new Response('not-json', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+
+    await client.getBuckets().then(
+      () => {
+        throw new Error('Expected JSON parse error');
+      },
+      error => {
+        expect(error).toBeInstanceOf(AWError);
+        expect(error.code).toBe('CONNECTION_ERROR');
+      }
+    );
+  });
+
+  it('wraps unknown rejection values as AWError', async () => {
+    setFetchMock(() => Promise.reject('unexpected'));
+
+    await client.getBuckets().then(
+      () => {
+        throw new Error('Expected unknown error');
+      },
+      error => {
+        expect(error).toBeInstanceOf(AWError);
+        expect(error.code).toBe('UNKNOWN_ERROR');
       }
     );
   });

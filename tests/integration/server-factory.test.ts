@@ -207,6 +207,118 @@ describe('Server tool handlers', () => {
     expect(text).toContain('Weekly Sync');
   });
 
+  it('returns capabilities payload as JSON text', async () => {
+    const deps = createDeps();
+    deps.capabilitiesService.getAvailableBuckets = vi.fn().mockResolvedValue([{ id: 'bucket', type: 'currentwindow' }]) as any;
+    deps.capabilitiesService.detectCapabilities = vi.fn().mockResolvedValue({ has_window_tracking: true }) as any;
+    deps.capabilitiesService.getSuggestedTools = vi.fn().mockResolvedValue(['aw_get_activity']);
+    const { server } = await createServer(deps);
+
+    const response = await callTool(server, 'aw_get_capabilities', {});
+    const payload = JSON.parse(response.content[0]?.text ?? '{}');
+    expect(payload.available_buckets).toEqual([{ id: 'bucket', type: 'currentwindow' }]);
+    expect(payload.capabilities).toMatchObject({ has_window_tracking: true });
+    expect(payload.suggested_tools).toEqual(['aw_get_activity']);
+  });
+
+  it('formats period summary using concise formatter', async () => {
+    const deps = createDeps();
+    deps.periodSummaryService.getPeriodSummary = vi.fn().mockResolvedValue({
+      period_type: 'weekly',
+      period_start: '2025-01-01T00:00:00.000Z',
+      period_end: '2025-01-07T23:59:59.000Z',
+      timezone: 'UTC',
+      total_active_time_hours: 40,
+      total_afk_time_hours: 5,
+      top_applications: [],
+      top_websites: [],
+      insights: [],
+    });
+    const { server } = await createServer(deps);
+
+    const response = await callTool(server, 'aw_get_period_summary', {
+      period_type: 'weekly',
+    });
+
+    expect(response.content[0]?.text).toContain('Weekly Summary');
+  });
+
+  it('surfaces AWError when raw events bucket missing', async () => {
+    const deps = createDeps();
+    deps.client.getBuckets = vi.fn().mockResolvedValue({});
+    const { server } = await createServer(deps);
+
+    const response = await callTool(server, 'aw_get_raw_events', {
+      bucket_id: 'missing-bucket',
+      start_time: '2025-01-01T00:00:00.000Z',
+      end_time: '2025-01-01T01:00:00.000Z',
+      response_format: 'concise',
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content[0]?.text).toContain("Bucket 'missing-bucket' not found");
+  });
+
+  it('lists categories after reloading from ActivityWatch', async () => {
+    const deps = createDeps();
+    deps.categoryService.reloadCategories = vi.fn().mockResolvedValue(undefined);
+    deps.categoryService.getCategories = vi.fn().mockReturnValue([
+      { id: 1, name: ['Work'], rule: { type: 'regex', regex: '.*' }, data: { color: '#fff', score: 10 } },
+    ]);
+    const { server } = await createServer(deps);
+
+    const response = await callTool(server, 'aw_list_categories', {});
+    const payload = JSON.parse(response.content[0]?.text ?? '{}');
+    expect(payload.total_count).toBe(1);
+    expect(payload.categories[0]?.name).toBe('Work');
+  });
+
+  it('adds, updates, and deletes categories through tool handlers', async () => {
+    const deps = createDeps();
+    deps.categoryService.addCategory = vi.fn().mockResolvedValue({
+      id: 5,
+      name: ['Focus'],
+      rule: { type: 'regex', regex: 'focus' },
+      data: { color: '#000', score: 5 },
+    });
+    deps.categoryService.updateCategory = vi.fn().mockResolvedValue({
+      id: 5,
+      name: ['Focus', 'Deep'],
+      rule: { type: 'regex', regex: 'deep' },
+      data: { color: '#123456', score: 7 },
+    });
+    deps.categoryService.getCategoryById = vi.fn().mockReturnValue({
+      id: 5,
+      name: ['Focus', 'Deep'],
+      rule: { type: 'regex', regex: 'deep' },
+    });
+    deps.categoryService.deleteCategory = vi.fn().mockResolvedValue(undefined);
+
+    const { server } = await createServer(deps);
+
+    const addResponse = await callTool(server, 'aw_add_category', {
+      name: ['Focus'],
+      regex: 'focus',
+      color: '#000',
+      score: 5,
+    });
+    expect(addResponse.content[0]?.text).toContain('created successfully');
+
+    const updateResponse = await callTool(server, 'aw_update_category', {
+      id: 5,
+      name: ['Focus', 'Deep'],
+      regex: 'deep',
+      color: '#123456',
+      score: 7,
+    });
+    expect(updateResponse.content[0]?.text).toContain('updated successfully');
+
+  const deleteResponse = await callTool(server, 'aw_delete_category', {
+      id: 5,
+    });
+    expect(deleteResponse.content[0]?.text).toContain('deleted successfully');
+  });
+
   it('formats query events in detailed mode', async () => {
     const { server } = await createServer();
 

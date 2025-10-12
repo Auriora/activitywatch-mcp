@@ -2,10 +2,11 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { z } from 'zod';
 
-import { loadUserPreferences, reloadUserPreferences } from '../../../src/config/user-preferences.js';
+import { loadUserPreferences, reloadUserPreferences, getTimezoneOffset } from '../../../src/config/user-preferences.js';
+import * as timeUtils from '../../../src/utils/time.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -67,5 +68,41 @@ describe('user preferences configuration', () => {
     expect(preferences.dateFormat).toBe('YYYY-MM-DD');
     expect(preferences.weekStartsOn).toBe('monday');
     expect(preferences.hourFormat).toBe('24h');
+  });
+
+  it('applies environment timezone overrides with caching', () => {
+    process.env.ACTIVITYWATCH_TIMEZONE = 'UTC+2';
+    reloadUserPreferences();
+
+    const preferences = loadUserPreferences();
+    expect(preferences.timezone).toBe('UTC+2');
+    expect(preferences.timezoneOffsetMinutes).toBe(120);
+
+    const secondRead = loadUserPreferences();
+    expect(secondRead).toBe(preferences);
+  });
+
+  it('falls back to system timezone when override is invalid', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const systemOffsetSpy = vi.spyOn(timeUtils, 'getSystemTimezoneOffset').mockReturnValue(180);
+    const formatSpy = vi.spyOn(timeUtils, 'formatTimezoneOffset').mockImplementation(offset => `UTC+${offset / 60}`);
+
+    process.env.ACTIVITYWATCH_TIMEZONE = 'Invalid/Zone';
+    reloadUserPreferences();
+
+    const preferences = loadUserPreferences();
+    expect(preferences.timezoneOffsetMinutes).toBe(180);
+    expect(preferences.timezone).toBe('UTC+3');
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+    systemOffsetSpy.mockRestore();
+    formatSpy.mockRestore();
+  });
+
+  it('getTimezoneOffset falls back to preferences when value invalid', () => {
+    const result = getTimezoneOffset('Invalid/Zone');
+    expect(result.timezone).toBeDefined();
+    expect(typeof result.offsetMinutes).toBe('number');
   });
 });

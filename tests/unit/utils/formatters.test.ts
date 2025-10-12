@@ -6,7 +6,9 @@ import {
   formatQueryResultsDetailed,
   formatCalendarEventsConcise,
   formatCalendarEventsDetailed,
+  formatPeriodSummaryConcise,
 } from '../../../src/utils/formatters.js';
+import type { PeriodSummary } from '../../../src/types.js';
 
 const sampleEvent = (overrides: Partial<any> = {}) => ({
   timestamp: '2025-01-01T09:00:00.000Z',
@@ -139,5 +141,86 @@ describe('formatCalendarEvents', () => {
     expect(formatted).toContain('All Day: yes');
     expect(formatted).toContain('Status: tentative');
     expect(formatted).toContain('Location: Room 1');
+  });
+});
+
+describe('formatPeriodSummaryConcise', () => {
+  const summary: PeriodSummary = {
+    period_type: 'weekly',
+    period_start: '2025-01-01T00:00:00.000Z',
+    period_end: '2025-01-07T23:59:59.000Z',
+    timezone: 'UTC',
+    total_active_time_hours: 40,
+    total_afk_time_hours: 8,
+    focus_time_hours: 25,
+    meeting_time_hours: 6,
+    top_applications: [
+      { name: 'VS Code', duration_hours: 15, percentage: 37.5 },
+    ],
+    top_websites: [
+      { domain: 'github.com', duration_hours: 8, percentage: 20 },
+    ],
+    top_categories: [
+      { category_name: 'Engineering', duration_hours: 20, percentage: 50 },
+    ],
+    notable_calendar_events: [
+      {
+        summary: 'Architecture Review',
+        start: '2025-01-03T15:00:00.000Z',
+        end: '2025-01-03T16:00:00.000Z',
+        duration_seconds: 3600,
+        status: 'confirmed',
+        location: 'Room 42',
+        calendar: 'Team',
+        all_day: false,
+        attendees: [],
+      },
+    ],
+    hourly_breakdown: [
+      { hour: 9, active_seconds: 3600, afk_seconds: 0, top_app: 'VS Code' },
+      { hour: 10, active_seconds: 1800, afk_seconds: 600, top_app: 'Slack' },
+    ],
+    daily_breakdown: [
+      { date: '2025-01-01', active_seconds: 7200, afk_seconds: 600, top_app: 'VS Code' },
+    ],
+    weekly_breakdown: [
+      {
+        week_start: '2024-12-30',
+        week_end: '2025-01-05',
+        active_seconds: 28800,
+        afk_seconds: 3600,
+        top_app: 'VS Code',
+      },
+    ],
+    insights: ['Keep focus blocks in the morning', 'Consider shortening meetings'],
+  };
+
+  it('renders all optional sections when data is present', () => {
+    const formatted = formatPeriodSummaryConcise(summary);
+
+    expect(formatted).toContain('Weekly Summary');
+    expect(formatted).toContain('Top Applications:');
+    expect(formatted).toContain('Top Websites:');
+    expect(formatted).toContain('Top Categories:');
+    expect(formatted).toContain('Notable Calendar Events');
+    expect(formatted).toContain('Hourly Breakdown:');
+    expect(formatted).toContain('Daily Breakdown:');
+    expect(formatted).toContain('Weekly Breakdown:');
+    expect(formatted).toContain('Insights:');
+  });
+
+  it('falls back to generic label for unknown period types', () => {
+    const formatted = formatPeriodSummaryConcise({
+      ...summary,
+      period_type: 'custom_period' as unknown as PeriodSummary['period_type'],
+      top_categories: [],
+      notable_calendar_events: [],
+      hourly_breakdown: [],
+      daily_breakdown: [],
+      weekly_breakdown: [],
+      insights: [],
+    });
+
+    expect(formatted).toContain('Period Summary');
   });
 });

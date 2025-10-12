@@ -34,3 +34,4 @@ Thumbs.db
 .nyc_output
 /.augment/
 !/.coverage
+inspections/

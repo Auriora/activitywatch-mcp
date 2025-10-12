@@ -133,4 +133,68 @@ describe('CalendarService', () => {
     expect(summaries[0].summary).toBeDefined();
     expect(summaries[0].start).toBeDefined();
   });
+
+  it('throws when no calendar buckets are available', async () => {
+    mockClient.setBuckets([]);
+
+    await expect(
+      calendarService.getEvents({
+        time_period: 'custom',
+        custom_start: customStart,
+        custom_end: customEnd,
+      })
+    ).rejects.toMatchObject({ code: 'CALENDAR_BUCKET_MISSING' });
+  });
+
+  it('validates custom time ranges', async () => {
+    await expect(
+      calendarService.getEvents({
+        time_period: 'custom',
+        custom_start: customStart,
+      })
+    ).rejects.toMatchObject({ code: 'CALENDAR_INVALID_RANGE' });
+  });
+
+  it('normalizes events with structured date payloads and inferred duration', async () => {
+    mockClient.setEvents(bucketId, [
+      createMockEvent('2025-01-01T09:00:00Z', 0, {
+        summary: 'Structured Event',
+        start: { dateTime: '2025-01-01T10:00:00Z' },
+        end: { date: '2025-01-01' },
+        duration: 1800,
+        location: 'Room 5',
+        calendar: 'Team',
+      }),
+    ]);
+
+    const result = await calendarService.getEvents({
+      time_period: 'custom',
+      custom_start: customStart,
+      custom_end: customEnd,
+    });
+
+    expect(result.events).toHaveLength(1);
+    const event = result.events[0];
+    expect(event.summary).toBe('Structured Event');
+    expect(event.duration_seconds).toBe(1800);
+    expect(event.location).toBe('Room 5');
+    expect(event.calendar).toBe('Team');
+  });
+
+  it('skips events without resolvable time bounds', async () => {
+    mockClient.setEvents(bucketId, [
+      createMockEvent('2025-01-04T00:00:00Z', 0, {
+        summary: 'Broken Event',
+        end: 'invalid-date',
+      }),
+    ]);
+
+    const result = await calendarService.getEvents({
+      time_period: 'custom',
+      custom_start: customStart,
+      custom_end: customEnd,
+    });
+
+    expect(result.events).toEqual([]);
+  });
 });

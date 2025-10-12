@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import {
   getRulesForApp,
   getTitleParsingConfig,
   setTitleParsingConfig,
   validateRule,
+  parseTitle,
+  hasParsingRules,
 } from '../../../src/utils/configurable-title-parser.js';
 import type { TitleParsingConfig, TitleParsingRule } from '../../../src/utils/configurable-title-parser.js';
 
@@ -51,6 +53,107 @@ describe('configurable title parser helpers', () => {
 
     const invalidResult = validateRule(invalidRule);
     expect(invalidResult.valid).toBe(false);
-    expect(invalidResult.errors.length).toBeGreaterThan(0);
+   expect(invalidResult.errors.length).toBeGreaterThan(0);
+  });
+
+  it('parses titles with capture groups, static fields, and computed expressions', () => {
+    setTitleParsingConfig({
+      localHostname: 'devbox',
+      rules: [
+        {
+          name: 'IDE Session',
+          appPatterns: ['VS Code'],
+          titlePattern: '^(.+) — (.+)$',
+          captureGroups: { workspace: 1, file: 2 },
+          enrichmentType: 'ide',
+          fields: {
+            raw: '$title',
+            appName: '$app',
+            fixed: 'static',
+          },
+          computedFields: {
+            isLocal: 'workspace === "devbox"',
+            mismatch: 'workspace !== file',
+          },
+        },
+      ],
+    });
+
+    const result = parseTitle('VS Code', 'devbox — src/index.ts');
+    expect(result).toEqual({
+      enrichmentType: 'ide',
+      ruleName: 'IDE Session',
+      data: {
+        workspace: 'devbox',
+        file: 'src/index.ts',
+        raw: 'devbox — src/index.ts',
+        appName: 'VS Code',
+        fixed: 'static',
+        isLocal: true,
+        mismatch: true,
+      },
+    });
+  });
+
+  it('matches contains-based rules and reports availability', () => {
+    setTitleParsingConfig({
+      localHostname: 'devbox',
+      rules: [
+        {
+          name: 'Browser focus',
+          appPatterns: ['Chrome*'],
+          matchType: 'contains',
+          titlePatterns: ['Stack Overflow'],
+          enrichmentType: 'custom',
+        },
+      ],
+    });
+
+    expect(hasParsingRules('Chromium')).toBe(false);
+    expect(hasParsingRules('Chrome Canary')).toBe(true);
+
+    const parsed = parseTitle('Chrome Canary', 'Today I learned - Stack Overflow');
+    expect(parsed?.ruleName).toBe('Browser focus');
+  });
+
+  it('handles invalid regex definitions gracefully', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    setTitleParsingConfig({
+      localHostname: 'devbox',
+      rules: [
+        {
+          name: 'Broken rule',
+          appPatterns: ['Notes'],
+          titlePattern: '(',
+          enrichmentType: 'custom',
+        },
+      ],
+    });
+
+    expect(parseTitle('Notes', 'Daily note')).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[TitleParser] Invalid regex in rule "Broken rule":'),
+      expect.any(Error),
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it('returns null when no rule matches an app/title combination', () => {
+    setTitleParsingConfig({
+      localHostname: 'devbox',
+      rules: [
+        {
+          name: 'Terminal Regex',
+          appPatterns: ['Terminal'],
+          titlePattern: '^user@host: (.+)$',
+          captureGroups: { directory: 1 },
+          enrichmentType: 'terminal',
+        },
+      ],
+    });
+
+    expect(parseTitle('Mail', 'Inbox')).toBeNull();
   });
 });

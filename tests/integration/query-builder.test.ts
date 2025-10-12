@@ -5,7 +5,7 @@
  * For E2E tests with real ActivityWatch server, see tests/e2e/
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { QueryBuilderService } from '../../src/services/query-builder.js';
 import { CapabilitiesService } from '../../src/services/capabilities.js';
 import { MockActivityWatchClient, createMockBucket } from '../helpers/mock-client.js';
@@ -26,6 +26,10 @@ describe('QueryBuilderService Integration', () => {
       createMockBucket('aw-watcher-afk_test-host', 'afkstatus'),
       createMockBucket('aw-watcher-web-chrome_test-host', 'web.tab.current'),
     ]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('Window Query with AFK Filtering', () => {
@@ -138,6 +142,83 @@ describe('QueryBuilderService Integration', () => {
           response_format: 'detailed',
         })
       ).rejects.toThrow();
+    });
+  });
+
+  describe('Post-processing and filters', () => {
+    it('applies minimum duration filtering and limits results', async () => {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+      vi.spyOn(mockClient, 'query').mockResolvedValue([
+        [
+          { app: 'Chrome', duration: 30, timestamp: now.toISOString(), data: {} },
+          { app: 'VS Code', duration: 120, timestamp: now.toISOString(), data: {} },
+        ],
+      ]);
+
+      const result = await queryBuilderService.queryEvents({
+        query_type: 'window',
+        start_time: oneHourAgo.toISOString(),
+        end_time: now.toISOString(),
+        filter_afk: false,
+        merge_events: false,
+        min_duration_seconds: 60,
+        limit: 1,
+        response_format: 'detailed',
+      });
+
+      expect(result.events).toHaveLength(1);
+      expect(result.total_duration_seconds).toBe(120);
+      expect(result.events[0]?.duration).toBe(120);
+    });
+
+    it('adds title filters for window queries', async () => {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+      const querySpy = vi.spyOn(mockClient, 'query').mockResolvedValue([[]]);
+
+      await queryBuilderService.queryEvents({
+        query_type: 'window',
+        start_time: oneHourAgo.toISOString(),
+        end_time: now.toISOString(),
+        filter_afk: false,
+        merge_events: false,
+        filter_titles: ['Daily Standup', 'Focus'],
+        response_format: 'detailed',
+      });
+
+      const sentQuery = querySpy.mock.calls[0]?.[1] ?? [];
+      expect(sentQuery).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('filter_keyvals(events, "title", ["Daily Standup"])'),
+          expect.stringContaining('filter_keyvals(events, "title", ["Focus"])'),
+        ])
+      );
+    });
+
+    it('adds domain filters for browser queries', async () => {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const querySpy = vi.spyOn(mockClient, 'query').mockResolvedValue([[]]);
+
+      await queryBuilderService.queryEvents({
+        query_type: 'browser',
+        start_time: oneHourAgo.toISOString(),
+        end_time: now.toISOString(),
+        filter_afk: false,
+        filter_domains: ['github.com', 'example.com'],
+        response_format: 'detailed',
+      });
+
+      const sentQuery = querySpy.mock.calls[0]?.[1] ?? [];
+      expect(sentQuery).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('filter_keyvals(events, "url", [".*github.com.*"])'),
+          expect.stringContaining('filter_keyvals(events, "url", [".*example.com.*"])'),
+        ])
+      );
     });
   });
 
@@ -269,6 +350,21 @@ describe('QueryBuilderService Integration', () => {
           response_format: 'detailed',
         } as any)
       ).rejects.toThrow();
+    });
+
+    it('rejects when start time is not before end time', async () => {
+      const timestamp = new Date().toISOString();
+
+      await expect(
+        queryBuilderService.queryEvents({
+          query_type: 'window',
+          start_time: timestamp,
+          end_time: timestamp,
+          filter_afk: false,
+          merge_events: false,
+          response_format: 'detailed',
+        })
+      ).rejects.toThrow('start_time must be before end_time');
     });
   });
 });

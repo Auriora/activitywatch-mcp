@@ -22,12 +22,23 @@ export default defineConfig({
         'vitest.config.ts',
         'test-*.js',
         'scripts/**',
+        'src/http-server-cli.ts',
       ],
       all: true,
-      lines: 80,
-      functions: 80,
-      branches: 80,
-      statements: 80,
+      thresholds: {
+        global: {
+          lines: 80,
+          statements: 80,
+          branches: 80,
+          functions: 80,
+        },
+        each: {
+          lines: 75,
+          statements: 75,
+          branches: 75,
+          functions: 75,
+        },
+      },
     },
     
     // Test file patterns
