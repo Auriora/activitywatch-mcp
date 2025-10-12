@@ -74,10 +74,8 @@ export async function createServerWithDependencies(
     client,
     capabilitiesService,
     categoryService,
-    queryService,
     queryBuilderService,
     calendarService,
-    afkService,
     unifiedService,
     periodSummaryService,
   } = deps;
@@ -137,8 +135,8 @@ export async function createServerWithDependencies(
     try {
       switch (name) {
         case 'aw_get_capabilities': {
-          GetCapabilitiesSchema.parse(args) satisfies GetCapabilitiesParams;
-          logger.debug('Fetching capabilities');
+          const params = GetCapabilitiesSchema.parse((args ?? {}) as GetCapabilitiesParams);
+          logger.debug('Fetching capabilities', { params });
 
           const [buckets, capabilities, suggestedTools] = await Promise.all([
             capabilitiesService.getAvailableBuckets(),
@@ -295,13 +293,19 @@ export async function createServerWithDependencies(
               requestedBucket: params.bucket_id,
               availableBuckets,
             });
-            throw new AWError(
+            const message =
               `Bucket '${params.bucket_id}' not found.\n\n` +
               `Available buckets:\n${availableBuckets.map(b => `  - ${b}`).join('\n')}\n\n` +
-              `Use the 'aw_get_capabilities' tool to see all available buckets with descriptions.`,
-              'BUCKET_NOT_FOUND',
-              { requestedBucket: params.bucket_id, availableBuckets }
-            );
+              `Use the 'aw_get_capabilities' tool to see all available buckets with descriptions.`;
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: message,
+                },
+              ],
+              isError: true,
+            };
           }
 
           const events = await client.getEvents(params.bucket_id, {
@@ -564,7 +568,17 @@ export async function createServerWithDependencies(
 
           const category = categoryService.getCategoryById(params.id);
           if (!category) {
-            throw new Error(`Category with id ${params.id} not found`);
+            const message = `Category with id ${params.id} not found`;
+            logger.warn(message);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: message,
+                },
+              ],
+              isError: true,
+            };
           }
 
           const categoryName = category.name.join(' > ');
@@ -593,7 +607,16 @@ export async function createServerWithDependencies(
         }
 
         default:
-          throw new Error(`Unknown tool: ${name}`);
+          logger.error(`Unknown tool requested: ${name}`);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error: Unknown tool "${name}"`,
+              },
+            ],
+            isError: true,
+          };
       }
     } catch (error) {
       if (error instanceof AWError) {

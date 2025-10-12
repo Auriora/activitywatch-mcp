@@ -56,8 +56,7 @@ function resolveTarget(fromFile, target) {
   if (!filePart || filePart === '') return null;
   // If absolute path (starts with /docs/), map to root
   if (filePart.startsWith('/')) {
-    const abs = path.join(root, filePart.replace(/^\/+/, ''));
-    return abs;
+    return path.join(root, filePart.replace(/^\/+/, ''));
   }
   // Otherwise, resolve relative to the fromFile directory
   return path.resolve(path.dirname(fromFile), filePart);

@@ -296,12 +296,12 @@ export class UnifiedActivityService {
     if (!url) return undefined;
 
     // Extract domain from URL
-    let domain: string = "";
+    let domain = url;
     try {
       const urlObj = new URL(url);
       domain = urlObj.hostname;
     } catch {
-      domain = url;
+      // keep original URL when hostname extraction fails
     }
 
     return {

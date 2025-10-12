@@ -145,8 +145,7 @@ function extractData(title: string, app: string, rule: TitleParsingRule): Record
   if (rule.computedFields) {
     for (const [fieldName, expression] of Object.entries(rule.computedFields)) {
       try {
-        const computed = evaluateExpression(expression, data, config.localHostname);
-        data[fieldName] = computed;
+        data[fieldName] = evaluateExpression(expression, data, config.localHostname);
       } catch (error) {
         console.error(`[TitleParser] Error computing field "${fieldName}" in rule "${rule.name}":`, error);
       }
@@ -278,4 +277,3 @@ export function validateRule(rule: TitleParsingRule): { valid: boolean; errors: 
     errors
   };
 }
-

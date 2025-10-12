@@ -34,14 +34,12 @@ export interface IActivityWatchClient {
 }
 
 export class ActivityWatchClient implements IActivityWatchClient {
-  private baseUrl: string;
-  private readonly defaultTimeout: number = 30000; // 30 seconds
+  private readonly baseUrl: string;
+  private readonly defaultTimeout: number;
 
   constructor(baseUrl: string = 'http://localhost:5600', timeout?: number) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
-    if (timeout !== undefined) {
-      this.defaultTimeout = timeout;
-    }
+    this.defaultTimeout = timeout ?? 30000; // 30 seconds
   }
 
   /**
@@ -180,37 +178,44 @@ export class ActivityWatchClient implements IActivityWatchClient {
         clearTimeout(timeoutId);
       }
     } catch (error) {
-      if (error instanceof AWError) {
-        throw error;
-      }
+      throw this.normalizeError(error, method, path, timeout);
+    }
+  }
 
-      // Handle timeout errors
-      if (error instanceof Error && error.name === 'AbortError') {
-        logger.error(`Request timeout: ${method} ${path}`, { timeout });
-        throw new AWError(
-          `Request to ActivityWatch timed out after ${timeout}ms`,
-          'TIMEOUT_ERROR',
-          { timeout, path }
-        );
-      }
+  private normalizeError(
+    error: unknown,
+    method: string,
+    path: string,
+    timeout: number
+  ): AWError {
+    if (error instanceof AWError) {
+      return error;
+    }
 
-      // Network or other errors
-      if (error instanceof Error) {
-        logger.error(`Connection error: ${method} ${path}`, error);
-        throw new AWError(
-          `Failed to connect to ActivityWatch: ${error.message}`,
-          'CONNECTION_ERROR',
-          { originalError: error.message }
-        );
-      }
-
-      logger.error(`Unknown error: ${method} ${path}`, error);
-      throw new AWError(
-        'Unknown error connecting to ActivityWatch',
-        'UNKNOWN_ERROR',
-        { error }
+    if (error instanceof Error && error.name === 'AbortError') {
+      logger.error(`Request timeout: ${method} ${path}`, { timeout });
+      return new AWError(
+        `Request to ActivityWatch timed out after ${timeout}ms`,
+        'TIMEOUT_ERROR',
+        { timeout, path }
       );
     }
+
+    if (error instanceof Error) {
+      logger.error(`Connection error: ${method} ${path}`, error);
+      return new AWError(
+        `Failed to connect to ActivityWatch: ${error.message}`,
+        'CONNECTION_ERROR',
+        { originalError: error.message }
+      );
+    }
+
+    logger.error(`Unknown error: ${method} ${path}`, error);
+    return new AWError(
+      'Unknown error connecting to ActivityWatch',
+      'UNKNOWN_ERROR',
+      { error }
+    );
   }
 
   /**
@@ -234,4 +239,3 @@ export class ActivityWatchClient implements IActivityWatchClient {
     });
   }
 }
-

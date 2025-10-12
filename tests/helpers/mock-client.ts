@@ -49,8 +49,7 @@ export class MockActivityWatchClient {
 
   setMethodError(method: MockMethodName, error: Error | (() => Error)): void {
     this.methodFailures.set(method, async () => {
-      const toThrow = typeof error === 'function' ? error() : error;
-      throw toThrow;
+      throw typeof error === 'function' ? error() : error;
     });
   }
 
@@ -84,10 +83,8 @@ export class MockActivityWatchClient {
     params?: { start?: string | Date; end?: string | Date; limit?: number }
   ): Promise<AWEvent[]> {
     await this.maybeFail('getEvents');
-    const events = this.events.get(bucketId) || [];
-    
     // Apply filters if provided
-    let filtered = events;
+    let filtered = this.events.get(bucketId) || [];
     
     if (params?.start) {
       const startDate = typeof params.start === 'string'

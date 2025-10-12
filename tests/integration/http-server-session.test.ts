@@ -27,6 +27,7 @@ describe('HTTP server session flows with mocked transports', () => {
     sseTransports.length = 0;
 
     vi.doMock('@modelcontextprotocol/sdk/server/streamableHttp.js', () => {
+      // noinspection JSUnusedGlobalSymbols
       class MockStreamableTransport {
         public sessionId: string | null = null;
         public onclose?: () => void;
@@ -54,6 +55,7 @@ describe('HTTP server session flows with mocked transports', () => {
     });
 
     vi.doMock('@modelcontextprotocol/sdk/server/sse.js', () => {
+      // noinspection JSUnusedGlobalSymbols
       class MockSSETransport {
         public sessionId: string;
         public onclose?: () => void;

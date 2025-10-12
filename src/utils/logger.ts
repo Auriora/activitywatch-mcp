@@ -12,7 +12,7 @@ export enum LogLevel {
 }
 
 class Logger {
-  private level: LogLevel;
+  private readonly level: LogLevel;
 
   constructor() {
     // Read from environment variable, default to INFO
@@ -55,4 +55,3 @@ class Logger {
 
 // Singleton instance
 export const logger = new Logger();
-

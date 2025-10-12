@@ -93,16 +93,14 @@ export function formatTimezoneOffset(offsetMinutes: number): string {
  * Convert a date from UTC to a specific timezone
  */
 export function convertToTimezone(utcDate: Date, timezoneOffsetMinutes: number): Date {
-  const localDate = new Date(utcDate.getTime() + timezoneOffsetMinutes * 60 * 1000);
-  return localDate;
+  return new Date(utcDate.getTime() + timezoneOffsetMinutes * 60 * 1000);
 }
 
 /**
  * Convert a date from a specific timezone to UTC
  */
 export function convertFromTimezone(localDate: Date, timezoneOffsetMinutes: number): Date {
-  const utcDate = new Date(localDate.getTime() - timezoneOffsetMinutes * 60 * 1000);
-  return utcDate;
+  return new Date(localDate.getTime() - timezoneOffsetMinutes * 60 * 1000);
 }
 
 /**
