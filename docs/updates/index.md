@@ -6,6 +6,8 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2025-10-12 — Service layer test coverage expansion  
+  File: [2025-10-12-service-tests-phase-1.md](./2025-10-12-service-tests-phase-1.md)
 - 2025-10-12 — ActivityWatch client coverage bootstrap  
   File: [2025-10-12-client-tests-phase-1.md](./2025-10-12-client-tests-phase-1.md)
 - 2025-10-12 — Docker support for MCP server  
