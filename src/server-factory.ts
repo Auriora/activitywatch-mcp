@@ -11,7 +11,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { ActivityWatchClient } from './client/activitywatch.js';
+import { ActivityWatchClient, type IActivityWatchClient } from './client/activitywatch.js';
 import { CapabilitiesService } from './services/capabilities.js';
 import { QueryService } from './services/query.js';
 import { QueryBuilderService } from './services/query-builder.js';
@@ -49,54 +49,70 @@ import { logger } from './utils/logger.js';
 import { performHealthCheck, formatHealthCheckResult } from './utils/health.js';
 import { tools } from './tools/definitions.js';
 
-/**
- * Creates a configured MCP server instance
- */
-export async function createMCPServer(awUrl: string): Promise<Server> {
-  // Initialize services
-  const client = new ActivityWatchClient(awUrl);
-  const capabilitiesService = new CapabilitiesService(client);
-  const categoryService = new CategoryService(client);
-  const queryService = new QueryService(client, capabilitiesService);
-  const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
-  const calendarService = new CalendarService(client, capabilitiesService);
-  const afkService = new AfkActivityService(client, capabilitiesService);
-  const unifiedService = new UnifiedActivityService(
-    queryService,
+export interface ServerDependencies {
+  client: IActivityWatchClient;
+  capabilitiesService: CapabilitiesService;
+  categoryService: CategoryService;
+  queryService: QueryService;
+  queryBuilderService: QueryBuilderService;
+  calendarService: CalendarService;
+  afkService: AfkActivityService;
+  unifiedService: UnifiedActivityService;
+  periodSummaryService: PeriodSummaryService;
+}
+
+export interface ServerLifecycleOptions {
+  loadCategories?: boolean;
+  performHealthCheck?: boolean;
+}
+
+export async function createServerWithDependencies(
+  deps: ServerDependencies,
+  options: ServerLifecycleOptions = {}
+): Promise<Server> {
+  const {
+    client,
+    capabilitiesService,
     categoryService,
-    calendarService
-  );
-  const periodSummaryService = new PeriodSummaryService(
-    unifiedService,
     queryService,
+    queryBuilderService,
+    calendarService,
     afkService,
-    categoryService,
-    calendarService
-  );
+    unifiedService,
+    periodSummaryService,
+  } = deps;
 
-  // Load categories from ActivityWatch server
-  logger.info('Loading categories...');
-  await categoryService.loadFromActivityWatch();
-  if (categoryService.hasCategories()) {
+  const {
+    loadCategories = true,
+    performHealthCheck: shouldPerformHealthCheck = true,
+  } = options;
+
+  if (loadCategories) {
+    logger.info('Loading categories...');
+    await categoryService.loadFromActivityWatch();
+    if (categoryService.hasCategories()) {
+      capabilitiesService.setCategoriesConfigured(true);
+      logger.info(`Categories configured: ${categoryService.getCategories().length} categories available`);
+    }
+  } else if (categoryService.hasCategories()) {
     capabilitiesService.setCategoriesConfigured(true);
-    logger.info(`Categories configured: ${categoryService.getCategories().length} categories available`);
   }
 
-  // Perform health check on startup
-  logger.info('Performing startup health check...');
-  const healthCheck = await performHealthCheck(client);
+  if (shouldPerformHealthCheck) {
+    logger.info('Performing startup health check...');
+    const healthCheck = await performHealthCheck(client);
 
-  if (!healthCheck.healthy) {
-    logger.warn('Health check failed, but server will start anyway', {
-      errors: healthCheck.errors,
-      warnings: healthCheck.warnings,
-    });
-  } else {
-    logger.info('Health check passed');
+    if (!healthCheck.healthy) {
+      logger.warn('Health check failed, but server will start anyway', {
+        errors: healthCheck.errors,
+        warnings: healthCheck.warnings,
+      });
+    } else {
+      logger.info('Health check passed');
+    }
+    logger.debug(formatHealthCheckResult(healthCheck));
   }
-  logger.debug(formatHealthCheckResult(healthCheck));
 
-  // Create MCP server
   const server = new Server(
     {
       name: 'activitywatch-mcp',
@@ -109,12 +125,10 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
     }
   );
 
-  // Register list tools handler
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return { tools };
   });
 
-  // Register call tool handler
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
@@ -622,4 +636,41 @@ export async function createMCPServer(awUrl: string): Promise<Server> {
   });
 
   return server;
+}
+
+/**
+ * Creates a configured MCP server instance
+ */
+export async function createMCPServer(awUrl: string): Promise<Server> {
+  const client = new ActivityWatchClient(awUrl);
+  const capabilitiesService = new CapabilitiesService(client);
+  const categoryService = new CategoryService(client);
+  const queryService = new QueryService(client, capabilitiesService);
+  const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
+  const calendarService = new CalendarService(client, capabilitiesService);
+  const afkService = new AfkActivityService(client, capabilitiesService);
+  const unifiedService = new UnifiedActivityService(
+    queryService,
+    categoryService,
+    calendarService
+  );
+  const periodSummaryService = new PeriodSummaryService(
+    unifiedService,
+    queryService,
+    afkService,
+    categoryService,
+    calendarService
+  );
+
+  return createServerWithDependencies({
+    client,
+    capabilitiesService,
+    categoryService,
+    queryService,
+    queryBuilderService,
+    calendarService,
+    afkService,
+    unifiedService,
+    periodSummaryService,
+  });
 }

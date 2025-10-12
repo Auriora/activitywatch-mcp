@@ -73,6 +73,41 @@ export const GetCalendarEventsSchema = z.object({
   response_format: ResponseFormatSchema.default('concise').describe(
     'Output verbosity. "concise" → human summary, "detailed" → expanded text, "raw" → JSON payload.'
   ),
+}).superRefine((data, ctx) => {
+  if (data.time_period === 'custom') {
+    if (!data.custom_start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['custom_start'],
+        message: 'custom_start is required when time_period is "custom"',
+      });
+    }
+    if (!data.custom_end) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['custom_end'],
+        message: 'custom_end is required when time_period is "custom"',
+      });
+    }
+
+    if (data.custom_start && data.custom_end) {
+      const start = new Date(data.custom_start).getTime();
+      const end = new Date(data.custom_end).getTime();
+      if (!Number.isFinite(start) || !Number.isFinite(end)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['custom_start'],
+          message: 'custom_start and custom_end must be valid date strings',
+        });
+      } else if (start > end) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['custom_start'],
+          message: 'custom_start must be before or equal to custom_end',
+        });
+      }
+    }
+  }
 });
 
 export const GetRawEventsSchema = z.object({

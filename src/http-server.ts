@@ -19,88 +19,39 @@ import { createMCPServer } from './server-factory.js';
 import { logger } from './utils/logger.js';
 import { logStartupDiagnostics } from './utils/health.js';
 
-/**
- * Configuration
- */
-const MCP_PORT = process.env.MCP_PORT ? parseInt(process.env.MCP_PORT, 10) : 3000;
-let currentAwUrl = process.env.AW_URL || 'http://localhost:5600';
-
-logStartupDiagnostics(currentAwUrl);
-
-/**
- * Create Express app
- */
-const app = express();
-app.use(express.json());
-
-// Enable CORS and expose session ID header
-app.use(cors({
-  origin: '*',
-  exposedHeaders: ['Mcp-Session-Id']
-}));
-
-let sharedServerPromise: Promise<Server> | null = null;
-
-interface SessionData {
+/** Session state held for active MCP transports */
+export interface SessionData {
   transport: StreamableHTTPServerTransport | SSEServerTransport;
   server: Server;
 }
-
-const sessions = new Map<string, SessionData>();
-
-async function getSharedServer(): Promise<Server> {
-  if (!sharedServerPromise) {
-    sharedServerPromise = createMCPServer(currentAwUrl).catch(error => {
-      sharedServerPromise = null;
-      throw error;
-    });
-  }
-  return sharedServerPromise;
+interface HttpServerOptions {
+  awUrl?: string;
+  serverFactory?: (awUrl: string) => Promise<Server>;
+  enableResourceLogging?: boolean;
 }
 
-async function resetSharedServer(): Promise<void> {
-  if (!sharedServerPromise) {
+interface HttpServerState {
+  awUrl: string;
+  sharedServerPromise: Promise<Server> | null;
+  sessions: Map<string, SessionData>;
+}
+
+interface HttpServerInstance {
+  app: ReturnType<typeof express>;
+  state: HttpServerState;
+  getSharedServer(): Promise<Server>;
+  resetSharedServer(): Promise<void>;
+  closeAllSessions(reason: string): Promise<void>;
+  setAwUrl(url: string): void;
+  getAwUrl(): string;
+}
+
+function startResourceLogging(app: ReturnType<typeof express>, state: HttpServerState): void {
+  const resourceLogIntervalMs = Number.parseInt(process.env.MCP_RESOURCE_LOG_INTERVAL ?? '60000', 10);
+  if (Number.isNaN(resourceLogIntervalMs) || resourceLogIntervalMs <= 0) {
     return;
   }
 
-  try {
-    const server = await sharedServerPromise;
-    const closable = server as unknown as { close?: () => Promise<void> | void; dispose?: () => Promise<void> | void };
-    if (typeof closable.close === 'function') {
-      await closable.close();
-    } else if (typeof closable.dispose === 'function') {
-      await closable.dispose();
-    }
-  } catch (error) {
-    logger.warn('Unable to close existing MCP server during reset', error);
-  } finally {
-    sharedServerPromise = null;
-  }
-}
-
-async function closeAllSessions(reason: string): Promise<void> {
-  const closures: Promise<unknown>[] = [];
-
-  for (const [sessionId, sessionData] of sessions.entries()) {
-    sessions.delete(sessionId);
-    logger.info(`Closing session ${sessionId}`, { reason });
-    const transportAny = sessionData.transport as unknown as { close?: () => Promise<void> | void };
-    if (typeof transportAny.close === 'function') {
-      closures.push(
-        Promise.resolve()
-          .then(() => transportAny.close!.call(sessionData.transport))
-          .catch(error => logger.warn(`Failed to close transport for session ${sessionId}`, error))
-      );
-    }
-  }
-
-  if (closures.length > 0) {
-    await Promise.allSettled(closures);
-  }
-}
-
-const resourceLogIntervalMs = Number.parseInt(process.env.MCP_RESOURCE_LOG_INTERVAL ?? '60000', 10);
-if (!Number.isNaN(resourceLogIntervalMs) && resourceLogIntervalMs > 0) {
   const snapshot = (): void => {
     const mem = process.memoryUsage();
     const usage = typeof process.resourceUsage === 'function' ? process.resourceUsage() : undefined;
@@ -111,7 +62,7 @@ if (!Number.isNaN(resourceLogIntervalMs) && resourceLogIntervalMs > 0) {
     const toMB = (value: number): number => Math.round((value / 1024 / 1024) * 100) / 100;
 
     logger.debug('Resource usage snapshot', {
-      sessions: sessions.size,
+      sessions: state.sessions.size,
       memory: {
         rssMB: toMB(mem.rss),
         heapUsedMB: toMB(mem.heapUsed),
@@ -133,36 +84,100 @@ if (!Number.isNaN(resourceLogIntervalMs) && resourceLogIntervalMs > 0) {
   setInterval(snapshot, resourceLogIntervalMs).unref();
 }
 
-/**
- * Health check endpoint
- */
-app.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    activeSessions: sessions.size,
-    awUrl: currentAwUrl,
-    timestamp: new Date().toISOString()
+export function createHttpServer(options: HttpServerOptions = {}): HttpServerInstance {
+  const app = express();
+  app.use(express.json());
+  app.use(cors({
+    origin: '*',
+    exposedHeaders: ['Mcp-Session-Id']
+  }));
+
+  const state: HttpServerState = {
+    awUrl: options.awUrl ?? process.env.AW_URL ?? 'http://localhost:5600',
+    sharedServerPromise: null,
+    sessions: new Map<string, SessionData>(),
+  };
+
+  const serverFactory = options.serverFactory ?? createMCPServer;
+
+  const getSharedServer = async (): Promise<Server> => {
+    if (!state.sharedServerPromise) {
+      state.sharedServerPromise = serverFactory(state.awUrl).catch(error => {
+        state.sharedServerPromise = null;
+        throw error;
+      });
+    }
+    return state.sharedServerPromise;
+  };
+
+  const resetSharedServer = async (): Promise<void> => {
+    if (!state.sharedServerPromise) {
+      return;
+    }
+
+    try {
+      const server = await state.sharedServerPromise;
+      const closable = server as unknown as { close?: () => Promise<void> | void; dispose?: () => Promise<void> | void };
+      if (typeof closable.close === 'function') {
+        await closable.close();
+      } else if (typeof closable.dispose === 'function') {
+        await closable.dispose();
+      }
+    } catch (error) {
+      logger.warn('Unable to close existing MCP server during reset', error);
+    } finally {
+      state.sharedServerPromise = null;
+    }
+  };
+
+  const closeAllSessions = async (reason: string): Promise<void> => {
+    const closures: Promise<unknown>[] = [];
+
+    for (const [sessionId, sessionData] of state.sessions.entries()) {
+      state.sessions.delete(sessionId);
+      logger.info(`Closing session ${sessionId}`, { reason });
+      const transportAny = sessionData.transport as unknown as { close?: () => Promise<void> | void };
+      if (typeof transportAny.close === 'function') {
+        closures.push(
+          Promise.resolve()
+            .then(() => transportAny.close!.call(sessionData.transport))
+            .catch(error => logger.warn(`Failed to close transport for session ${sessionId}`, error))
+        );
+      }
+    }
+
+    if (closures.length > 0) {
+      await Promise.allSettled(closures);
+    }
+  };
+
+  app.get('/health', (_req, res) => {
+    res.json({
+      status: 'ok',
+      activeSessions: state.sessions.size,
+      awUrl: state.awUrl,
+      timestamp: new Date().toISOString()
+    });
   });
-});
 
 /**
  * MCP POST endpoint - handles initialization and tool calls
  */
-app.post('/mcp', async (req, res) => {
-  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+  app.post('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
-  if (sessionId) {
-    logger.debug(`Received MCP request for session: ${sessionId}`);
-  } else {
-    logger.debug('Received MCP request (no session)');
-  }
+    if (sessionId) {
+      logger.debug(`Received MCP request for session: ${sessionId}`);
+    } else {
+      logger.debug('Received MCP request (no session)');
+    }
 
-  try {
-    let sessionData: SessionData | undefined;
+    try {
+      let sessionData: SessionData | undefined;
 
-    if (sessionId && sessions.has(sessionId)) {
+    if (sessionId && state.sessions.has(sessionId)) {
       // Reuse existing session
-      sessionData = sessions.get(sessionId)!;
+      sessionData = state.sessions.get(sessionId)!;
       logger.debug(`Reusing existing session: ${sessionId}`);
     } else if (!sessionId && isInitializeRequest(req.body)) {
       // New initialization request
@@ -177,21 +192,21 @@ app.post('/mcp', async (req, res) => {
           logger.info(`Session initialized with ID: ${newSessionId}`);
           // Store the session immediately when it's initialized
           sessionData = { transport, server };
-          sessions.set(newSessionId, sessionData);
+          state.sessions.set(newSessionId, sessionData);
           logger.debug(`Session stored in map with ID: ${newSessionId}`);
         },
         onsessionclosed: (closedSessionId) => {
           logger.info(`Session closed: ${closedSessionId}`);
-          sessions.delete(closedSessionId);
+          state.sessions.delete(closedSessionId);
         }
       });
 
       // Set up cleanup on transport close
       transport.onclose = () => {
         const sid = transport.sessionId;
-        if (sid && sessions.has(sid)) {
+        if (sid && state.sessions.has(sid)) {
           logger.info(`Transport closed for session ${sid}, cleaning up`);
-          sessions.delete(sid);
+          state.sessions.delete(sid);
         }
       };
 
@@ -243,76 +258,63 @@ app.post('/mcp', async (req, res) => {
   }
 });
 
-/**
- * MCP GET endpoint - handles SSE streams
- * Supports both Streamable HTTP (with session ID in header) and pure SSE (no session ID)
- */
-app.get('/mcp', async (req, res) => {
-  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+  app.get('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
-  logger.debug(`GET /mcp request received`, {
-    sessionId,
-    hasSessionId: !!sessionId,
-    sessionExists: sessionId ? sessions.has(sessionId) : false,
-    activeSessions: Array.from(sessions.keys()),
-    headers: req.headers
-  });
+    logger.debug(`GET /mcp request received`, {
+      sessionId,
+      hasSessionId: !!sessionId,
+      sessionExists: sessionId ? state.sessions.has(sessionId) : false,
+      activeSessions: Array.from(state.sessions.keys()),
+      headers: req.headers
+    });
 
-  // Check if this is Streamable HTTP (has session ID) or pure SSE (no session ID)
-  if (sessionId) {
-    // Streamable HTTP mode - session ID provided in header
-    if (!sessions.has(sessionId)) {
-      logger.warn(`Session not found for Streamable HTTP SSE stream: ${sessionId}`, {
-        activeSessions: Array.from(sessions.keys())
-      });
-      res.status(404).send('Session not found');
+    if (sessionId) {
+      if (!state.sessions.has(sessionId)) {
+        logger.warn(`Session not found for Streamable HTTP SSE stream: ${sessionId}`, {
+          activeSessions: Array.from(state.sessions.keys())
+        });
+        res.status(404).send('Session not found');
+        return;
+      }
+
+      const lastEventId = req.headers['last-event-id'] as string | undefined;
+      if (lastEventId) {
+        logger.debug(`Client reconnecting with Last-Event-ID: ${lastEventId}`);
+      } else {
+        logger.debug(`Establishing Streamable HTTP SSE stream for session ${sessionId}`);
+      }
+
+      const sessionData = state.sessions.get(sessionId)!;
+
+      if (sessionData.transport instanceof StreamableHTTPServerTransport) {
+        await sessionData.transport.handleRequest(req, res);
+      } else {
+        logger.warn('GET to /mcp with existing SSE session - unexpected');
+        res.status(400).send('SSE stream already established');
+      }
       return;
     }
 
-    const lastEventId = req.headers['last-event-id'] as string | undefined;
-    if (lastEventId) {
-      logger.debug(`Client reconnecting with Last-Event-ID: ${lastEventId}`);
-    } else {
-      logger.debug(`Establishing Streamable HTTP SSE stream for session ${sessionId}`);
-    }
-
-    const sessionData = sessions.get(sessionId)!;
-
-    if (sessionData.transport instanceof StreamableHTTPServerTransport) {
-      await sessionData.transport.handleRequest(req, res);
-    } else {
-      // SSEServerTransport doesn't handle GET requests after initial connection
-      logger.warn('GET to /mcp with existing SSE session - unexpected');
-      res.status(400).send('SSE stream already established');
-    }
-  } else {
-    // Pure SSE mode - no session ID, create new session
     logger.info('Creating new pure SSE session (no session ID in header)');
 
     try {
-      // Create a new transport for pure SSE mode
-      // The endpoint '/messages' is where the client will POST messages
       const transport = new SSEServerTransport('/messages', res);
       const newSessionId = transport.sessionId;
 
       logger.info(`Pure SSE session created with ID: ${newSessionId}`);
 
-      // Create a new server instance for this session
       const server = await getSharedServer();
 
-      // Store the session
       const sessionData = { transport, server };
-      sessions.set(newSessionId, sessionData);
+      state.sessions.set(newSessionId, sessionData);
       logger.debug(`Pure SSE session stored in map with ID: ${newSessionId}`);
 
-      // Set up cleanup on transport close
       transport.onclose = () => {
         logger.info(`Pure SSE transport closed for session ${newSessionId}, cleaning up`);
-        sessions.delete(newSessionId);
+        state.sessions.delete(newSessionId);
       };
 
-      // Connect the transport to the server
-      // This will call transport.start() which sends the endpoint event
       await server.connect(transport);
 
       logger.debug(`Pure SSE stream established with session ID: ${newSessionId}`);
@@ -322,174 +324,175 @@ app.get('/mcp', async (req, res) => {
         res.status(500).send('Error establishing SSE stream');
       }
     }
-  }
-});
-
-/**
- * Messages endpoint for pure SSE transport
- * Handles POST requests from SSE clients with sessionId as query parameter
- */
-app.post('/messages', async (req, res) => {
-  const sessionId = req.query.sessionId as string | undefined;
-
-  logger.debug(`POST /messages request received`, {
-    sessionId,
-    hasSessionId: !!sessionId,
-    sessionExists: sessionId ? sessions.has(sessionId) : false,
-    activeSessions: Array.from(sessions.keys())
   });
 
-  if (!sessionId) {
-    logger.warn('No session ID provided in /messages request');
-    res.status(400).send('Missing sessionId parameter');
-    return;
-  }
+  app.post('/messages', async (req, res) => {
+    const sessionId = req.query.sessionId as string | undefined;
 
-  if (!sessions.has(sessionId)) {
-    logger.warn(`Session not found for /messages request: ${sessionId}`, {
-      activeSessions: Array.from(sessions.keys())
+    logger.debug(`POST /messages request received`, {
+      sessionId,
+      hasSessionId: !!sessionId,
+      sessionExists: sessionId ? state.sessions.has(sessionId) : false,
+      activeSessions: Array.from(state.sessions.keys())
     });
-    res.status(404).send('Session not found');
-    return;
-  }
 
-  try {
-    const sessionData = sessions.get(sessionId)!;
-
-    // SSEServerTransport has a handlePostMessage method
-    if ('handlePostMessage' in sessionData.transport) {
-      await sessionData.transport.handlePostMessage(req, res, req.body);
-    } else {
-      logger.error(`Transport for session ${sessionId} does not support handlePostMessage`);
-      res.status(500).send('Invalid transport type for SSE messages');
-    }
-  } catch (error) {
-    logger.error('Error handling SSE message', error);
-    if (!res.headersSent) {
-      res.status(500).send('Error processing message');
-    }
-  }
-});
-
-app.post('/admin/reload-server', async (req, res) => {
-  const requestedUrl = typeof req.body?.awUrl === 'string' ? req.body.awUrl : undefined;
-
-  try {
-    if (requestedUrl && requestedUrl !== currentAwUrl) {
-      currentAwUrl = requestedUrl;
-      logStartupDiagnostics(currentAwUrl);
+    if (!sessionId) {
+      logger.warn('No session ID provided in /messages request');
+      res.status(400).send('Missing sessionId parameter');
+      return;
     }
 
-    await closeAllSessions('admin reload');
-    await resetSharedServer();
-    await getSharedServer();
-
-    res.json({
-      status: 'reloaded',
-      awUrl: currentAwUrl,
-      activeSessions: sessions.size,
-    });
-  } catch (error) {
-    logger.error('Failed to reload MCP server', error);
-    res.status(500).json({
-      status: 'error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
-
-/**
- * MCP DELETE endpoint - handles session termination
- */
-app.delete('/mcp', async (req, res) => {
-  const sessionId = req.headers['mcp-session-id'] as string | undefined;
-
-  if (!sessionId || !sessions.has(sessionId)) {
-    logger.warn(`Invalid or missing session ID for termination: ${sessionId}`);
-    res.status(400).send('Invalid or missing session ID');
-    return;
-  }
-
-  logger.info(`Received session termination request for session ${sessionId}`);
-
-  try {
-    const sessionData = sessions.get(sessionId)!;
-
-    if (sessionData.transport instanceof StreamableHTTPServerTransport) {
-      await sessionData.transport.handleRequest(req, res);
-    } else {
-      // SSEServerTransport doesn't have handleRequest for DELETE
-      // Just close the session manually
-      logger.info(`Closing SSE session ${sessionId}`);
-      await sessionData.transport.close();
-      sessions.delete(sessionId);
-      res.status(200).send('Session terminated');
+    if (!state.sessions.has(sessionId)) {
+      logger.warn(`Session not found for /messages request: ${sessionId}`, {
+        activeSessions: Array.from(state.sessions.keys())
+      });
+      res.status(404).send('Session not found');
+      return;
     }
-  } catch (error) {
-    logger.error('Error handling session termination', error);
-    if (!res.headersSent) {
-      res.status(500).send('Error processing session termination');
+
+    try {
+      const sessionData = state.sessions.get(sessionId)!;
+
+      if ('handlePostMessage' in sessionData.transport) {
+        await sessionData.transport.handlePostMessage(req, res, req.body);
+      } else {
+        logger.error(`Transport for session ${sessionId} does not support handlePostMessage`);
+        res.status(500).send('Invalid transport type for SSE messages');
+      }
+    } catch (error) {
+      logger.error('Error handling SSE message', error);
+      if (!res.headersSent) {
+        res.status(500).send('Error processing message');
+      }
     }
-  }
-});
-
-/**
- * Global error handlers
- */
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception - server will exit', error);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled promise rejection - server will exit', { reason, promise });
-  process.exit(1);
-});
-
-/**
- * Start server
- */
-const server = app.listen(MCP_PORT, () => {
-  logger.info(`ActivityWatch MCP HTTP Server listening on port ${MCP_PORT}`);
-  logger.info(`Health check available at http://localhost:${MCP_PORT}/health`);
-  logger.info(`MCP endpoint at http://localhost:${MCP_PORT}/mcp`);
-  logger.info(`ActivityWatch URL: ${currentAwUrl}`);
-});
-
-// Handle server errors
-server.on('error', (error: NodeJS.ErrnoException) => {
-  if (error.code === 'EADDRINUSE') {
-    logger.error(`Port ${MCP_PORT} is already in use. Please stop the other process or use a different port.`);
-  } else {
-    logger.error('Server error', error);
-  }
-  process.exit(1);
-});
-
-/**
- * Graceful shutdown
- */
-process.on('SIGINT', async () => {
-  logger.info('Shutting down server...');
-
-  // Close all active sessions
-  await closeAllSessions('shutdown');
-  await resetSharedServer();
-
-  // Close the HTTP server
-  server.close(() => {
-    logger.info('Server shutdown complete');
-    process.exit(0);
   });
 
-  // Force exit after 5 seconds if graceful shutdown fails
-  setTimeout(() => {
-    logger.warn('Forcing shutdown after timeout');
+  app.post('/admin/reload-server', async (req, res) => {
+    const requestedUrl = typeof req.body?.awUrl === 'string' ? req.body.awUrl : undefined;
+
+    try {
+      if (requestedUrl && requestedUrl !== state.awUrl) {
+        state.awUrl = requestedUrl;
+        logStartupDiagnostics(state.awUrl);
+      }
+
+      await closeAllSessions('admin reload');
+      await resetSharedServer();
+      await getSharedServer();
+
+      res.json({
+        status: 'reloaded',
+        awUrl: state.awUrl,
+        activeSessions: state.sessions.size,
+      });
+    } catch (error) {
+      logger.error('Failed to reload MCP server', error);
+      res.status(500).json({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  app.delete('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+    if (!sessionId || !state.sessions.has(sessionId)) {
+      logger.warn(`Invalid or missing session ID for termination: ${sessionId}`);
+      res.status(400).send('Invalid or missing session ID');
+      return;
+    }
+
+    logger.info(`Received session termination request for session ${sessionId}`);
+
+    try {
+      const sessionData = state.sessions.get(sessionId)!;
+
+      if (sessionData.transport instanceof StreamableHTTPServerTransport) {
+        await sessionData.transport.handleRequest(req, res);
+      } else {
+        logger.info(`Closing SSE session ${sessionId}`);
+        await sessionData.transport.close();
+        state.sessions.delete(sessionId);
+        res.status(200).send('Session terminated');
+      }
+    } catch (error) {
+      logger.error('Error handling session termination', error);
+      if (!res.headersSent) {
+        res.status(500).send('Error processing session termination');
+      }
+    }
+  });
+
+  if (options.enableResourceLogging !== false) {
+    startResourceLogging(app, state);
+  }
+
+  const setAwUrl = (url: string): void => {
+    state.awUrl = url;
+  };
+
+  const getAwUrl = (): string => state.awUrl;
+
+  return {
+    app,
+    state,
+    getSharedServer,
+    resetSharedServer,
+    closeAllSessions,
+    setAwUrl,
+    getAwUrl,
+  } satisfies HttpServerInstance;
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const MCP_PORT = process.env.MCP_PORT ? parseInt(process.env.MCP_PORT, 10) : 3000;
+  const defaultServer = createHttpServer({ enableResourceLogging: true });
+  logStartupDiagnostics(defaultServer.getAwUrl());
+
+  const server = defaultServer.app.listen(MCP_PORT, () => {
+    logger.info(`ActivityWatch MCP HTTP server listening on port ${MCP_PORT}`);
+    logger.info(`Health check available at http://localhost:${MCP_PORT}/health`);
+    logger.info(`MCP endpoint at http://localhost:${MCP_PORT}/mcp`);
+    logger.info(`ActivityWatch URL: ${defaultServer.getAwUrl()}`);
+  });
+
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error(`Port ${MCP_PORT} is already in use. Please stop the other process or use a different port.`);
+    } else {
+      logger.error('Server error', error);
+    }
     process.exit(1);
-  }, 5000);
-});
+  });
 
-process.on('SIGTERM', async () => {
-  logger.info('Received SIGTERM, shutting down gracefully...');
-  process.emit('SIGINT' as any);
-});
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught exception - server will exit', error);
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled promise rejection - server will exit', { reason, promise });
+    process.exit(1);
+  });
+
+  const gracefulShutdown = async (reason: string) => {
+    logger.info(`Shutting down server due to ${reason}...`);
+
+    await defaultServer.closeAllSessions(reason);
+    await defaultServer.resetSharedServer();
+
+    server.close(() => {
+      logger.info('Server shutdown complete');
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      logger.warn('Forcing shutdown after timeout');
+      process.exit(1);
+    }, 5000);
+  };
+
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+}
