@@ -54,6 +54,12 @@ curl http://localhost:3000/health
 
 ## Configuration
 
+### Concurrency & Sessions
+
+- You can run multiple HTTP/SSE instances on the same machine as long as each listens on a different `MCP_PORT`. The server exits with a non-zero status when the chosen port is already in use, which makes container launches fail fast instead of lingering.
+- Each connected client receives a unique `Mcp-Session-Id`. Requests and SSE streams are routed by that session key, so concurrent hosts share a single process but keep their state isolated.
+- If you rely on Docker, publish the container with an explicit host port (for example `-p 3000:3000`) to let Docker enforce a single instance per port while still allowing other ports for additional copies.
+
 ### Environment Variables
 
 ```bash
@@ -119,6 +125,8 @@ For production or final testing, use stdio mode:
   }
 }
 ```
+
+The stdio entrypoint runs in the foreground and exits with its host process (it uses `exec` inside the Docker entrypoint), so it is safe to run separate stdio instances for different MCP clients when needed.
 
 ## Troubleshooting
 

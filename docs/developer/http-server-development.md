@@ -1,6 +1,6 @@
 # HTTP Server Development Mode
 
-Last updated: October 11, 2025
+Last updated: October 13, 2025
 
 ## Overview
 
@@ -81,6 +81,12 @@ Example:
 ```bash
 MCP_PORT=3001 AW_URL=http://localhost:5600 LOG_LEVEL=DEBUG npm run start:http
 ```
+
+### Concurrency & Isolation
+
+- **Multiple instances:** Start additional HTTP/SSE servers on distinct `MCP_PORT` values. If a port is already bound, the listener throws `EADDRINUSE`, logs an error, and the process exits with status `1` so containers fail fast.
+- **Session state:** The server keeps a `Map` of session IDs (`Mcp-Session-Id` header) to transports. Requests, SSE streams, and DELETE calls are keyed by that ID, isolating each host even when they share the same server process.
+- **Stdio transport:** `node dist/index.js` runs in the foreground. You can launch one per host integration; each exits automatically when its parent process or terminal terminates.
 
 ## Development Workflow
 
