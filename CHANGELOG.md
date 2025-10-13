@@ -2,7 +2,7 @@
 
 All notable changes to the ActivityWatch MCP Server project.
 
-## [Unreleased]
+## [0.3.1] - 2025-10-13
 
 ### Added
 
@@ -47,15 +47,48 @@ All notable changes to the ActivityWatch MCP Server project.
   - Updated README with tool description and examples
   - Comprehensive test coverage for new time utilities
 
+#### HTTP Transport & Tooling
+- Introduced HTTP/SSE transport via `src/http-server.ts`, sharing the MCP server factory while managing per-session state and streaming responses.
+- Added `npm run start:http`, `npm run dev:http`, and helper script `scripts/dev-server.sh` for fast rebuild+restart loops during development.
+- Bundled container health tooling: `/health` now exposes diagnostics for Docker, `docker/healthcheck.js` powers the compose healthcheck, and `docker-compose.override.yml` restores local builds when iterating.
+
+#### User Preferences & Timezone Support
+- Added `config/user-preferences.json` with accompanying JSON schema and loader (`src/config/user-preferences.ts`) to capture timezone, week start, and hour format preferences.
+- Extended `src/utils/time.ts` to parse IANA names, abbreviations, and UTC offsets, providing conversions that all summaries and activity services reuse.
+- Daily and period summaries honour configured timezones for start/end boundaries, ensuring results match user locale expectations.
+
+#### Release Automation & Publishing
+- Added `scripts/release.mjs` to automate semantic version bumps with dry-run mode, clean-tree enforcement, and optional annotated tagging.
+- Enhanced `scripts/docker-publish.sh` to derive tags from `package.json`, publish `<version>` and `<version>-dev` images, and accept extra tags without overriding defaults.
+- Documented the workflow in `docs/updates/2025-10-13-0958-release-automation.md` for future operators.
+
 ### Changed
 
-- **Capabilities Service**
-  - Now suggests `aw_get_period_summary` when tracking data is available
-  - Updated tool roster (period summary replaces the legacy daily summary)
+#### Activity Analysis & Calendar Integration
+- `aw_get_activity` is now the canonical activity entry point with unified window filtering, calendar overlays, and multi-level grouping (`src/services/unified-activity.ts`, `src/services/query-builder.ts`).
+- Categories are always included when configured, with new grouping options covering applications, domains, languages, projects, and hierarchical combinations.
+- Calendar meetings contribute explicit focus and meeting metrics across activity and period summaries to keep scheduled time visible even when AFK.
 
-- **Tool Definitions**
-  - Added comprehensive `aw_get_period_summary` tool definition
-  - Detailed parameter descriptions and use cases
+#### Time & Period Calculations
+- Expanded `src/utils/time.ts` with week/month generators, timezone-aware boundary helpers, and interval math reused across services and formatters.
+- Period summary formatter (`src/utils/formatters.ts`) renders dynamic breakdown charts and insight callouts tailored to the requested period.
+
+#### HTTP & Docker Operations
+- `/health` now executes full `performHealthCheck` diagnostics before returning 200/503, logging failures for easier observability (`src/http-server.ts`).
+- Base `docker-compose.yml` targets the prebuilt `ghcr.io/bcherrington/activitywatcher-mcp:latest` image while `docker-compose.override.yml` re-enables local builds for development.
+- Default `AW_URL` now points to `http://localhost:5600` for parity between local and containerised environments.
+
+#### Capabilities Service
+- Now suggests `aw_get_period_summary` when tracking data is available and includes timezone details sourced from user preferences.
+
+#### Tool Definitions
+- Added comprehensive `aw_get_period_summary` tool definition and refreshed `aw_get_activity` / `aw_query_events` docs with expanded guidance and safety warnings.
+
+### Documentation
+
+- Consolidated HTTP setup guidance into `docs/developer/http-server-development.md`, added concurrency/session notes, and removed duplicated root guides.
+- Updated README and reference docs with HTTP transport usage, calendar-aware examples, and timezone configuration links.
+- Logged supporting notes in `docs/updates/2025-10-13-1241-transport-concurrency.md` and related update entries.
 
 ### Removed
 
@@ -63,6 +96,7 @@ All notable changes to the ActivityWatch MCP Server project.
   - Functionality superseded by `aw_get_period_summary`
   - Eliminated `DailySummaryService` and related schemas/types
   - Consolidated formatting via period summary output helpers
+- Retired redundant HTTP setup files (`DEVELOPMENT-SETUP.md`, legacy `HTTP-SERVER.md`) now covered by developer documentation.
 
 ## [0.2.0] - 2025-01-14
 
