@@ -245,6 +245,6 @@ The configuration is validated when loaded. Invalid configurations will:
 
 ## See Also
 
-- [Timezone Support Implementation](../updates/timezone-support.md) - Technical details
+- [Timezone Support Implementation](../updates/2025-10-11-1118-timezone-support.md) - Technical details
 - [Configuration Overview](../../config/README.md) - All configuration files
 - [IANA Timezone Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) - Full timezone list

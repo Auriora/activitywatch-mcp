@@ -6,6 +6,7 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2025-10-13 09:58 — [Release automation scripts](./2025-10-13-0958-release-automation.md)
 - 2025-10-12 21:53 — [Calendar-fused focus metrics in unified activity](./2025-10-12-2153-calendar-focus-union.md)
 - 2025-10-12 19:25 — [Coverage Improvement Execution](./2025-10-12-1925-coverage-improvement-execution.md)
 - 2025-10-12 17:52 — [Server factory seam and handler coverage](./2025-10-12-1752-server-factory-tests.md)

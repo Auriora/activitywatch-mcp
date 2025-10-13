@@ -6,11 +6,11 @@ usage() {
 Usage: scripts/docker-publish.sh [OPTIONS]
 
 Builds and/or pushes the ActivityWatch MCP Docker image to GitHub Container Registry.
-Defaults to the "dev" tag and performs both build and push. Additional docker build
-flags may be appended after "--".
+Tags are derived from the current package.json version (`<version>` and `<version>-dev`).
+Additional docker build flags may be appended after "--".
 
 Options:
-  -t, --tag TAG        Image tag to publish (default: dev)
+  -t, --tag TAG        Additional tag to publish (can be repeated)
   -f, --file PATH      Path to Dockerfile (default: docker/Dockerfile)
       --context PATH   Build context directory (default: repository root)
       --build-only     Build the image but skip push
@@ -27,7 +27,13 @@ Environment variables:
 USAGE
 }
 
-TAG="dev"
+read_package_version() {
+  local version
+  version=$(node -p "const fs = require('fs'); const data = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (!data.version) { throw new Error('missing version'); } data.version;" 2>/dev/null) || return 1
+  printf '%s' "$version"
+}
+
+USER_TAGS=()
 DOCKERFILE="docker/Dockerfile"
 BUILD_CONTEXT="."
 DO_BUILD=${BUILD:-1}
@@ -38,7 +44,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -t|--tag)
       [[ $# -lt 2 ]] && { echo "Missing value for $1" >&2; exit 1; }
-      TAG="$2"
+      USER_TAGS+=("$2")
       shift 2
       ;;
     -f|--file)
@@ -128,13 +134,39 @@ if [[ -z "$REPO_SLUG" ]]; then
 fi
 
 IMAGE_PATH=$(printf '%s' "$REPO_SLUG" | tr '[:upper:]' '[:lower:]')
-IMAGE_REF="${REGISTRY}/${IMAGE_PATH}:${TAG}"
+VERSION=$(read_package_version) || {
+  echo "Unable to determine version from package.json." >&2
+  exit 1
+}
+
+printf 'Resolved package version: %s\n' "$VERSION"
+
+TAGS=("$VERSION" "${VERSION}-dev")
+if [[ ${#USER_TAGS[@]} -gt 0 ]]; then
+  TAGS+=("${USER_TAGS[@]}")
+fi
+
 SOURCE_LABEL="org.opencontainers.image.source=https://github.com/${REPO_SLUG}"
 
-if [[ "$DO_BUILD" == 1 ]]; then
-  printf 'Building image %s\n' "$IMAGE_REF"
+IMAGE_REFS=()
+for tag in "${TAGS[@]}"; do
+  IMAGE_REFS+=("${REGISTRY}/${IMAGE_PATH}:${tag}")
+done
 
-  BUILD_CMD=(docker build -f "$DOCKERFILE" -t "$IMAGE_REF" --label "$SOURCE_LABEL")
+print_ref_list() {
+  for ref in "${IMAGE_REFS[@]}"; do
+    printf '  - %s\n' "$ref"
+  done
+}
+
+if [[ "$DO_BUILD" == 1 ]]; then
+  printf 'Building image with tags:\n'
+  print_ref_list
+
+  BUILD_CMD=(docker build -f "$DOCKERFILE" --label "$SOURCE_LABEL")
+  for ref in "${IMAGE_REFS[@]}"; do
+    BUILD_CMD+=(-t "$ref")
+  done
   if [[ ${#EXTRA_BUILD_ARGS[@]} -gt 0 ]]; then
     BUILD_CMD+=("${EXTRA_BUILD_ARGS[@]}")
   fi
@@ -142,18 +174,24 @@ if [[ "$DO_BUILD" == 1 ]]; then
 
   "${BUILD_CMD[@]}"
 else
-  printf 'Skipping build for %s\n' "$IMAGE_REF"
+  printf 'Skipping build. Tags:\n'
+  print_ref_list
 fi
 
 if [[ "$DO_PUSH" == 1 ]]; then
   if [[ "$DO_BUILD" == 0 ]]; then
-    if ! docker image inspect "$IMAGE_REF" >/dev/null 2>&1; then
-      echo "Image $IMAGE_REF not found locally. Run with build enabled first." >&2
-      exit 1
-    fi
+    for ref in "${IMAGE_REFS[@]}"; do
+      if ! docker image inspect "$ref" >/dev/null 2>&1; then
+        echo "Image $ref not found locally. Run with build enabled first." >&2
+        exit 1
+      fi
+    done
   fi
-  printf 'Pushing image %s\n' "$IMAGE_REF"
-  docker push "$IMAGE_REF"
+  for ref in "${IMAGE_REFS[@]}"; do
+    printf 'Pushing image %s\n' "$ref"
+    docker push "$ref"
+  done
 else
-  printf 'Skipping push for %s\n' "$IMAGE_REF"
+  printf 'Skipping push. Tags:\n'
+  print_ref_list
 fi
