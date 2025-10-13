@@ -1,6 +1,6 @@
 {
   "name": "activitywatcher-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "GPL-3.0-or-later",
   "author": "Bruce Cherrington",
   "description": "ActivityWatch MCP Server - Query and analyze activity data with LLM agents",
