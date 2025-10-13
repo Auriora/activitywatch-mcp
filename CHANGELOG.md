@@ -2,7 +2,7 @@
 
 All notable changes to the ActivityWatch MCP Server project.
 
-## [0.3.0] - 2025-10-13
+## [0.3.1] - 2025-10-13
 
 ### Added
 
