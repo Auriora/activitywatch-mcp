@@ -11,7 +11,7 @@ services:
     ports:
       - "${MCP_PORT:-3000}:3000"
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get({hostname:'127.0.0.1',port:process.env.MCP_PORT||3000,path:'/health'},res=>process.exit(res.statusCode>=200&&res.statusCode<400?0:1)).on('error',()=>process.exit(1))\""]
+      test: ["CMD", "node", "/app/healthcheck.js"]
       interval: 30s
       timeout: 5s
       retries: 5

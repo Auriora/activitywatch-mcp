@@ -17,7 +17,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 
 import { createMCPServer } from './server-factory.js';
 import { logger } from './utils/logger.js';
-import { logStartupDiagnostics } from './utils/health.js';
+import { logStartupDiagnostics, performHealthCheck } from './utils/health.js';
 
 /** Session state held for active MCP transports */
 export interface SessionData {
@@ -151,13 +151,29 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
     }
   };
 
-  app.get('/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      activeSessions: state.sessions.size,
-      awUrl: state.awUrl,
-      timestamp: new Date().toISOString()
-    });
+  app.get('/health', async (_req, res) => {
+    try {
+      const { ActivityWatchClient } = await import('./client/activitywatch.js');
+      const client = new ActivityWatchClient(state.awUrl);
+      const result = await performHealthCheck(client);
+      const status = result.healthy ? 200 : 503;
+      res.status(status).json({
+        status: result.healthy ? 'ok' : 'unhealthy',
+        activeSessions: state.sessions.size,
+        awUrl: state.awUrl,
+        timestamp: new Date().toISOString(),
+        details: result,
+      });
+    } catch (error) {
+      logger.error('Health endpoint failed', error);
+      res.status(500).json({
+        status: 'error',
+        activeSessions: state.sessions.size,
+        awUrl: state.awUrl,
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   });
 
 /**

@@ -37,6 +37,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY config ./config
 COPY docker/entrypoint.sh ./entrypoint.sh
+COPY docker/healthcheck.js ./healthcheck.js
 
 RUN chmod +x ./entrypoint.sh
 
