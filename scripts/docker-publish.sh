@@ -6,7 +6,7 @@ usage() {
 Usage: scripts/docker-publish.sh [OPTIONS]
 
 Builds and/or pushes the ActivityWatch MCP Docker image to GitHub Container Registry.
-Tags are derived from the current package.json version (`<version>` and `<version>-dev`).
+Tags are derived from the current package.json version (`v<version>` and `dev`).
 Additional docker build flags may be appended after "--".
 
 Options:
@@ -139,9 +139,9 @@ VERSION=$(read_package_version) || {
   exit 1
 }
 
-printf 'Resolved package version: %s\n' "$VERSION"
+printf 'Resolved package version: v%s\n' "$VERSION"
 
-TAGS=("$VERSION" "${VERSION}-dev")
+TAGS=("v$VERSION" "dev")
 if [[ ${#USER_TAGS[@]} -gt 0 ]]; then
   TAGS+=("${USER_TAGS[@]}")
 fi
