@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   activitywatcher-http:
-    image: ghcr.io/bcherrington/activitywatcher-mcp:latest
+    image: ghcr.io/auriora/activitywatcher-mcp:latest
     container_name: activitywatcher-mcp-http
     environment:
       MCP_PORT: ${MCP_PORT:-3000}
@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
 
   activitywatcher-stdio:
-    image: ghcr.io/bcherrington/activitywatcher-mcp:latest
+    image: ghcr.io/auriora/activitywatcher-mcp:latest
     container_name: activitywatcher-mcp-stdio
     command: ["stdio"]
     stdin_open: true
