@@ -43,7 +43,7 @@ jobs:
             exit 1
           fi
           sanitized=${version#v}
-          sanitized=$(printf '%s' "$sanitized" | tr '[:upper:]' '[:lower:]')
+          sanitized=$(printf 'v%s' "$sanitized" | tr '[:upper:]' '[:lower:]')
           repo="${GITHUB_REPOSITORY,,}"
           echo "version=$sanitized" >> "$GITHUB_OUTPUT"
           echo "repository=$repo" >> "$GITHUB_OUTPUT"
