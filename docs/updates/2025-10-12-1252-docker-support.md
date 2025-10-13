@@ -26,9 +26,9 @@ Tags: docs, infrastructure
 - No breaking changes for existing Node-based workflows
 
 ## Validation
-- Local build instructions: `docker build -f docker/Dockerfile -t activitywatcher-mcp .`
+- Local build instructions: `docker build -f docker/Dockerfile -t activitywatch-mcp .`
 - HTTP mode: `docker compose up` and verify `curl http://localhost:3000/health`
-- stdio mode: `docker run --rm -it activitywatcher-mcp stdio`
+- stdio mode: `docker run --rm -it activitywatch-mcp stdio`
 - Optional: copy `.env.example` to `.env` to override defaults
 - Development publishing: `./scripts/docker-publish.sh --dry-run` to confirm build
 

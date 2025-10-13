@@ -9,7 +9,7 @@ The Docker image packages the ActivityWatch MCP server with both HTTP/SSE and st
 ## Building the Image
 
 ```bash
-docker build -f docker/Dockerfile -t activitywatcher-mcp .
+docker build -f docker/Dockerfile -t activitywatch-mcp .
 ```
 
 The build context is the repository root; the Dockerfile and entrypoint live in `docker/`. The resulting image contains the compiled `dist/` output and `config/` JSON assets required at runtime.
@@ -33,7 +33,7 @@ The compose file exposes the health endpoint on `/health`, and defaults `AW_URL`
 The entrypoint also supports stdio mode for MCP clients that exec the container:
 
 ```bash
-docker run --rm -it activitywatcher-mcp stdio
+docker run --rm -it activitywatch-mcp stdio
 ```
 
 This prints the MCP handshake over stdio, making it suitable for clients such as Claude Desktop that support containerized servers.
@@ -70,8 +70,8 @@ The workflow at `.github/workflows/docker-release.yml` triggers on GitHub releas
 
 `docker-compose.yml` defines two services:
 
-- `activitywatcher-http` — Default profile providing the HTTP/SSE endpoint, enabled by default.
-- `activitywatcher-stdio` — Optional profile that starts the same image in stdio mode. Activate it via `docker compose --profile stdio up activitywatcher-stdio` if you want a long-running stdio container for testing.
+- `activitywatch-mcp-http` — Default profile providing the HTTP/SSE endpoint, enabled by default.
+- `activitywatch-mcp-stdio` — Optional profile that starts the same image in stdio mode. Activate it via `docker compose --profile stdio up activitywatch-mcp-stdio` if you want a long-running stdio container for testing.
 
 Both services share the same build configuration and entrypoint.
 
@@ -79,6 +79,6 @@ Both services share the same build configuration and entrypoint.
 
 - **Health check failures**: Confirm ActivityWatch is reachable at `AW_URL` and the port is free. View logs with `docker compose logs -f`.
 - **No ActivityWatch access**: On Linux, add `--add-host=host.docker.internal:host-gateway` to `docker run`, or set `AW_URL` to the host IP.
-- **Rebuild needed after code changes**: Re-run `docker build -f docker/Dockerfile -t activitywatcher-mcp .` to pick up new source changes.
+- **Rebuild needed after code changes**: Re-run `docker build -f docker/Dockerfile -t activitywatch-mcp .` to pick up new source changes.
 
 For additional operational tips, see [http-server-development.md](./http-server-development.md).

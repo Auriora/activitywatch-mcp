@@ -42,8 +42,9 @@ jobs:
             echo "::error::No version tag provided" >&2
             exit 1
           fi
-          sanitized=${version#v}
-          sanitized=$(printf '%s' "$sanitized" | tr '[:upper:]' '[:lower:]')
+          sanitized=$(printf '%s' "$version" | tr '[:upper:]' '[:lower:]')
+          sanitized=${sanitized#v}
+          sanitized="v$sanitized"
           repo="${GITHUB_REPOSITORY,,}"
           echo "version=$sanitized" >> "$GITHUB_OUTPUT"
           echo "repository=$repo" >> "$GITHUB_OUTPUT"

@@ -202,7 +202,7 @@ export AW_CATEGORIES='[
 
 ```bash
 $ npm run build
-> activitywatcher-mcp@1.0.0 build
+> activitywatch-mcp@1.0.0 build
 > tsc
 
 ✅ Build successful - no errors

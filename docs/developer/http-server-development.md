@@ -277,7 +277,7 @@ For production, use the stdio transport:
   "mcpServers": {
     "activitywatch": {
       "command": "node",
-      "args": ["/path/to/activitywatcher-mcp/dist/index.js"]
+      "args": ["/path/to/activitywatch-mcp/dist/index.js"]
     }
   }
 }

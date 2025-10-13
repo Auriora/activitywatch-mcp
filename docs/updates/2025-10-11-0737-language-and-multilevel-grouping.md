@@ -41,7 +41,7 @@ aw_get_activity({
   "percentage": 54,
   "editor": {
     "file": "15 files",
-    "project": "activitywatcher-mcp",
+    "project": "activitywatch-mcp",
     "language": "TypeScript"
   }
 }
@@ -98,14 +98,14 @@ aw_get_activity({
 ```json
 {
   "app": "jetbrains-webstorm",
-  "title": "Work > activitywatcher-mcp",
+  "title": "Work > activitywatch-mcp",
   "duration_hours": 2.1,
   "percentage": 64.1,
-  "group_key": "activitywatcher-mcp",
-  "group_hierarchy": ["Work", "activitywatcher-mcp"],
+  "group_key": "activitywatch-mcp",
+  "group_hierarchy": ["Work", "activitywatch-mcp"],
   "editor": {
     "file": "42 files",
-    "project": "activitywatcher-mcp"
+    "project": "activitywatch-mcp"
   }
 }
 ```
@@ -113,8 +113,8 @@ aw_get_activity({
 #### Hierarchy Display
 
 The hierarchy is shown in the `title` field using ` > ` separator:
-- `"Work > activitywatcher-mcp"` - Category > Project
-- `"activitywatcher-mcp > TypeScript"` - Project > Language
+- `"Work > activitywatch-mcp"` - Category > Project
+- `"activitywatch-mcp > TypeScript"` - Project > Language
 - `"04:00-05:00 > Work"` - Hour > Category
 
 #### Supported Combinations
@@ -124,11 +124,11 @@ You can combine any 2-3 grouping options:
 **Popular Combinations**:
 1. **Category + Project**: `['category_top_level', 'project']`
    - See which projects belong to which categories
-   - Example: "Work > activitywatcher-mcp", "Work > client-project"
+   - Example: "Work > activitywatch-mcp", "Work > client-project"
 
 2. **Project + Language**: `['project', 'language']`
    - See language breakdown per project
-   - Example: "activitywatcher-mcp > TypeScript", "activitywatcher-mcp > Markdown"
+   - Example: "activitywatch-mcp > TypeScript", "activitywatch-mcp > Markdown"
 
 3. **Hour + Category**: `['hour', 'category_top_level']`
    - See category distribution by hour
@@ -140,7 +140,7 @@ You can combine any 2-3 grouping options:
 
 5. **Project + Hour**: `['project', 'hour']`
    - See when you work on each project
-   - Example: "activitywatcher-mcp > 04:00-05:00"
+   - Example: "activitywatch-mcp > 04:00-05:00"
 
 #### Benefits
 
@@ -199,7 +199,7 @@ else if (groupBy === 'language') {
 **Example Hierarchy**:
 ```
 Work
-├── activitywatcher-mcp
+├── activitywatch-mcp
 │   ├── TypeScript (1.5h)
 │   └── Markdown (0.8h)
 └── client-project
@@ -215,13 +215,13 @@ Work
     "duration_hours": 2.8
   },
   {
-    "title": "Work > activitywatcher-mcp",
-    "group_hierarchy": ["Work", "activitywatcher-mcp"],
+    "title": "Work > activitywatch-mcp",
+    "group_hierarchy": ["Work", "activitywatch-mcp"],
     "duration_hours": 2.3
   },
   {
-    "title": "Work > activitywatcher-mcp > TypeScript",
-    "group_hierarchy": ["Work", "activitywatcher-mcp", "TypeScript"],
+    "title": "Work > activitywatch-mcp > TypeScript",
+    "group_hierarchy": ["Work", "activitywatch-mcp", "TypeScript"],
     "duration_hours": 1.5
   }
 ]
@@ -284,12 +284,12 @@ aw_get_activity({
 #### `group_key` (optional)
 The key for the current grouping level. For multi-level grouping, this is the last element in the hierarchy.
 
-**Example**: For "Work > activitywatcher-mcp", `group_key` is "activitywatcher-mcp"
+**Example**: For "Work > activitywatch-mcp", `group_key` is "activitywatch-mcp"
 
 #### `group_hierarchy` (optional)
 Array representing the full hierarchical path.
 
-**Example**: For "Work > activitywatcher-mcp > TypeScript", `group_hierarchy` is `["Work", "activitywatcher-mcp", "TypeScript"]`
+**Example**: For "Work > activitywatch-mcp > TypeScript", `group_hierarchy` is `["Work", "activitywatch-mcp", "TypeScript"]`
 
 ### Future Enhancements
 
@@ -345,7 +345,7 @@ aw_get_activity({
 })
 ```
 
-**Expected**: Activities with titles like "Work > activitywatcher-mcp", "System > No project", etc.
+**Expected**: Activities with titles like "Work > activitywatch-mcp", "System > No project", etc.
 
 ## Follow-ups / TODOs
 - None.

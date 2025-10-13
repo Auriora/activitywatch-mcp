@@ -75,7 +75,7 @@ All notable changes to the ActivityWatch MCP Server project.
 
 #### HTTP & Docker Operations
 - `/health` now executes full `performHealthCheck` diagnostics before returning 200/503, logging failures for easier observability (`src/http-server.ts`).
-- Base `docker-compose.yml` targets the prebuilt `ghcr.io/bcherrington/activitywatcher-mcp:latest` image while `docker-compose.override.yml` re-enables local builds for development.
+- Base `docker-compose.yml` targets the prebuilt `ghcr.io/auriora/activitywatch-mcp:latest` image while `docker-compose.override.yml` re-enables local builds for development.
 - Default `AW_URL` now points to `http://localhost:5600` for parity between local and containerised environments.
 
 #### Capabilities Service
@@ -283,7 +283,7 @@ Add `LOG_LEVEL` to your Claude Desktop configuration:
   "mcpServers": {
     "activitywatch": {
       "command": "node",
-      "args": ["/path/to/activitywatcher-mcp/dist/index.js"],
+      "args": ["/path/to/activitywatch-mcp/dist/index.js"],
       "env": {
         "LOG_LEVEL": "INFO"
       }

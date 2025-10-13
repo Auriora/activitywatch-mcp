@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "activitywatch": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--pull=always",
+        "-e",
+        "AW_URL=http://host.docker.internal:5600",
+        "ghcr.io/auriora/activitywatch-mcp:latest",
+        "stdio"
+      ],
+      "env": {
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}

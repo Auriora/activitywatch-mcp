@@ -51,8 +51,8 @@ A Model Context Protocol (MCP) server that enables LLM agents to query and analy
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd activitywatcher-mcp
+git clone https://github.com/auriora/activitywatch-mcp.git
+cd activitywatch-mcp
 
 # Install dependencies
 npm install
@@ -107,8 +107,8 @@ See [tests/README.md](tests/README.md) for detailed testing documentation.
 Container artifacts live in `docker/`. Build and run the image directly:
 
 ```bash
-docker build -f docker/Dockerfile -t activitywatcher-mcp .
-docker run --rm -p 3000:3000 activitywatcher-mcp http
+docker build -f docker/Dockerfile -t activitywatch-mcp .
+docker run --rm -p 3000:3000 activitywatch-mcp http
 ```
 
 `docker-compose.yml` provides an HTTP/SSE stack wired to `http://localhost:3000/mcp`:
@@ -130,7 +130,7 @@ Pass `--build-only` to skip the push or `--push-only` to reuse an existing image
 Switch to stdio mode by invoking the container with the `stdio` command:
 
 ```bash
-docker run --rm -it activitywatcher-mcp stdio
+docker run --rm -it activitywatch-mcp stdio
 ```
 
 See [docs/developer/docker.md](docs/developer/docker.md) for environment variables, profiles, and troubleshooting tips.
@@ -179,7 +179,7 @@ For production use with Claude Desktop:
   "mcpServers": {
     "activitywatch": {
       "command": "node",
-      "args": ["/absolute/path/to/activitywatcher-mcp/dist/index.js"]
+      "args": ["/absolute/path/to/activitywatch-mcp/dist/index.js"]
     }
   }
 }
@@ -194,7 +194,7 @@ You can customize the server behavior with environment variables:
   "mcpServers": {
     "activitywatch": {
       "command": "node",
-      "args": ["/absolute/path/to/activitywatcher-mcp/dist/index.js"],
+      "args": ["/absolute/path/to/activitywatch-mcp/dist/index.js"],
       "env": {
         "AW_URL": "http://localhost:5600",
         "LOG_LEVEL": "INFO"
@@ -409,7 +409,7 @@ Set the `LOG_LEVEL` environment variable to control verbosity:
   "mcpServers": {
     "activitywatch": {
       "command": "node",
-      "args": ["/path/to/activitywatcher-mcp/dist/index.js"],
+      "args": ["/path/to/activitywatch-mcp/dist/index.js"],
       "env": {
         "LOG_LEVEL": "DEBUG"
       }

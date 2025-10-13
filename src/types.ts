@@ -335,7 +335,7 @@ export interface CanonicalEvent {
 
   // Grouping information (for multi-level grouping)
   readonly group_key?: string;        // Primary grouping key
-  readonly group_hierarchy?: string[]; // Hierarchical grouping path (e.g., ["Work", "activitywatcher-mcp"])
+  readonly group_hierarchy?: string[]; // Hierarchical grouping path (e.g., ["Work", "activitywatch-mcp"])
 
   // Metadata
   readonly event_count: number;

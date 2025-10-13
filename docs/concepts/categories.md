@@ -16,7 +16,7 @@ Categories use **regex patterns** to match against activity data:
 - **Window titles** - `Gmail`, `GitHub - Pull Request`  
 - **URLs** - `github.com`, `youtube.com`
 - **File paths** - `src/index.ts`, `README.md`
-- **Project names** - `activitywatcher-mcp`
+- **Project names** - `activitywatch-mcp`
 
 **Matching is case-insensitive** and uses JavaScript regex syntax.
 

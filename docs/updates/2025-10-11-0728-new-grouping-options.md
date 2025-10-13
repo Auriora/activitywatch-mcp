@@ -56,12 +56,12 @@ Tags: tools
 ```json
 {
   "app": "jetbrains-webstorm",
-  "title": "activitywatcher-mcp",
+  "title": "activitywatch-mcp",
   "duration_hours": 2.1,
   "percentage": 64.1,
   "editor": {
     "file": "42 files",
-    "project": "activitywatcher-mcp"
+    "project": "activitywatch-mcp"
   }
 }
 ```
@@ -92,7 +92,7 @@ Tags: tools
   "percentage": 29.0,
   "editor": {
     "file": "19 files",
-    "project": "activitywatcher-mcp"
+    "project": "activitywatch-mcp"
   }
 }
 ```
@@ -274,7 +274,7 @@ Detailed results:
 - Domain names displayed in `title` field
 
 #### Project Grouping ✅
-- Correctly separated "activitywatcher-mcp" (64.1%) from "No project" (34.2%)
+- Correctly separated "activitywatch-mcp" (64.1%) from "No project" (34.2%)
 - Project names displayed in `title` field
 - Editor enrichment preserved
 

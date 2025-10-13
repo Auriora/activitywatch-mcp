@@ -33,5 +33,5 @@ Thumbs.db
 /coverage
 .nyc_output
 /.augment/
-!/.coverage
+.coverage
 inspections/

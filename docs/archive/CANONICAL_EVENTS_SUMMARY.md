@@ -135,16 +135,16 @@ events = filter_period_intersect(browser_events, browser_windows);
     },
     {
       "app": "VS Code",
-      "title": "activitywatcher-mcp",
+      "title": "activitywatch-mcp",
       "duration_hours": 1.5,
       "percentage": 37.5,
       "editor": {
         "file": "src/services/unified-activity.ts",
-        "project": "activitywatcher-mcp",
+        "project": "activitywatch-mcp",
         "language": "TypeScript",
         "git": {
           "branch": "main",
-          "repository": "https://github.com/user/activitywatcher-mcp"
+          "repository": "https://github.com/user/activitywatch-mcp"
         }
       },
       "event_count": 32,

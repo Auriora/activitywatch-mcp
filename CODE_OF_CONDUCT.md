@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the maintainers through the project's GitHub organization
-(@bcherrington) or via the private contact channel listed in
+(@auriora) or via the private contact channel listed in
 [SECURITY.md](SECURITY.md). All complaints will be reviewed and investigated
 promptly and fairly.
 

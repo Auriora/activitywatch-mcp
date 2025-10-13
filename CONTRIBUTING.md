@@ -22,8 +22,8 @@ the maintainers and broader community.
 
 1. Clone the repository and install dependencies:
    ```bash
-   git clone https://github.com/bcherrington/activitywatcher-mcp.git
-   cd activitywatcher-mcp
+   git clone https://github.com/auriora/activitywatch-mcp.git
+   cd activitywatch-mcp
    npm install
    ```
 2. Run `npm run build` to compile TypeScript sources.

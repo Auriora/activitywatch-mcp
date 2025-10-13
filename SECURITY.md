@@ -18,9 +18,9 @@ We take security issues seriously. If you discover a vulnerability:
 
 1. **Do not create a public GitHub issue.**
 2. Report the vulnerability via GitHub's
-   [private vulnerability reporting](https://github.com/bcherrington/activitywatcher-mcp/security/advisories/new)
+   [private vulnerability reporting](https://github.com/auriora/activitywatch-mcp/security/advisories/new)
    so only the maintainers are notified.
-3. Alternatively, email the maintainer (@bcherrington) using the contact
+3. Alternatively, email the maintainer (@auriora) using the contact
    address listed on their GitHub profile with the subject line "Security
    report: ActivityWatch MCP".
 4. Provide as much detail as possible: affected versions, reproduction steps,

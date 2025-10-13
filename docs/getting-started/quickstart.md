@@ -15,7 +15,7 @@ Get up and running with the ActivityWatch MCP Server in 5 minutes.
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd activitywatcher-mcp
+cd activitywatch-mcp
 
 # Install dependencies
 npm install
@@ -39,19 +39,19 @@ npm run build
     "activitywatch": {
       "command": "node",
       "args": [
-        "/absolute/path/to/activitywatcher-mcp/dist/index.js"
+        "/absolute/path/to/activitywatch-mcp/dist/index.js"
       ]
     }
   }
 }
 ```
 
-**Important**: Replace `/absolute/path/to/activitywatcher-mcp` with the actual path!
+**Important**: Replace `/absolute/path/to/activitywatch-mcp` with the actual path!
 
 ### Get the absolute path:
 
 ```bash
-# In the activitywatcher-mcp directory:
+# In the activitywatch-mcp directory:
 pwd
 # Copy the output and use it in the config
 ```
@@ -125,7 +125,7 @@ Claude should call the `aw_get_capabilities` tool and show you:
   "mcpServers": {
     "activitywatch": {
       "command": "node",
-      "args": ["/path/to/activitywatcher-mcp/dist/index.js"],
+      "args": ["/path/to/activitywatch-mcp/dist/index.js"],
       "env": {
         "AW_URL": "http://localhost:5600"
       }
