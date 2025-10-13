@@ -2,14 +2,11 @@ version: '3.9'
 
 services:
   activitywatcher-http:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
     image: ghcr.io/bcherrington/activitywatcher-mcp:latest
     container_name: activitywatcher-mcp-http
     environment:
       MCP_PORT: ${MCP_PORT:-3000}
-      AW_URL: ${AW_URL:-http://host.docker.internal:5600}
+      AW_URL: ${AW_URL:-http://localhost:5600}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "${MCP_PORT:-3000}:3000"
@@ -22,16 +19,13 @@ services:
     restart: unless-stopped
 
   activitywatcher-stdio:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
     image: ghcr.io/bcherrington/activitywatcher-mcp:latest
     container_name: activitywatcher-mcp-stdio
     command: ["stdio"]
     stdin_open: true
     tty: true
     environment:
-      AW_URL: ${AW_URL:-http://host.docker.internal:5600}
+      AW_URL: ${AW_URL:-http://localhost:5600}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     profiles:
       - stdio

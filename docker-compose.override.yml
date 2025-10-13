@@ -1,0 +1,14 @@
+version: '3.9'
+
+services:
+  activitywatcher-http:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: ghcr.io/bcherrington/activitywatcher-mcp:dev
+
+  activitywatcher-stdio:
+    build:
+      context: .
+      dockerfile: docker/Dockerfiles
+    image: ghcr.io/bcherrington/activitywatcher-mcp:dev
