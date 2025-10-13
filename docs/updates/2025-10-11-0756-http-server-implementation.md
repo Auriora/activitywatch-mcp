@@ -46,7 +46,7 @@ Added HTTP/SSE transport support alongside the existing stdio transport:
    - Extracted tool definitions for reusability
    - All 9 MCP tools with complete schemas
 
-4. **`HTTP-SERVER.md`** - Quick start guide
+4. **`docs/developer/http-server-development.md`** - Quick start guide
    - TL;DR for developers
    - Common commands and configurations
    - Troubleshooting tips

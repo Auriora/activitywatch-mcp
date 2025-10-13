@@ -9,11 +9,12 @@ Tags: docs, transport
 - Expanded HTTP/SSE documentation to clarify how multiple instances behave and how port collisions are handled.
 - Highlighted session-level isolation semantics so hosts sharing a server know their state remains separate.
 - Noted that stdio launches stay in the foreground, enabling one process per host client without background daemons.
+- Consolidated root documentation into `docs/` so HTTP setup guidance lives alongside the rest of the developer docs.
 
 ## Changes
-- Updated `HTTP-SERVER.md` and `docs/developer/http-server-development.md` with a new “Concurrency & Sessions” section and stdio lifecycle notes.
+- Updated `docs/developer/http-server-development.md` with helper scripts, admin endpoint usage, concurrency notes, and stdio lifecycle guidance.
+- Removed the duplicate root files (`HTTP-SERVER.md`, `DEVELOPMENT-SETUP.md`) and pointed the README at the canonical developer doc.
 - Added references to the listener’s `EADDRINUSE` exit behaviour for Docker/CLI use.
-- Documented that stdio processes exit with their parent and can run side-by-side.
 
 ## Impact
 - Developers running multiple transports simultaneously have clear guidance on port selection, failure modes, and session boundaries.

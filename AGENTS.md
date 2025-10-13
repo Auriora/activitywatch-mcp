@@ -16,7 +16,7 @@ Vitest specs end with `.test.ts`. Keep unit cases in `tests/unit/`, cross-servic
 Use conventional commits as in `git log` (e.g., `feat(query-builder): add category filters`). Bundle related changes, include tests or docs, and ensure `npm run build` passes. Pull requests should describe impact, note schema or config changes, link issues, and attach samples or screenshots when APIs shift. Flag follow-up work explicitly.
 
 ## Configuration & Environment
-Default ActivityWatch endpoint is `http://localhost:5600`; override with `AW_URL`. Expose the HTTP MCP endpoint with `MCP_PORT=3000 npm run start:http` or `./scripts/dev-server.sh`. Set `LOG_LEVEL=DEBUG` for verbose logs. Document new env flags in `DEVELOPMENT-SETUP.md` and keep sample configs aligned with `claude_desktop_config*.json`.
+Default ActivityWatch endpoint is `http://localhost:5600`; override with `AW_URL`. Expose the HTTP MCP endpoint with `MCP_PORT=3000 npm run start:http` or `./scripts/dev-server.sh`. Set `LOG_LEVEL=DEBUG` for verbose logs. Document new env flags in `docs/developer/http-server-development.md` and keep sample configs aligned with `claude_desktop_config*.json`.
 
 ## Augment Agent Protocol
 Load `.augment/rules/` at task start and apply the highest-priority instructions. Keep doc updates inside `docs/` and log task-scoped notes in `docs/updates/` using the repository template. When tests change, follow `testing.md` placement guidance and update the checklist. Note consulted rules in implementation notes or PR descriptions. For complex multi-file work, follow the staged planning flow in `planning.md` and pause for approval before execution.

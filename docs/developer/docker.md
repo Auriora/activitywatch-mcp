@@ -81,4 +81,4 @@ Both services share the same build configuration and entrypoint.
 - **No ActivityWatch access**: On Linux, add `--add-host=host.docker.internal:host-gateway` to `docker run`, or set `AW_URL` to the host IP.
 - **Rebuild needed after code changes**: Re-run `docker build -f docker/Dockerfile -t activitywatcher-mcp .` to pick up new source changes.
 
-For additional operational tips, see [HTTP-SERVER.md](../../HTTP-SERVER.md).
+For additional operational tips, see [http-server-development.md](./http-server-development.md).

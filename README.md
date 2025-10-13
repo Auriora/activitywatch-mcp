@@ -165,7 +165,7 @@ Then configure Claude Desktop to use HTTP transport:
 - ✅ Easy debugging with HTTP tools
 - ✅ Health check endpoint at `http://localhost:3000/health`
 
-See [HTTP-SERVER.md](HTTP-SERVER.md) for complete HTTP server documentation.
+See [docs/developer/http-server-development.md](docs/developer/http-server-development.md) for the full HTTP/SSE guide, including helper scripts, admin endpoints, and concurrency notes.
 
 ### Production Mode (stdio)
 
@@ -440,7 +440,7 @@ Check the logs after starting to see the health check results.
 
 ## Contributing
 
-Contributions are welcome! Start with [CONTRIBUTING.md](CONTRIBUTING.md), and review [DEVELOPMENT-SETUP.md](DEVELOPMENT-SETUP.md) alongside the testing guide in [tests/README.md](tests/README.md) before submitting a PR.
+Contributions are welcome! Start with [CONTRIBUTING.md](CONTRIBUTING.md), and review [docs/developer/http-server-development.md](docs/developer/http-server-development.md) alongside the testing guide in [tests/README.md](tests/README.md) before submitting a PR.
 
 ## License
 

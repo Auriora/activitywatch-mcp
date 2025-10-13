@@ -45,6 +45,12 @@ Or for development with auto-rebuild:
 npm run dev:http
 ```
 
+Prefer a single command that rebuilds and restarts? Use the helper script:
+
+```bash
+./scripts/dev-server.sh
+```
+
 The server will start on `http://localhost:3000` by default.
 
 ### 3. Configure Your MCP Client
@@ -82,11 +88,42 @@ Example:
 MCP_PORT=3001 AW_URL=http://localhost:5600 LOG_LEVEL=DEBUG npm run start:http
 ```
 
+### Helper Commands
+
+```bash
+# Build only
+npm run build
+
+# Start HTTP server
+npm run start:http
+
+# Build and start in one step
+npm run dev:http
+
+# Health probe
+curl http://localhost:3000/health
+
+# Verbose logging
+LOG_LEVEL=DEBUG npm run start:http
+```
+
 ### Concurrency & Isolation
 
 - **Multiple instances:** Start additional HTTP/SSE servers on distinct `MCP_PORT` values. If a port is already bound, the listener throws `EADDRINUSE`, logs an error, and the process exits with status `1` so containers fail fast.
 - **Session state:** The server keeps a `Map` of session IDs (`Mcp-Session-Id` header) to transports. Requests, SSE streams, and DELETE calls are keyed by that ID, isolating each host even when they share the same server process.
 - **Stdio transport:** `node dist/index.js` runs in the foreground. You can launch one per host integration; each exits automatically when its parent process or terminal terminates.
+
+### Admin Endpoint
+
+The HTTP transport exposes a simple admin hook that drains active sessions and optionally retargets the backing ActivityWatch instance:
+
+```bash
+curl -X POST http://localhost:3000/admin/reload-server \
+  -H "Content-Type: application/json" \
+  -d '{"awUrl":"http://localhost:5601"}'
+```
+
+Use this when you change `AW_URL` or need to clear cached state without restarting the process.
 
 ## Development Workflow
 

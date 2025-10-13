@@ -29,7 +29,7 @@ the maintainers and broader community.
 2. Run `npm run build` to compile TypeScript sources.
 3. For rapid iteration, start the HTTP transport via `npm run start:http` and
    point your MCP client at `http://localhost:3000/mcp` (see
-   [DEVELOPMENT-SETUP.md](DEVELOPMENT-SETUP.md)).
+  [docs/developer/http-server-development.md](docs/developer/http-server-development.md)).
 
 ## Coding standards
 
@@ -65,7 +65,7 @@ the maintainers and broader community.
   change. The docs are organised by topic (`concepts/`, `reference/`,
   `developer/`, `updates/`, `plans/`).
 - When adding new environment variables or setup steps, document them in both
-  the appropriate doc section and, if relevant, `DEVELOPMENT-SETUP.md`.
+  the appropriate doc section and, if relevant, `docs/developer/http-server-development.md`.
 
 ## Submitting a pull request
 
