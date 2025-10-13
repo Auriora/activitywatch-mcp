@@ -9,7 +9,7 @@
         "--pull=always",
         "-e",
         "AW_URL=http://host.docker.internal:5600",
-        "ghcr.io/auriora/activitywatcher-mcp:latest",
+        "ghcr.io/auriora/activitywatch-mcp:latest",
         "stdio"
       ],
       "env": {

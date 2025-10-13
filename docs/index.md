@@ -80,4 +80,4 @@ This MCP server enables LLM agents (like Claude) to help users:
 
 ---
 
-For questions or issues, see the [GitHub repository](https://github.com/bcherrington/activitywatcher-mcp) or check the troubleshooting sections in each guide.
+For questions or issues, see the [GitHub repository](https://github.com/auriora/activitywatch-mcp) or check the troubleshooting sections in each guide.

@@ -37,10 +37,10 @@ Console
 
 **Examples**:
 ```
-activitywatcher-mcp – index.ts
-activitywatcher-mcp – docs/README.md
-activitywatcher-mcp – ~/Projects/Webstorm/activitywatcher-mcp/dist/index.js
-activitywatcher-mcp
+activitywatch-mcp – index.ts
+activitywatch-mcp – docs/README.md
+activitywatch-mcp – ~/Projects/Webstorm/activitywatch-mcp/dist/index.js
+activitywatch-mcp
 LICENSE
 Confirm Exit
 Accept All Changes?
@@ -50,9 +50,9 @@ New Agent Session
 ```
 
 **Extractable Information**:
-- **Project Name**: `activitywatcher-mcp`
+- **Project Name**: `activitywatch-mcp`
 - **File Name**: `index.ts`, `README.md`
-- **File Path**: `docs/README.md`, `~/Projects/Webstorm/activitywatcher-mcp/dist/index.js`
+- **File Path**: `docs/README.md`, `~/Projects/Webstorm/activitywatch-mcp/dist/index.js`
 - **Dialog Type**: `Confirm Exit`, `Accept All Changes?`, `Rename`, `Delete`
 - **Special States**: `New Agent Session` (Augment/Copilot)
 

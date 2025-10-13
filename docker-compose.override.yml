@@ -1,14 +1,14 @@
 version: '3.9'
 
 services:
-  activitywatcher-http:
+  activitywatch-mcp-http:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: ghcr.io/auriora/activitywatcher-mcp:dev
+    image: ghcr.io/auriora/activitywatch-mcp:dev
 
-  activitywatcher-stdio:
+  activitywatch-mcp-stdio:
     build:
       context: .
       dockerfile: docker/Dockerfiles
-    image: ghcr.io/auriora/activitywatcher-mcp:dev
+    image: ghcr.io/auriora/activitywatch-mcp:dev
