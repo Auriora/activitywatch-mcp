@@ -1,7 +1,7 @@
-# ActivityWatcher MCP - Changes Summary
+# ActivityWatch MCP - Changes Summary
 
 ## Overview
-This document summarizes the major improvements made to the ActivityWatcher MCP server to address missing IDE/editor activity tracking and add category support to all activity queries.
+This document summarizes the major improvements made to the ActivityWatch MCP server to address missing IDE/editor activity tracking and add category support to all activity queries.
 
 ## Issues Addressed
 
@@ -67,7 +67,7 @@ A dedicated tool for analyzing IDE and editor activity with rich metadata.
   "total_time_seconds": 7200,
   "editors": [
     {
-      "name": "activitywatcher-mcp",
+      "name": "activitywatch-mcp",
       "duration_seconds": 3600,
       "duration_hours": 1.0,
       "percentage": 50.0,
@@ -76,7 +76,7 @@ A dedicated tool for analyzing IDE and editor activity with rich metadata.
       "git_info": {
         "branch": "main",
         "commit": "9ebc8ac",
-        "repository": "https://github.com/bcherrington/activitywatcher-mcp.git"
+        "repository": "https://github.com/bcherrington/activitywatch-mcp.git"
       },
       "category": "Work > Programming > ActivityWatch",
       "event_count": 145
@@ -110,8 +110,8 @@ All activity tools now support categories with the `include_categories` paramete
       "first_seen": "2025-10-10T09:15:23Z",
       "last_seen": "2025-10-10T17:42:11Z",
       "window_titles": [
-        "activitywatcher-mcp – index.ts",
-        "activitywatcher-mcp – types.ts"
+        "activitywatch-mcp – index.ts",
+        "activitywatch-mcp – types.ts"
       ]
     }
   ]
@@ -161,7 +161,7 @@ All activity tools now support categories with the `include_categories` paramete
 {
   "editors": [
     {
-      "name": "activitywatcher-mcp",
+      "name": "activitywatch-mcp",
       "duration_hours": 3.5,
       "percentage": 70.0,
       "category": "Work > Programming > ActivityWatch",
@@ -179,7 +179,7 @@ All activity tools now support categories with the `include_categories` paramete
       "git_info": {
         "branch": "main",
         "commit": "9ebc8ac",
-        "repository": "https://github.com/bcherrington/activitywatcher-mcp.git"
+        "repository": "https://github.com/bcherrington/activitywatch-mcp.git"
       }
     }
   ]

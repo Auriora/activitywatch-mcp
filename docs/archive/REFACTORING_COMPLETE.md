@@ -107,7 +107,7 @@ All 8 critical improvements have been successfully implemented and verified. The
 
 ```bash
 $ npm run build
-> activitywatcher-mcp@1.0.0 build
+> activitywatch-mcp@1.0.0 build
 > tsc
 
 ✅ Build successful - no errors

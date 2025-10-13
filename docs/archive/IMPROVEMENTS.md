@@ -274,7 +274,7 @@ async function main() {
   "mcpServers": {
     "activitywatch": {
       "command": "node",
-      "args": ["/path/to/activitywatcher-mcp/dist/index.js"],
+      "args": ["/path/to/activitywatch-mcp/dist/index.js"],
       "env": {
         "AW_URL": "http://localhost:5600",
         "LOG_LEVEL": "INFO"

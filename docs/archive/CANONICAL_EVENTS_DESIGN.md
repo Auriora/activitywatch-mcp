@@ -241,17 +241,17 @@ const groups = new Map<string, ActivityEvent[]>();
     },
     {
       "app": "VS Code",
-      "title": "activitywatcher-mcp",
+      "title": "activitywatch-mcp",
       "duration_seconds": 2700,
       "duration_hours": 0.75,
       "percentage": 37.5,
       "editor": {
         "file": "src/services/query.ts",
-        "project": "activitywatcher-mcp",
+        "project": "activitywatch-mcp",
         "language": "TypeScript",
         "git": {
           "branch": "main",
-          "repository": "https://github.com/user/activitywatcher-mcp"
+          "repository": "https://github.com/user/activitywatch-mcp"
         }
       },
       "event_count": 32,
