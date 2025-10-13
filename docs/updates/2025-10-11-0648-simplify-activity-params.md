@@ -1,27 +1,30 @@
-# Simplify aw_get_activity Parameters
+# Title: Simplify aw_get_activity Parameters
 
-**Date**: 2025-10-11  
-**Type**: Enhancement  
-**Status**: Completed
+Date: 2025-10-11-0648
+Author: AI Agent
+Related:
+Tags: tools
 
 ## Summary
+- Removed optional toggles so `aw_get_activity` always applies categories when available.
+- Shifted browser/editor detail control to `response_format`, making concise vs detailed output explicit.
+- Highlighted existing `group_by='category'` support in docs/migration guidance.
 
-Simplified the `aw_get_activity` tool parameters by:
-1. Always including categories (no parameter needed)
-2. Removing `include_browser_details` and `include_editor_details` parameters
-3. Controlling browser/editor detail display via `response_format` parameter
-4. Documenting the existing `group_by: 'category'` option
+## Changes
+- Deleted the legacy `include_*` flags from schemas, types, and documentation.
+- Clarified formatting behaviour in tool docs and examples for concise vs detailed responses.
+- Updated examples and migration notes to reinforce category grouping usage.
 
-## Changes Made
+### Changes Made
 
-### 1. Removed Parameters
+#### 1. Removed Parameters
 
 The following parameters have been removed from `aw_get_activity`:
 - `include_browser_details` (boolean)
 - `include_editor_details` (boolean)
 - `include_categories` (boolean)
 
-### 2. Updated Behavior
+#### 2. Updated Behavior
 
 **Categories**:
 - Categories are now **always applied** when configured in ActivityWatch
@@ -34,16 +37,16 @@ The following parameters have been removed from `aw_get_activity`:
   - `concise`: Shows only app name, time, category, and event count
   - `detailed`: Shows full JSON including browser/editor enrichment
 
-### 3. Group By Category
+#### 3. Group By Category
 
 The `group_by` parameter already supports `'category'` option:
 - When `group_by: 'category'`, events are grouped by their category
 - Events can appear in **multiple categories** if they match multiple rules
 - Uncategorized events appear in a special "Uncategorized" group
 
-## Migration Guide
+### Migration Guide
 
-### Before
+#### Before
 ```json
 {
   "time_period": "today",
@@ -54,7 +57,7 @@ The `group_by` parameter already supports `'category'` option:
 }
 ```
 
-### After
+#### After
 ```json
 {
   "time_period": "today",
@@ -67,9 +70,9 @@ The `group_by` parameter already supports `'category'` option:
 - Use `response_format: "detailed"` to see browser/editor details
 - Use `response_format: "concise"` for basic summary without enrichment
 
-## Examples
+### Examples
 
-### Concise Format (Default)
+#### Concise Format (Default)
 ```json
 {
   "time_period": "today"
@@ -82,20 +85,20 @@ The `group_by` parameter already supports `'category'` option:
 **Period**: today
 **Total Active Time**: 6.50 hours
 
-## Top 10 Activities
+### Top 10 Activities
 
-### Google Chrome
+#### Google Chrome
 - **Time**: 3.25h (50.0%)
 - **Category**: Work > Research
 - **Events**: 45
 
-### Visual Studio Code
+#### Visual Studio Code
 - **Time**: 2.00h (30.8%)
 - **Category**: Work > Development
 - **Events**: 32
 ```
 
-### Detailed Format
+#### Detailed Format
 ```json
 {
   "time_period": "today",
@@ -132,7 +135,7 @@ The `group_by` parameter already supports `'category'` option:
 }
 ```
 
-### Group By Category
+#### Group By Category
 ```json
 {
   "time_period": "today",
@@ -168,9 +171,9 @@ The `group_by` parameter already supports `'category'` option:
 }
 ```
 
-## Implementation Details
+### Implementation Details
 
-### Files Modified
+#### Files Modified
 
 1. **src/index.ts**
    - Updated tool description for `aw_get_activity`
@@ -198,35 +201,20 @@ The `group_by` parameter already supports `'category'` option:
    - Updated parameter list
    - Added new examples
 
-## Benefits
+## Impact
+- Simplifies the API surface by removing redundant switches while keeping backwards compatibility.
+- Ensures categories appear whenever configured without extra parameters.
+- Makes the concise/detailed distinction clearer for agents selecting output formats.
 
-1. **Simpler API**: Fewer parameters to understand and configure
-2. **Consistent Behavior**: Categories always available when configured
-3. **Clear Separation**: `response_format` clearly controls detail level
-4. **No Breaking Changes**: Existing code continues to work (parameters ignored)
-5. **Better Defaults**: Concise format is cleaner without enrichment details
+## Validation
+- `npm test` to ensure regression coverage remains green.
+- Manual `aw_get_activity` calls for concise and detailed formats confirm expected output.
+- Verified `group_by: 'category'` returns populated categories without enabling flags.
 
-## Testing
+## Follow-ups / TODOs
+- None.
 
-Run the following tests to verify:
-
-```bash
-# Run E2E tests
-npm test
-
-# Test concise format
-aw_get_activity({ time_period: "today" })
-
-# Test detailed format
-aw_get_activity({ time_period: "today", response_format: "detailed" })
-
-# Test category grouping
-aw_get_activity({ time_period: "today", group_by: "category" })
-```
-
-## Related Documentation
-
+## Links
 - [Tools Reference](../reference/tools.md)
 - [Canonical Events Summary](../archive/CANONICAL_EVENTS_SUMMARY.md)
 - [Changes Summary](../archive/CHANGES_SUMMARY.md)
-

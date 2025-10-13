@@ -1,14 +1,21 @@
-# Tool Description Updates - Data Accuracy Warnings
+# Title: Tool Description Updates - Data Accuracy Warnings
 
-**Date**: 2025-10-11  
-**Type**: Documentation Enhancement  
-**Impact**: User-facing tool descriptions
+Date: 2025-10-11-0701
+Author: AI Agent
+Related:
+Tags: tools
 
 ## Summary
+- Updated descriptions for `aw_get_activity`, `aw_query_events`, and `aw_get_raw_events` to highlight window-filtered accuracy vs. bucket duration.
+- Added prominent warning blocks, emojis, and "(RECOMMENDED)" callouts so agents pick the right tool for time tracking.
+- Captured rationale and examples to make the canonical events approach easier to explain to end users.
 
-Updated tool descriptions for `aw_get_activity`, `aw_query_events`, and `aw_get_raw_events` to clearly emphasize the critical distinction between window-based filtering and bucket-based queries.
+## Changes
+- Reinforced the accuracy messaging in `aw_get_activity` by surfacing its canonical events workflow.
+- Added top-of-file warning blocks to `aw_query_events` and `aw_get_raw_events`, explicitly noting the lack of active-window filtering.
+- Updated "When To Use" / "When Not To Use" sections plus returns/limitations tables to reference `aw_get_activity` as the preferred option.
 
-## Problem Identified
+### Problem Identified
 
 During testing, it was discovered that the tool descriptions did not adequately warn users about a critical data accuracy issue:
 
@@ -18,9 +25,9 @@ During testing, it was discovered that the tool descriptions did not adequately 
 
 This led to confusion when interpreting results from different tools.
 
-## Changes Made
+### Changes Made
 
-### 1. Enhanced `aw_get_activity` Description
+#### 1. Enhanced `aw_get_activity` Description
 
 **Added**:
 - ✅ Visual indicator for "RECOMMENDED TOOL FOR ACCURATE TIME TRACKING"
@@ -30,7 +37,7 @@ This led to confusion when interpreting results from different tools.
 
 **Why**: This is the primary tool users should use for accurate time tracking. The description now makes this crystal clear.
 
-### 2. Enhanced `aw_query_events` Description
+#### 2. Enhanced `aw_query_events` Description
 
 **Added**:
 - ⚠️ "IMPORTANT DATA ACCURACY WARNING" section at the top
@@ -45,7 +52,7 @@ This led to confusion when interpreting results from different tools.
 
 **Why**: This tool is useful for exploration and enrichment, but should not be the primary source for "time spent" analysis.
 
-### 3. Enhanced `aw_get_raw_events` Description
+#### 3. Enhanced `aw_get_raw_events` Description
 
 **Added**:
 - ⚠️ "DATA ACCURACY WARNING" section at the top
@@ -56,16 +63,16 @@ This led to confusion when interpreting results from different tools.
 
 **Why**: Raw events are useful for debugging but can be misleading for time tracking.
 
-## Technical Background
+### Technical Background
 
-### How ActivityWatch Tracks Data
+#### How ActivityWatch Tracks Data
 
 1. **Window Watcher**: Records which application window is actively focused
 2. **Browser Watcher**: Records which tab/URL is active in the browser (regardless of window focus)
 3. **Editor Watcher**: Records which file is open in the editor (regardless of window focus)
 4. **AFK Watcher**: Records when the user is away from keyboard
 
-### The Canonical Events Approach
+#### The Canonical Events Approach
 
 `aw_get_activity` implements ActivityWatch's canonical events approach:
 
@@ -75,7 +82,7 @@ This led to confusion when interpreting results from different tools.
 
 This prevents double-counting and ensures accurate time tracking.
 
-### Example Scenario
+#### Example Scenario
 
 **User's actual activity**:
 - 10:00-10:05: Actively browsing Augment product page in Firefox (5 min)
@@ -90,20 +97,7 @@ This prevents double-counting and ensures accurate time tracking.
 | `aw_query_events` (browser) | 37 min | 37 min | ⚠️ Misleading: Counts entire time tab was open |
 | `aw_get_raw_events` (web bucket) | 37 min | 37 min | ⚠️ Misleading: Raw bucket data, no window filtering |
 
-## Impact on Users
-
-### Before Changes
-- Users might use `aw_query_events` for time tracking and get inflated numbers
-- No clear guidance on which tool to use for accurate metrics
-- Confusion about why different tools show different durations
-
-### After Changes
-- Clear visual indicators (✅ ⚠️ 🎯) guide users to the right tool
-- Explicit warnings prevent misinterpretation of data
-- Concrete examples help users understand the difference
-- "(RECOMMENDED)" tags point users to the accurate tool
-
-## Recommendations for AI Agents
+### Recommendations for AI Agents
 
 When analyzing ActivityWatch data:
 
@@ -113,26 +107,14 @@ When analyzing ActivityWatch data:
    - "This shows time the tab/file was open, not necessarily active"
    - "For accurate active time, see the aw_get_activity results"
 
-## Testing
-
-The changes were validated by:
-1. Comparing results from `aw_get_activity` vs `aw_query_events` for the same time period
-2. Identifying discrepancies (e.g., 31 min vs 3 min for Augment page)
-3. Confirming the window-based filtering explanation matches the observed data
-
-## Files Modified
+### Files Modified
 
 - `src/index.ts`: Updated tool descriptions for:
   - `aw_get_activity` (lines 121-147)
   - `aw_get_raw_events` (lines 312-361)
   - `aw_query_events` (lines 378-456)
 
-## Related Documentation
-
-- `docs/concepts/canonical-events.md`: Explains the canonical events approach
-- `docs/concepts/data-accuracy.md`: (Recommended to create) Deep dive on data accuracy
-
-## Future Improvements
+### Future Improvements
 
 Consider:
 1. Adding a `aw_compare_tools` diagnostic tool that shows the difference between window-filtered and bucket-based queries
@@ -143,3 +125,30 @@ Consider:
 
 **Conclusion**: These changes significantly improve the clarity of tool descriptions and help users (both human and AI) choose the right tool for accurate activity analysis.
 
+## Impact
+- Ensures documentation steers users toward the accurate, window-filtered tool by default.
+- Reduces confusion when raw/bucket queries return inflated durations.
+- Provides concrete examples and iconography agents can cite when relaying results.
+
+#### Before Changes
+- Users might use `aw_query_events` for time tracking and get inflated numbers
+- No clear guidance on which tool to use for accurate metrics
+- Confusion about why different tools show different durations
+
+#### After Changes
+- Clear visual indicators (✅ ⚠️ 🎯) guide users to the right tool
+- Explicit warnings prevent misinterpretation of data
+- Concrete examples help users understand the difference
+- "(RECOMMENDED)" tags point users to the accurate tool
+
+## Validation
+- Compared `aw_get_activity` vs `aw_query_events` outputs for overlapping periods to confirm discrepancies are explained.
+- Verified each updated description renders correctly in CLI tooling and retains Markdown structure.
+- Spot-checked tests/docs referencing the tool descriptions to ensure links still resolve.
+
+## Follow-ups / TODOs
+- None.
+
+## Links
+- docs/concepts/canonical-events.md
+- docs/reference/tools.md

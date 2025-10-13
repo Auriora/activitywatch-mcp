@@ -1,9 +1,9 @@
 # Title: ActivityWatch client coverage bootstrap
 
-Date: 2025-10-12
-Author: AI Agent (Codex)
-Related: Issue # (TBD)
-Tags: testing, coverage, client
+Date: 2025-10-12-1342
+Author: AI Agent
+Related:
+Tags: testing
 
 ## Summary
 - Added first ActivityWatch client unit suite covering success, API error, timeout, and connection failure flows per coverage roadmap.
@@ -11,6 +11,8 @@ Tags: testing, coverage, client
 - Documented applied repository rules (`preferences.md`, `planning.md`, `testing.md`) and noted test runner behaviour for follow-up tracking.
 
 ## Changes
+
+
 - Introduced `tests/unit/client/activitywatch.test.ts` exercising `ActivityWatchClient` request handling across key branches.
 - Enhanced `tests/helpers/mock-client.ts` with method failure injection plus helpers for API, timeout, connection, and abort errors; updated companion helper tests.
 - No runtime code modifications; test infrastructure only.
@@ -29,5 +31,5 @@ Tags: testing, coverage, client
 - Expand coverage to additional plan items once runner reliability confirmed.
 
 ## Links
-- docs/updates/2025-10-12-test-coverage-plan.md
+- ../developer/test-coverage-expansion-plan.md
 - Rules consulted: .augment/rules/preferences.md, .augment/rules/planning.md, .augment/rules/testing.md

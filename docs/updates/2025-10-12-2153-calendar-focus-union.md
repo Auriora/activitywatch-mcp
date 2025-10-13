@@ -1,9 +1,9 @@
 # Title: Calendar-fused focus metrics in unified activity
 
-Date: 2025-10-12
-Author: Codex (GPT-5)
-Related: —
-Tags: calendar, unified-activity, period-summary
+Date: 2025-10-12-2153
+Author: AI Agent
+Related:
+Tags: tools
 
 ## Summary
 - Unified activity now blends calendar meetings with focus time, adding meeting metadata to window events and emitting calendar-only segments.
@@ -29,4 +29,6 @@ Tags: calendar, unified-activity, period-summary
 - Evaluate caching calendar fetches to reduce repeated API calls for large ranges.
 
 ## Links
-- —
+- src/services/unified-activity.ts
+- src/services/period-summary.ts
+- src/utils/intervals.ts

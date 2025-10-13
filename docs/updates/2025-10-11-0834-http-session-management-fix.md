@@ -1,14 +1,21 @@
-# HTTP Session Management Fix
+# Title: HTTP Session Management Fix
 
-**Date**: October 11, 2025  
-**Type**: Bug Fix  
-**Status**: Complete
+Date: 2025-10-11-0834
+Author: AI Agent
+Related:
+Tags: infrastructure
 
 ## Summary
+- Resolved the HTTP/SSE session storage race that dropped valid `Mcp-Session-Id` values after initialization.
+- Added defensive error handling and shutdown hooks so crashes, port conflicts, and rejection events surface clearly.
+- Documented the manual validation workflow for reproducing and verifying HTTP transport behaviour.
 
-Fixed a critical race condition in the HTTP/SSE transport session management that prevented the MCP server from properly storing and retrieving sessions, causing all subsequent requests after initialization to fail with "Invalid request: no session ID and not an initialization request" errors.
+## Changes
+- Registered sessions inside the `onsessioninitialized` callback so they are stored immediately after creation.
+- Added process-level error handlers plus HTTP server error messaging for `EADDRINUSE` and unexpected faults.
+- Implemented graceful shutdown that closes transports, drains sessions, and enforces a timeout when exit hangs.
 
-## Problem
+### Problem
 
 The HTTP server was experiencing a session management failure where:
 
@@ -16,7 +23,7 @@ The HTTP server was experiencing a session management failure where:
 2. **Subsequent requests failed**: When the client sent the session ID back in the next request, the server couldn't find it in the sessions map
 3. **Error message**: `[WARN] Invalid request: no session ID and not an initialization request`
 
-### Root Cause
+#### Root Cause
 
 The issue was a **race condition** in the session storage timing:
 
@@ -45,7 +52,7 @@ The problem:
 - `handleRequest()` internally calls the initialization logic which sets `transport.sessionId`
 - By the time the session ID exists, we've already tried (and failed) to store it in the map
 
-### Evidence from Logs
+#### Evidence from Logs
 
 ```
 [INFO] Session initialized with ID: 4e4c0d43-0735-4ee6-9ea8-8ce9d8fd9e02
@@ -55,7 +62,7 @@ The problem:
 
 The second request **did** include the session ID, but the server couldn't find it because it was never stored.
 
-## Solution
+### Solution
 
 Move the session storage into the `onsessioninitialized` callback, which is called **after** the session ID has been generated:
 
@@ -80,7 +87,7 @@ await server.connect(transport);
 await transport.handleRequest(req, res, req.body);
 ```
 
-### Why This Works
+#### Why This Works
 
 1. `handleRequest()` processes the initialization request
 2. During processing, it generates the session ID
@@ -88,9 +95,9 @@ await transport.handleRequest(req, res, req.body);
 4. Our callback stores the session in the map with the correct ID
 5. Subsequent requests can now find the session
 
-## Additional Improvements
+### Additional Improvements
 
-### Better Error Handling
+#### Better Error Handling
 
 Added comprehensive error handlers to prevent silent failures:
 
@@ -117,7 +124,7 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 });
 ```
 
-### Improved Shutdown Handling
+#### Improved Shutdown Handling
 
 ```typescript
 // Graceful shutdown with timeout
@@ -149,9 +156,50 @@ process.on('SIGINT', async () => {
 });
 ```
 
-## Testing
+### Files Modified
 
-### Test Procedure
+- `src/http-server.ts`:
+  - Fixed session storage timing (moved to `onsessioninitialized` callback)
+  - Added global error handlers
+  - Improved server error handling
+  - Enhanced graceful shutdown with timeout
+  - Added SIGTERM handler
+
+### Compatibility
+
+- No breaking changes
+- Fully backward compatible with stdio transport
+- No changes to MCP protocol implementation
+- No changes to tool definitions or handlers
+
+### Conclusion
+
+The HTTP/SSE transport is now fully functional and can be used for development with Augment MCP tool or any other MCP client that supports HTTP transport. The session management race condition has been resolved, and additional error handling ensures better debugging experience.
+
+## Impact
+- Restores HTTP/SSE transport usability for multi-request workflows.
+- Improves diagnostics for unexpected errors and port collisions.
+- Adds graceful shutdown, preventing leaked sessions or hanging processes.
+
+#### Before Fix
+- ❌ HTTP/SSE transport was completely broken
+- ❌ Only initialization requests worked
+- ❌ All subsequent requests failed
+- ❌ Silent failures with unclear error messages
+
+#### After Fix
+- ✅ HTTP/SSE transport fully functional
+- ✅ Sessions properly stored and retrieved
+- ✅ Multiple requests work correctly
+- ✅ Clear error messages for common issues (port in use, etc.)
+- ✅ Graceful shutdown handling
+
+## Validation
+- Followed scripted `curl` workflow to confirm session IDs persist across requests.
+- Observed transport/session logs at `LOG_LEVEL=DEBUG` to verify storage timing.
+- Confirmed graceful shutdown closes sessions and exits without hanging.
+
+#### Test Procedure
 
 1. Start the HTTP server with DEBUG logging:
    ```bash
@@ -190,7 +238,7 @@ process.on('SIGINT', async () => {
      }'
    ```
 
-### Expected Results
+#### Expected Results
 
 Server logs should show:
 ```
@@ -205,44 +253,10 @@ Server logs should show:
 
 ✅ **All tests passed successfully**
 
-## Files Modified
+## Follow-ups / TODOs
+- None.
 
-- `src/http-server.ts`:
-  - Fixed session storage timing (moved to `onsessioninitialized` callback)
-  - Added global error handlers
-  - Improved server error handling
-  - Enhanced graceful shutdown with timeout
-  - Added SIGTERM handler
-
-## Impact
-
-### Before Fix
-- ❌ HTTP/SSE transport was completely broken
-- ❌ Only initialization requests worked
-- ❌ All subsequent requests failed
-- ❌ Silent failures with unclear error messages
-
-### After Fix
-- ✅ HTTP/SSE transport fully functional
-- ✅ Sessions properly stored and retrieved
-- ✅ Multiple requests work correctly
-- ✅ Clear error messages for common issues (port in use, etc.)
-- ✅ Graceful shutdown handling
-
-## Compatibility
-
-- No breaking changes
-- Fully backward compatible with stdio transport
-- No changes to MCP protocol implementation
-- No changes to tool definitions or handlers
-
-## References
-
+## Links
 - [MCP Specification - Streamable HTTP Transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports)
 - [MCP SDK - StreamableHTTPServerTransport](https://github.com/modelcontextprotocol/typescript-sdk)
-- Original implementation: `docs/updates/http-server-implementation.md`
-
-## Conclusion
-
-The HTTP/SSE transport is now fully functional and can be used for development with Augment MCP tool or any other MCP client that supports HTTP transport. The session management race condition has been resolved, and additional error handling ensures better debugging experience.
-
+- docs/updates/2025-10-11-0756-http-server-implementation.md

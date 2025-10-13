@@ -1,13 +1,25 @@
-# Timezone Support Implementation
+# Title: Timezone Support Implementation
 
-**Date**: 2025-10-11  
-**Status**: ✅ Complete
+Date: 2025-10-11-1118
+Author: AI Agent
+Related:
+Tags: time
 
-## Overview
+## Summary
+- Added timezone-aware utilities plus configuration so daily summaries align with local midnights.
+- Exposed a `timezone` parameter and user preference detection across tools and capabilities.
+- Extended documentation and tests to cover parsing, conversion, and boundary scenarios.
+
+## Changes
+- Introduced `src/utils/time.ts` with parsing/conversion helpers and accompanying unit tests.
+- Added `config/user-preferences.json` loader, schema updates, and timezone-aware service logic.
+- Updated tools, formatters, and documentation to surface timezone behaviour and preferences.
+
+### Overview
 
 Implemented comprehensive timezone support for the ActivityWatch MCP server, allowing users to view activity data in their local timezone rather than UTC. This is particularly important for daily summaries, where date boundaries should align with the user's local midnight, not UTC midnight.
 
-## Problem Statement
+### Problem Statement
 
 Previously, all date/time operations used UTC:
 - Daily summary for "2025-10-11" showed UTC midnight to midnight
@@ -15,7 +27,7 @@ Previously, all date/time operations used UTC:
 - Hourly breakdown showed UTC hours without timezone indication
 - No way to specify or configure timezone preferences
 
-## Solution: Hybrid Timezone Approach
+### Solution: Hybrid Timezone Approach
 
 Implemented a three-tier timezone resolution system:
 
@@ -23,14 +35,14 @@ Implemented a three-tier timezone resolution system:
 2. **Configuration File**: Set default timezone in `config/user-preferences.json`
 3. **System Fallback**: Use system timezone if no preference is configured
 
-### Priority Order
+#### Priority Order
 ```
 Tool Parameter > Config File > Environment Variable > System Timezone
 ```
 
-## Changes Made
+### Changes Made
 
-### 1. New Timezone Utilities (`src/utils/time.ts`)
+#### 1. New Timezone Utilities (`src/utils/time.ts`)
 
 Added comprehensive timezone handling functions:
 
@@ -46,7 +58,7 @@ Added comprehensive timezone handling functions:
 - Abbreviations: `IST`, `EST`, `PST`, `GMT`
 - UTC offsets: `UTC+1`, `UTC-5`, `+1`, `-5`
 
-### 2. User Preferences Configuration
+#### 2. User Preferences Configuration
 
 **New Files**:
 - `config/user-preferences.json` - User preferences including timezone
@@ -68,7 +80,7 @@ Added comprehensive timezone handling functions:
 - Graceful fallback to system timezone on errors
 - Cached preferences for performance
 
-### 3. Updated Tool Schemas
+#### 3. Updated Tool Schemas
 
 **Modified**: `src/tools/schemas.ts`
 - Added optional `timezone` parameter to `GetDailySummarySchema`
@@ -77,7 +89,7 @@ Added comprehensive timezone handling functions:
 - Added `timezone?: string` to `DailySummaryParams`
 - Added `timezone: string` to `DailySummary` interface
 
-### 4. Daily Summary Service Updates
+#### 4. Daily Summary Service Updates
 
 **Modified**: `src/services/daily-summary.ts`
 
@@ -98,14 +110,14 @@ startOfDay = new Date('2025-10-10T23:00:00Z')  // 00:00 IST
 endOfDay = new Date('2025-10-11T22:59:59Z')    // 23:59 IST
 ```
 
-### 5. Formatter Updates
+#### 5. Formatter Updates
 
 **Modified**: `src/utils/formatters.ts`
 
 - Display timezone in daily summary header: `Daily Summary for 2025-10-11 (Europe/Dublin)`
 - Show timezone in hourly breakdown: `Hourly Breakdown (Europe/Dublin):`
 
-### 6. Tool Description Updates
+#### 6. Tool Description Updates
 
 **Modified**: `src/index.ts`
 
@@ -113,16 +125,16 @@ endOfDay = new Date('2025-10-11T22:59:59Z')    // 23:59 IST
 - Updated capabilities to mention timezone support
 - Added timezone to return value documentation
 
-### 7. Documentation
+#### 7. Documentation
 
 **Updated**: `config/README.md`
 - Comprehensive timezone configuration guide
 - Examples for different regions
 - Explanation of how timezone affects daily summaries
 
-**New**: `docs/updates/timezone-support.md` (this file)
+**New**: `docs/updates/2025-10-11-1118-timezone-support.md`
 
-### 8. Tests
+#### 8. Tests
 
 **New**: `tests/unit/utils/timezone.test.ts`
 
@@ -135,7 +147,7 @@ Comprehensive test coverage:
 
 **Results**: ✅ All 19 timezone tests passing
 
-### 9. Capabilities Tool Enhancement
+#### 9. Capabilities Tool Enhancement
 
 **Modified**: `src/services/capabilities.ts`, `src/types.ts`
 
@@ -164,9 +176,9 @@ Added user preferences to capabilities response:
 }
 ```
 
-## Usage Examples
+### Usage Examples
 
-### Using Default Timezone (from config)
+#### Using Default Timezone (from config)
 
 ```typescript
 // config/user-preferences.json has "timezone": "Europe/Dublin"
@@ -174,7 +186,7 @@ aw_get_daily_summary({ date: "2025-10-11" })
 // Uses Europe/Dublin timezone
 ```
 
-### Override with Parameter
+#### Override with Parameter
 
 ```typescript
 aw_get_daily_summary({ 
@@ -184,7 +196,7 @@ aw_get_daily_summary({
 // Uses New York timezone regardless of config
 ```
 
-### Different Timezone Formats
+#### Different Timezone Formats
 
 ```typescript
 // IANA name
@@ -198,28 +210,13 @@ timezone: "UTC+1"
 timezone: "+1"
 ```
 
-## Impact on Existing Functionality
-
-### Breaking Changes
-- ❌ None - timezone parameter is optional
-
-### Behavioral Changes
-- ✅ Daily summaries now respect user's local timezone by default
-- ✅ Hourly breakdown shows local hours, not UTC hours
-- ✅ "Today" means today in user's timezone, not UTC today
-
-### Backward Compatibility
-- ✅ Fully backward compatible
-- ✅ Defaults to UTC if no timezone configured (same as before)
-- ✅ Existing queries work without modification
-
-## Performance Considerations
+### Performance Considerations
 
 - Timezone offset calculation cached in user preferences
 - IANA timezone name resolution uses native JavaScript (no external library)
 - Minimal overhead: ~1-2ms per daily summary request
 
-## Future Enhancements
+### Future Enhancements
 
 Potential improvements for future versions:
 
@@ -229,27 +226,15 @@ Potential improvements for future versions:
 4. **Weekly summaries**: Apply timezone logic to weekly/monthly reports
 5. **Timezone detection**: Auto-detect timezone from browser/system
 
-## Testing Checklist
+### Files Changed
 
-- [x] Unit tests for timezone utilities
-- [x] Timezone parsing (all formats)
-- [x] Date conversion (UTC ↔ Local)
-- [x] Start/end of day calculations
-- [x] Boundary scenarios
-- [x] Build succeeds
-- [x] Integration test with real ActivityWatch data
-- [x] Manual testing with different timezones
-- [x] User preferences returned in capabilities tool
-
-## Files Changed
-
-### New Files
+#### New Files
 - `config/user-preferences.json`
 - `src/config/user-preferences.ts`
 - `tests/unit/utils/timezone.test.ts`
 - `docs/updates/timezone-support.md`
 
-### Modified Files
+#### Modified Files
 - `src/utils/time.ts` - Added timezone utilities
 - `src/tools/schemas.ts` - Added timezone parameter
 - `src/types.ts` - Updated interfaces
@@ -258,9 +243,9 @@ Potential improvements for future versions:
 - `src/index.ts` - Updated tool descriptions
 - `config/README.md` - Added timezone documentation
 
-## Migration Guide
+### Migration Guide
 
-### For Users
+#### For Users
 
 1. **Set your timezone** in `config/user-preferences.json`:
    ```json
@@ -276,13 +261,31 @@ Potential improvements for future versions:
    Daily Summary for 2025-10-11 (Europe/Dublin)
    ```
 
-### For Developers
+#### For Developers
 
 No code changes required. Timezone support is opt-in via configuration.
 
-## Conclusion
+### Conclusion
 
 Timezone support is now fully implemented and tested. Users in Ireland (and other non-UTC timezones) will see activity data aligned with their local day boundaries, making daily summaries much more intuitive and accurate.
 
 The hybrid approach provides flexibility while maintaining backward compatibility and ease of use.
 
+## Impact
+- Daily summaries, hourly breakdowns, and "today" calculations now respect the user's configured timezone by default.
+- Capabilities responses reveal timezone preferences so agents can adapt output formatting.
+- Fully backward compatible: when no timezone is set, behaviour remains UTC-based.
+
+## Validation
+- `npm run test:unit -- --run tests/unit/utils/timezone.test.ts`
+- Manual ActivityWatch queries in multiple timezones to confirm date boundaries shift correctly.
+- Verified capabilities payload includes `user_preferences` with timezone data.
+
+## Follow-ups / TODOs
+- None.
+
+## Links
+- src/utils/time.ts
+- src/services/daily-summary.ts
+- src/config/user-preferences.ts
+- docs/reference/tools.md#aw_get_period_summary

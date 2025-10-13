@@ -1,9 +1,9 @@
 # Title: Docker support for MCP server
 
-Date: 2025-10-12
-Author: Codex (AI Agent)
-Related: 
-Tags: containerization, deployment
+Date: 2025-10-12-1252
+Author: AI Agent
+Related:
+Tags: docs, infrastructure
 
 ## Summary
 - Added multi-stage Docker image with entrypoint covering HTTP and stdio transports
@@ -11,6 +11,8 @@ Tags: containerization, deployment
 - Documented build/run steps plus environment configuration for container usage
 
 ## Changes
+
+
 - New `docker/` build context with `Dockerfile`, entrypoint script, and ignore rules
 - Root-level `docker-compose.yml` orchestrating HTTP and optional stdio profiles
 - `scripts/docker-publish.sh` helper for GHCR pushes and `.env.example` defaults (supports `--build-only`, `--push-only`, and auto-applies the OCI source label for package linking)

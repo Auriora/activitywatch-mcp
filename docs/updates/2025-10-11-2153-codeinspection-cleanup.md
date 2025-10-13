@@ -1,9 +1,9 @@
 # Title: Code Inspection Cleanup and Test Coverage
 
-Date: 2025-10-11
-Author: Codex (GPT-5)
-Related: -
-Tags: maintenance, inspections, tests
+Date: 2025-10-11-2153
+Author: AI Agent
+Related:
+Tags: general
 
 ## Summary
 - Removed duplicated stdio server logic by delegating to the shared factory and tightened config/schema parity.
@@ -11,6 +11,8 @@ Tags: maintenance, inspections, tests
 - Documented applied rules: `.augment/rules/preferences.md`, `.augment/rules/documentation.md`.
 
 ## Changes
+
+
 - Refactored `src/index.ts` to bootstrap via `createMCPServer`, eliminating duplicated tool metadata.
 - Brought `src/http-server.ts` in line with the stdio entrypoint by delegating diagnostics to the transport layer while reusing the shared server factory. Sessions now reuse a single MCP server instance via `getSharedServer()` to avoid repeated bootstrap work.
 - Added resource-usage telemetry (memory/CPU/handle snapshots) and an `/admin/reload-server` hook that drains sessions, resets the pooled MCP server, and optionally retargets `AW_URL`.
@@ -33,4 +35,8 @@ Tags: maintenance, inspections, tests
 - Extend QueryService coverage to AFK-filtered scenarios and add transport-specific integration smoke tests.
 
 ## Links
-- -
+- src/index.ts
+- src/http-server.ts
+- src/services/query.ts
+- tests/unit/config/user-preferences.test.ts
+- docs/WINDOW_TITLE_PARSING.md

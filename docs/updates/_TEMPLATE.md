@@ -1,6 +1,6 @@
 # Title: <Concise name of the change>
 
-Date: YYYY-MM-DD
+Date: YYYY-MM-DD-HHMM
 Author: <Name or AI Agent>
 Related: PR #, Issue #
 Tags: <comma-separated tags>

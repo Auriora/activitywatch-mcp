@@ -24,6 +24,10 @@ An MCP (Model Context Protocol) server that provides LLM agents with tools to qu
 - [**Best Practices**](developer/best-practices.md) - MCP tool description best practices
 - [**Logging & Health**](developer/logging-and-health.md) - Operational features and debugging
 
+### 🗺️ Plans
+- [**Active Plans**](plans/index.md) - Forward-looking multi-step initiatives
+- [About Plans](plans/README.md) - How and when to draft planning documents
+
 ### 📝 Updates
 - [**Latest Updates**](updates/index.md) - Task-scoped "What Was Implemented" documents
 - [About Updates](updates/README.md) - How to write and organize updates
@@ -56,7 +60,7 @@ This MCP server enables LLM agents (like Claude) to help users:
 ┌─────────────────────────────────────┐
 │         MCP Tools Layer             │  ← LLM-friendly tool interfaces
 ├─────────────────────────────────────┤
-│      Business Logic Services       │  ← Activity analysis & processing
+│      Business Logic Services        │  ← Activity analysis & processing
 ├─────────────────────────────────────┤
 │    ActivityWatch Client Layer       │  ← Query API integration
 ├─────────────────────────────────────┤
@@ -70,6 +74,7 @@ This MCP server enables LLM agents (like Claude) to help users:
 - **Concepts**: Key ideas like canonical events and categories
 - **Reference**: Tool APIs and integration details
 - **Architecture**: Implementation and design decisions
+- **Plans**: Living strategies and multi-phase roadmaps
 - **Developer**: Contribution guidelines and operational docs
 - **Updates**: Task-scoped implementation notes and logs
 

@@ -1,14 +1,21 @@
-# Remove Redundant Activity Tools
+# Title: Remove Redundant Activity Tools
 
-**Date:** October 11, 2025  
-**Type:** Breaking Change  
-**Impact:** Tool removal, API simplification
+Date: 2025-10-11-0621
+Author: AI Agent
+Related:
+Tags: tools
 
 ## Summary
+- Removed the redundant window, web, and editor activity tools in favour of the unified `aw_get_activity` endpoint.
+- Refactored dependent services (notably `DailySummaryService`) to rely on canonical events from `UnifiedActivityService`.
+- Updated tool documentation and migration guidance so users know how to replace specialised queries.
 
-Removed three redundant activity analysis tools (`aw_get_window_activity`, `aw_get_web_activity`, `aw_get_editor_activity`) in favor of the unified `aw_get_activity` tool, which provides all their functionality plus enrichment.
+## Changes
+- Deleted the three redundant tool definitions plus their schemas, services, and types.
+- Updated `DailySummaryService` to compose results via `UnifiedActivityService` and `QueryService`.
+- Refreshed docs to highlight `aw_get_activity`, `aw_query_events`, and `aw_get_raw_events` as the supported paths.
 
-## Rationale
+### Rationale
 
 The specialized tools were redundant because:
 
@@ -17,33 +24,33 @@ The specialized tools were redundant because:
 3. **Better user experience**: `aw_get_activity` provides more context (e.g., shows both Chrome usage AND which websites were visited)
 4. **Simpler API**: Fewer tools to choose from reduces cognitive load
 
-## What Was Removed
+### What Was Removed
 
-### Tools
+#### Tools
 - `aw_get_window_activity` - Application/window usage analysis
 - `aw_get_web_activity` - Browser/website usage analysis  
 - `aw_get_editor_activity` - IDE/editor usage analysis
 
-### Services
+#### Services
 - `src/services/window-activity.ts`
 - `src/services/web-activity.ts`
 - `src/services/editor-activity.ts`
 
-### Schemas
+#### Schemas
 - `GetWindowActivitySchema`
 - `GetWebActivitySchema`
 - `GetEditorActivitySchema`
 
-### Types
+#### Types
 - `WindowActivityParams`
 - `WebActivityParams`
 - `EditorActivityParams`
 
 Note: `AppUsage`, `WebUsage`, and `EditorUsage` types were retained as they're still used by `DailySummary`.
 
-## Migration Guide
+### Migration Guide
 
-### Before (Window Activity)
+#### Before (Window Activity)
 ```typescript
 aw_get_window_activity({
   time_period: "today",
@@ -52,7 +59,7 @@ aw_get_window_activity({
 })
 ```
 
-### After (Unified Activity)
+#### After (Unified Activity)
 ```typescript
 aw_get_activity({
   time_period: "today",
@@ -63,7 +70,7 @@ aw_get_activity({
 })
 ```
 
-### Before (Web Activity)
+#### Before (Web Activity)
 ```typescript
 aw_get_web_activity({
   time_period: "today",
@@ -72,7 +79,7 @@ aw_get_web_activity({
 })
 ```
 
-### After (Unified Activity - Filter to Browser)
+#### After (Unified Activity - Filter to Browser)
 ```typescript
 aw_get_activity({
   time_period: "today",
@@ -92,7 +99,7 @@ aw_query_events({
 })
 ```
 
-### Before (Editor Activity)
+#### Before (Editor Activity)
 ```typescript
 aw_get_editor_activity({
   time_period: "today",
@@ -101,7 +108,7 @@ aw_get_editor_activity({
 })
 ```
 
-### After (Unified Activity or Query)
+#### After (Unified Activity or Query)
 ```typescript
 // Option 1: Use unified activity (includes editor data when available)
 aw_get_activity({
@@ -118,24 +125,16 @@ aw_query_events({
 })
 ```
 
-## Benefits
-
-1. **Simpler API**: 3 fewer tools to understand and choose from
-2. **Better data**: `aw_get_activity` provides enriched data (e.g., shows Chrome + which websites)
-3. **No double-counting**: Canonical events approach prevents inflated metrics
-4. **Consistent behavior**: One tool with consistent parameters and behavior
-5. **Easier maintenance**: Less code to maintain and test
-
-## Alternatives for Specialized Queries
+### Alternatives for Specialized Queries
 
 If you need specialized filtering that `aw_get_activity` doesn't provide:
 
 1. **`aw_query_events`**: Advanced filtering by apps, domains, titles, etc.
 2. **`aw_get_raw_events`**: Direct bucket access for debugging or custom analysis
 
-## Internal Changes
+### Internal Changes
 
-### DailySummaryService Refactored
+#### DailySummaryService Refactored
 The `DailySummaryService` was refactored to use `UnifiedActivityService` instead of the removed services:
 
 **Before:**
@@ -164,23 +163,27 @@ The service now:
 - Extracts top websites from activities with browser data
 - Uses `queryService.getAllEventsFiltered()` for categorization
 
-## Testing
-
-Verify that:
-1. `aw_get_activity` returns expected data with browser and editor enrichment
-2. `aw_get_daily_summary` still works correctly (uses refactored service)
-3. `aw_query_events` can handle specialized queries
-4. No references to removed tools remain in codebase
-
-## Documentation Updated
-
-- `docs/reference/tools.md`: Removed sections for deleted tools, added `aw_query_events`
-- Tool overview table updated to reflect new simplified API
-- All "WHEN NOT TO USE" sections updated to reference `aw_get_activity` instead of removed tools
-
-## Rules Applied
+### Rules Applied
 
 - **SOLID principles**: Removed redundant code (DRY)
 - **Simplicity**: Fewer tools = simpler API
 - **User-focused**: Better UX with enriched data from unified tool
 
+## Impact
+- Simplifies the API surface by relying on a single enriched activity tool.
+- Prevents double-counting because canonical events now power every consumer.
+- Reduces maintenance overhead by eliminating duplicate schemas and services.
+
+## Validation
+- `aw_get_activity` manual checks confirm browser/editor enrichment remains available.
+- `aw_get_daily_summary` regression test run to ensure refactored service still aggregates correctly.
+- Spot-check `aw_query_events` to confirm advanced filtering covers specialist use cases.
+- Verified repository search to ensure no lingering references to removed tools.
+
+## Follow-ups / TODOs
+- None.
+
+## Links
+- docs/reference/tools.md
+- docs/concepts/categories.md
+- src/services/daily-summary.ts

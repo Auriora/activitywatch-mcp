@@ -1,9 +1,9 @@
 # Title: Calendar data surfaced via aw_get_calendar_events
 
-Date: 2025-10-12
-Author: Codex (GPT-5)
-Related: —
-Tags: calendar, tools, capabilities
+Date: 2025-10-12-1232
+Author: AI Agent
+Related:
+Tags: tools
 
 ## Summary
 - Added calendar awareness so aw-import-ical buckets are detected and surfaced through a dedicated MCP tool.
@@ -11,6 +11,8 @@ Tags: calendar, tools, capabilities
 - Introduced CalendarService, formatter updates, and tests to protect normalization logic. Rules consulted: preferences.md (priority 50), planning.md (priority 30).
 
 ## Changes
+
+
 - Added `has_calendar_events` capability detection, new calendar bucket lookup, and tool suggestion wiring.
 - Implemented `CalendarService`, extended the MCP server with `aw_get_calendar_events`, and enriched period summaries with notable meetings.
 - Documented the tool in README and docs/reference/tools.md, plus added a docs/updates index entry.
@@ -29,4 +31,7 @@ Tags: calendar, tools, capabilities
 - Expand formatter examples once real data samples are available.
 
 ## Links
-- —
+- src/services/calendar.ts
+- src/tools/definitions.ts
+- docs/reference/tools.md
+- docs/updates/index.md

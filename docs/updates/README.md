@@ -15,10 +15,10 @@ These updates complement (and do not replace) the project CHANGELOG. The CHANGEL
 
 ## File naming convention
 
-- Format: `YYYY-MM-DD-descriptive-slug.md`
+- Format: `YYYY-MM-DD-HHMM-descriptive-slug.md`
 - Examples:
-  - `2025-10-11-docs-restructure-phase-1.md`
-  - `2025-10-12-canonical-events-consolidation.md`
+  - `2025-10-11-0525-docs-restructure-phase-1.md`
+  - `2025-10-12-2153-canonical-events-consolidation.md`
 
 ## Front matter (optional)
 
@@ -59,6 +59,7 @@ See the `_TEMPLATE.md` for a copy-paste skeleton.
 
 ## Relationship to other docs
 
+- docs/plans — Use when outlining forward-looking, multi-step initiatives.
 - CHANGELOG.md — Keep release-level highlights here. Link from updates into the changelog entry (and vice versa when appropriate).
 - docs/archive — Historic status/update docs from prior phases. New work should use docs/updates.
 - docs/reference/tools.md — Update tool specs here; do not embed API reference in updates.

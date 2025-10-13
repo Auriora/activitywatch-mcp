@@ -1,16 +1,23 @@
-# New Grouping Options for Activity Analysis
+# Title: New Grouping Options for Activity Analysis
 
-**Date**: 2025-10-11  
-**Type**: Feature Addition  
-**Impact**: Enhanced activity analysis capabilities
+Date: 2025-10-11-0728
+Author: AI Agent
+Related:
+Tags: tools
 
 ## Summary
+- Added `domain`, `project`, `hour`, and `category_top_level` grouping modes to `aw_get_activity`.
+- Extended formatter logic so titles reflect the chosen grouping (domain names, project slugs, hour ranges, top-level category).
+- Documented use cases and validation for each grouping dimension.
 
-Added four new `group_by` options to the `aw_get_activity` tool, enabling users to analyze their activity data from multiple perspectives: by website domain, project/repository, hour of day, and top-level category.
+## Changes
+- Expanded `UnifiedActivityParams['group_by']` to include the four new values and adjusted `groupEvents`.
+- Added grouping helpers for domain, project, hour-of-day, and top-level category while preserving existing behaviour.
+- Updated tool schema/description plus docs with examples for the new options.
 
-## New Grouping Options
+### New Grouping Options
 
-### 1. `group_by='domain'` - Group by Website Domain 🌐
+#### 1. `group_by='domain'` - Group by Website Domain 🌐
 
 **Use Case**: Understand which websites consume the most time
 
@@ -41,7 +48,7 @@ Added four new `group_by` options to the `aw_get_activity` tool, enabling users 
 
 ---
 
-### 2. `group_by='project'` - Group by Project/Repository 📁
+#### 2. `group_by='project'` - Group by Project/Repository 📁
 
 **Use Case**: Track time across different projects
 
@@ -72,7 +79,7 @@ Added four new `group_by` options to the `aw_get_activity` tool, enabling users 
 
 ---
 
-### 3. `group_by='hour'` - Group by Hour of Day ⏰
+#### 3. `group_by='hour'` - Group by Hour of Day ⏰
 
 **Use Case**: Understand productivity patterns by time
 
@@ -104,7 +111,7 @@ Added four new `group_by` options to the `aw_get_activity` tool, enabling users 
 
 ---
 
-### 4. `group_by='category_top_level'` - Group by Top-Level Category 📊
+#### 4. `group_by='category_top_level'` - Group by Top-Level Category 📊
 
 **Use Case**: Simplified high-level productivity overview
 
@@ -133,9 +140,9 @@ Added four new `group_by` options to the `aw_get_activity` tool, enabling users 
 
 ---
 
-## Implementation Details
+### Implementation Details
 
-### Files Modified
+#### Files Modified
 
 1. **src/types.ts**:
    - Updated `UnifiedActivityParams` interface to include new grouping options
@@ -151,7 +158,7 @@ Added four new `group_by` options to the `aw_get_activity` tool, enabling users 
    - Updated tool schema enum (line 228)
    - Updated tool description with new grouping options (line 230)
 
-### Grouping Logic
+#### Grouping Logic
 
 #### Domain Grouping
 ```typescript
@@ -194,9 +201,9 @@ for (const topLevel of topLevelCategories) {
 }
 ```
 
-## Usage Examples
+### Usage Examples
 
-### Example 1: Website Time Analysis
+#### Example 1: Website Time Analysis
 ```typescript
 aw_get_activity({
   time_period: 'today',
@@ -207,7 +214,7 @@ aw_get_activity({
 
 **Result**: Top 10 websites by time spent, with "Non-browser" showing all coding/terminal time.
 
-### Example 2: Multi-Project Time Tracking
+#### Example 2: Multi-Project Time Tracking
 ```typescript
 aw_get_activity({
   time_period: 'last_7_days',
@@ -218,7 +225,7 @@ aw_get_activity({
 
 **Result**: Time spent on each project over the last week.
 
-### Example 3: Productivity Pattern Analysis
+#### Example 3: Productivity Pattern Analysis
 ```typescript
 aw_get_activity({
   time_period: 'today',
@@ -229,7 +236,7 @@ aw_get_activity({
 
 **Result**: Hour-by-hour breakdown showing when you're most productive.
 
-### Example 4: Work-Life Balance Check
+#### Example 4: Work-Life Balance Check
 ```typescript
 aw_get_activity({
   time_period: 'last_30_days',
@@ -240,39 +247,7 @@ aw_get_activity({
 
 **Result**: High-level view of time distribution across Work, Entertainment, System, etc.
 
-## Testing Results
-
-All four grouping options tested successfully on 2025-10-11:
-
-### Domain Grouping ✅
-- Correctly grouped 9 domains
-- "Non-browser" group contained 87.9% of time (coding activities)
-- Domain names displayed in `title` field
-
-### Project Grouping ✅
-- Correctly separated "activitywatcher-mcp" (64.1%) from "No project" (34.2%)
-- Project names displayed in `title` field
-- Editor enrichment preserved
-
-### Hour Grouping ✅
-- Correctly grouped into 4 hour ranges (03:00-07:00 UTC)
-- Hour ranges displayed in `title` field
-- Revealed productivity pattern (peak at 04:00-05:00)
-
-### Top-Level Category Grouping ✅
-- Correctly extracted top-level categories (Work, System, Comms, Uncategorized)
-- Category names displayed in `title` field
-- Events appeared in multiple categories when appropriate
-
-## Benefits
-
-1. **Flexibility**: Users can now analyze activity from 7 different perspectives
-2. **Insights**: Each grouping reveals different patterns and insights
-3. **Productivity**: Helps identify peak hours, time sinks, and project balance
-4. **Simplicity**: Top-level category grouping provides quick overview
-5. **Compatibility**: All existing grouping options still work as before
-
-## Future Enhancements
+### Future Enhancements
 
 Potential additional grouping options:
 - `language` - Group by programming language
@@ -281,16 +256,43 @@ Potential additional grouping options:
 - `day_of_week` - Group by day (for multi-day queries)
 - Composite grouping (e.g., `['category', 'project']` for drill-down)
 
-## Related Documentation
+## Impact
+- Expands analysis options to seven total grouping modes without breaking existing queries.
+- Reveals additional insights including browser domain usage, project balance, circadian trends, and high-level categories.
+- Maintains backwards compatibility so previous clients continue to work.
 
-- `docs/concepts/canonical-events.md` - Canonical events approach
-- `docs/concepts/categories.md` - Category system
-- `src/types.ts` - Type definitions
-- `src/services/unified-activity.ts` - Implementation
+## Validation
+- Exercised each grouping type on representative data from 2025-10-11 to verify formatting and totals.
+- Confirmed non-enriched events fall into the expected fallback buckets (e.g., "Non-browser", "No project").
+- Validated the CLI output renders new titles cleanly and percentages sum to 100%.
 
----
+Detailed results:
 
-**Status**: ✅ Implemented and tested successfully  
-**Version**: 1.0.0  
-**Breaking Changes**: None (backward compatible)
+#### Domain Grouping ✅
+- Correctly grouped 9 domains
+- "Non-browser" group contained 87.9% of time (coding activities)
+- Domain names displayed in `title` field
 
+#### Project Grouping ✅
+- Correctly separated "activitywatcher-mcp" (64.1%) from "No project" (34.2%)
+- Project names displayed in `title` field
+- Editor enrichment preserved
+
+#### Hour Grouping ✅
+- Correctly grouped into 4 hour ranges (03:00-07:00 UTC)
+- Hour ranges displayed in `title` field
+- Revealed productivity pattern (peak at 04:00-05:00)
+
+#### Top-Level Category Grouping ✅
+- Correctly extracted top-level categories (Work, System, Comms, Uncategorized)
+- Category names displayed in `title` field
+- Events appeared in multiple categories when appropriate
+
+## Follow-ups / TODOs
+- None.
+
+## Links
+- docs/concepts/canonical-events.md
+- docs/concepts/categories.md
+- src/types.ts
+- src/services/unified-activity.ts

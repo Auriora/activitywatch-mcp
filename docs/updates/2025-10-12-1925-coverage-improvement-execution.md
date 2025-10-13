@@ -1,9 +1,9 @@
 # Title: Coverage Improvement Execution
 
-Date: 2025-10-12
-Author: Codex (AI)
-Related: Issue #, PR #
-Tags: testing, coverage
+Date: 2025-10-12-1925
+Author: AI Agent
+Related:
+Tags: testing
 
 ## Summary
 - Added extensive unit and integration tests across clients, services, and HTTP transport to raise coverage above agreed thresholds.
@@ -11,6 +11,8 @@ Tags: testing, coverage
 - Enforced Vitest global/per-file coverage thresholds (`lines`/`statements`: ≥80% global, ≥75% per file) and reached 86.8% overall line coverage.
 
 ## Changes
+
+
 - Expanded test suites for utilities (`configurable-title-parser`, `formatters`), configuration loaders (`app-names`, `user-preferences`), ActivityWatch client, Capabilities/QueryBuilder services, and calendar service edge cases.
 - Added new HTTP server integration tests covering streamable HTTP lifecycle, SSE messaging, invalid session handling, and resource logging timer behaviour.
 - Introduced `src/http-server-cli.ts` for CLI bootstrap logic and updated `vitest.config.ts` coverage exclusions plus thresholds (`global` 80%, `each` 75%).

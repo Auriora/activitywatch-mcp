@@ -135,6 +135,10 @@ docker run --rm -it activitywatcher-mcp stdio
 
 See [docs/developer/docker.md](docs/developer/docker.md) for environment variables, profiles, and troubleshooting tips.
 
+## License
+
+This project is licensed under the terms of the [GNU General Public License v3.0](LICENSE).
+
 ### Development Mode (HTTP Server)
 
 For faster development without restarting your IDE:
@@ -203,195 +207,6 @@ You can customize the server behavior with environment variables:
 **Environment Variables**:
 - `AW_URL`: ActivityWatch server URL (default: `http://localhost:5600`)
 - `LOG_LEVEL`: Logging verbosity - `DEBUG`, `INFO`, `WARN`, or `ERROR` (default: `INFO`)
-
-## Available Tools
-
-The server provides 13 MCP tools for comprehensive activity analysis:
-
-### 1. `aw_get_capabilities`
-
-Discover what ActivityWatch data is available.
-
-**Use this first** to understand what data sources exist and what analyses are possible.
-
-**Returns:**
-- Available buckets with descriptions
-- Capabilities (window tracking, browser tracking, AFK detection)
-- Suggested tools based on available data
-
-**Example:**
-```
-User: "What ActivityWatch data do I have?"
-LLM calls: aw_get_capabilities()
-```
-
----
-
-### 2. `aw_get_activity`
-
-Recommended unified analysis combining window, browser, and editor data with AFK filtering and canonical events. Prevents double-counting and enriches app usage with browsing/editor details when available. Categories are always included when configured.
-
-Calendar meetings are overlaid on top of focus time: overlapping meetings annotate the relevant activity, while calendar-only segments are surfaced as dedicated `Calendar` events. Totals break down focus versus meeting hours, ensuring scheduled time still appears even when the user was marked AFK.
-
-**Parameters (common):**
-- `time_period`, `custom_start`, `custom_end`, `top_n`, `group_by` (application/title/category)
-- `exclude_system_apps`, `min_duration_seconds`, `response_format` (concise/detailed)
-- Browser/editor details shown in detailed format only
-
-**Example:**
-```
-User: "What did I work on today?"
-LLM calls: aw_get_activity({ time_period: "today" })
-
-User: "Show me detailed activity grouped by category"
-LLM calls: aw_get_activity({ time_period: "today", group_by: "category", response_format: "detailed" })
-```
-
----
-
-### 3. `aw_get_calendar_events`
-
-Surface calendar events imported by ActivityWatch (`aw-import-ical_*` buckets). Calendar events always take precedence over AFK detection, so scheduled meetings are returned even when ActivityWatch marked you as away. Results can be shown as a concise list, detailed report, or raw JSON.
-
-**Parameters:**
-- `time_period`: "today" (default) | "yesterday" | "this_week" | "last_week" | "last_7_days" | "last_30_days" | "custom"
-- `custom_start` / `custom_end`: ISO 8601 or YYYY-MM-DD (required when `time_period="custom"`)
-- `include_all_day`: Include all-day blocks (default: true)
-- `include_cancelled`: Include events whose status is cancelled (default: false)
-- `summary_query`: Case-insensitive filter applied to summary, location, description, or calendar name
-- `limit`: Maximum number of events across all calendar buckets (default: 50, max: 200)
-- `response_format`: "concise" | "detailed" | "raw"
-
-**Example:**
-```
-User: "What meetings do I have tomorrow?"
-LLM calls: aw_get_calendar_events({
-  time_period: "custom",
-  custom_start: "2025-02-10T00:00:00Z",
-  custom_end: "2025-02-11T00:00:00Z"
-})
-
-User: "List detailed meetings for this week without all-day entries"
-LLM calls: aw_get_calendar_events({
-  time_period: "this_week",
-  include_all_day: false,
-  response_format: "detailed"
-})
-```
-
----
-
-### 4. `aw_get_window_activity`
-
-Get application/window activity for a time period.
-
-**Parameters:**
-- `time_period`: "today" | "yesterday" | "this_week" | "last_week" | "last_7_days" | "last_30_days" | "custom"
-- `custom_start`: ISO 8601 or YYYY-MM-DD (required if time_period="custom")
-- `custom_end`: ISO 8601 or YYYY-MM-DD (required if time_period="custom")
-- `top_n`: Number of top apps to return (default: 10)
-- `group_by`: "application" | "title" | "both" (default: "application")
-- `response_format`: "concise" | "detailed" (default: "concise")
-- `exclude_system_apps`: boolean (default: true)
-- `min_duration_seconds`: Filter short events (default: 5)
-- `include_categories`: boolean (default: false)
-
-**Example:**
-```
-User: "How much time did I spend on VS Code this week?"
-LLM calls: aw_get_window_activity({ time_period: "this_week" })
-```
-
----
-
-### 5. `aw_get_web_activity`
-
-Get browser/website activity for a time period.
-
-**Parameters:**
-- `time_period`: "today" | "yesterday" | "this_week" | "last_week" | "last_7_days" | "last_30_days" | "custom"
-- `custom_start`: ISO 8601 or YYYY-MM-DD (required if time_period="custom")
-- `custom_end`: ISO 8601 or YYYY-MM-DD (required if time_period="custom")
-- `top_n`: Number of top websites to return (default: 10)
-- `group_by`: "domain" | "url" | "title" (default: "domain")
-- `response_format`: "concise" | "detailed" (default: "concise")
-- `exclude_domains`: Array of domains to exclude (default: ["localhost", "127.0.0.1"])
-- `min_duration_seconds`: Filter short visits (default: 5)
-- `include_categories`: boolean (default: false)
-
-**Example:**
-```
-User: "What were my top 5 websites yesterday?"
-LLM calls: aw_get_web_activity({ time_period: "yesterday", top_n: 5 })
-```
-
----
-
-### 6. `aw_get_editor_activity`
-
-Analyze IDE/editor activity over a time period.
-
-**Parameters:**
-- `time_period`, `custom_start`, `custom_end`, `top_n`
-- `group_by`: "project" | "file" | "language" | "editor"
-- `include_git_info`, `include_categories`, `min_duration_seconds`, `response_format`
-
-**Example:**
-```
-User: "What did I code today?"
-LLM calls: aw_get_editor_activity({ time_period: "today", group_by: "project" })
-```
-
----
-
-### 7. `aw_get_period_summary`
-
-Get a comprehensive summary of activity for various time periods with flexible detail levels. Summaries now report **Focus Time** separately from **Meeting Time**, so calendar-only commitments are visible even when no app activity was recorded.
-
-**Parameters:**
-- `period_type`: "daily" | "weekly" | "monthly" | "last_24_hours" | "last_7_days" | "last_30_days" (required)
-- `date`: YYYY-MM-DD format (optional, for daily/weekly/monthly periods)
-- `detail_level`: "hourly" | "daily" | "weekly" | "none" (optional, auto-selected based on period)
-- `timezone`: Timezone for period boundaries (optional)
-
-**Period Types:**
-- `daily`: Single day (00:00-23:59)
-- `weekly`: Week from Monday to Sunday
-- `monthly`: Calendar month
-- `last_24_hours`: Rolling 24 hours from now
-- `last_7_days`: Rolling 7 days from now
-- `last_30_days`: Rolling 30 days from now
-
-**Detail Levels:**
-- `hourly`: Hour-by-hour breakdown (best for daily/24hr periods)
-- `daily`: Day-by-day breakdown (best for weekly/7-day/30-day periods)
-- `weekly`: Week-by-week breakdown (best for monthly periods)
-- `none`: No breakdown, just totals
-
-**Returns:**
-- Total active time (focus + calendar-only) and AFK time for the period
-- Focus and meeting hour breakdown
-- Top 5 applications and websites
-- Period-appropriate breakdown (hourly/daily/weekly)
-- Auto-generated insights including averages
-
-**Examples:**
-```
-User: "What did I do this week?"
-LLM calls: aw_get_period_summary({ period_type: "weekly" })
-
-User: "Show me my last 30 days with daily breakdown"
-LLM calls: aw_get_period_summary({ period_type: "last_30_days", detail_level: "daily" })
-
-User: "Summarize January 2025"
-LLM calls: aw_get_period_summary({ period_type: "monthly", date: "2025-01-15" })
-```
-
----
-
-### 8. `aw_query_events`
-
-Build and execute custom queries with flexible filtering.
 
 **Use this when:**
 - You need to filter events by specific apps, domains, or titles
@@ -616,16 +431,17 @@ Check the logs after starting to see the health check results.
 
 ## Documentation
 
-- Documentation landing page: docs/index.md
-- Quickstart: docs/getting-started/quickstart.md
-- Implementation details: docs/architecture/implementation.md
-- Developer best practices: docs/developer/best-practices.md
-- Tools reference (API): docs/reference/tools.md
-
-## License
-
-MIT
+- Docs hub: [docs/index.md](docs/index.md) for full navigation.
+- Plans: [docs/plans/](docs/plans/) for forward-looking initiatives.
+- Updates: [docs/updates/](docs/updates/) for completed implementation logs.
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Code of Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security policy: [SECURITY.md](SECURITY.md)
 
 ## Contributing
 
-Contributions welcome! Please open an issue or PR.
+Contributions are welcome! Start with [CONTRIBUTING.md](CONTRIBUTING.md), and review [DEVELOPMENT-SETUP.md](DEVELOPMENT-SETUP.md) alongside the testing guide in [tests/README.md](tests/README.md) before submitting a PR.
+
+## License
+
+Distributed under the [GNU General Public License v3.0](LICENSE).
