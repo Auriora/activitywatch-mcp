@@ -64,7 +64,7 @@ All notable changes to the ActivityWatch MCP Server project.
   - Eliminated `DailySummaryService` and related schemas/types
   - Consolidated formatting via period summary output helpers
 
-## [1.1.0] - 2025-01-14
+## [0.2.0] - 2025-01-14
 
 ### Added
 
@@ -186,7 +186,7 @@ All notable changes to the ActivityWatch MCP Server project.
 
 ---
 
-## [1.0.0] - 2025-01-14
+## [0.1.0] - 2025-01-14
 
 ### Initial Release
 
@@ -225,14 +225,14 @@ All notable changes to the ActivityWatch MCP Server project.
 
 ## Version History
 
-- **1.1.0** (2025-01-14): Added logging, health checks, code quality improvements
-- **1.0.0** (2025-01-14): Initial release with 5 core tools
+- **0.2.0** (2025-01-14): Added logging, health checks, code quality improvements
+- **0.1.0** (2025-01-14): Initial release with 5 core tools
 
 ---
 
 ## Upgrade Guide
 
-### From 1.0.0 to 1.1.0
+### From 0.1.0 to 0.2.0
 
 No breaking changes. Simply rebuild:
 
