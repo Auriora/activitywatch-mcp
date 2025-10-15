@@ -40,9 +40,10 @@ NO PARAMETERS REQUIRED - just call it to discover what's available.`,
 
 ✅ **RECOMMENDED TOOL FOR ACCURATE TIME TRACKING**: This is the primary tool for activity analysis.
 It provides accurate, enriched data by combining:
-- Window activity (base layer - which apps were ACTIVELY FOCUSED)
-- Browser activity (enrichment - only when browser window was ACTIVELY FOCUSED)
-- Editor activity (enrichment - only when editor window was ACTIVELY FOCUSED)
+- Focused window activity (only the apps that actually held focus)
+- Browser sessions merged only while the browser window was active
+- Editor sessions merged only while the editor window was active
+- Calendar meetings unioned on top so scheduled time always appears (overlapping app time is trimmed to prevent double-counting)
 
 🎯 **KEY ACCURACY FEATURE**:
 Unlike raw bucket queries, this tool uses window-based filtering to ensure browser/editor
@@ -58,7 +59,7 @@ WHEN TO USE:
 - Any general activity analysis question
 
 WHEN NOT TO USE:
-- For comprehensive period or daily overview → use aw_get_period_summary instead
+- For a comprehensive period or daily overview → use aw_get_period_summary instead
 - For exact event timestamps → use aw_get_raw_events instead
 - If no window tracking data exists (check with aw_get_capabilities first)
 
@@ -74,12 +75,14 @@ CAPABILITIES:
 - Enriches with browser URLs/domains when browsing
 - Enriches with editor files/projects when coding
 - Calculates total time, percentages, and rankings
+- Automatically detects audible video-conferencing sessions (Teams, Google Meet, Zoom, WhatsApp, Webex, etc.) and tags them as 'Comms > Video Conferencing'
 
 HOW IT WORKS:
 1. Gets window events (defines when each app was active) - AFK filtered
-2. Gets browser events filtered to only when browser window was active
-3. Gets editor events filtered to only when editor window was active
+2. Gets browser events filtered to only when a browser window was active
+3. Gets editor events filtered to only when an editor window was active
 4. Merges browser/editor data into window events for enriched results
+5. Overlays calendar meetings, trimming overlapping focus time and adding calendar-only segments so scheduled activity is always visible
 
 EXAMPLE OUTPUT:
 {
@@ -97,13 +100,13 @@ LIMITATIONS:
 - Cannot determine quality or productivity of work
 - Only shows active window time (not background processes)
 - **Only counts time when user is actively working (AFK periods excluded)**
-- **Browser activity only counted when browser window was active**
-- **Editor activity only counted when editor window was active**
+- **Browser activity only counted when a browser window was active**
+- **Editor activity only counted when an editor window was active**
 - Requires window watcher to be installed and running
 - Time periods limited to available data (check date ranges with aw_get_capabilities)
 
 RETURNS:
-- total_time_seconds: Total active time in the period (AFK-filtered)
+- total_time_seconds: Meeting duration plus focus outside meetings (calendar precedence applied)
 - activities: Array of enriched activity events with:
   - app: Application name
   - title: Window title
@@ -114,7 +117,7 @@ RETURNS:
   - event_count, first_seen, last_seen
 - time_range: {start, end} timestamps of analyzed period
 
-Default response is human-readable summary. Use response_format='detailed' for full structured data with browser/editor enrichment.`,
+The default response is a human-readable summary. Use response_format='detailed' for full structured data with browser/editor enrichment.`,
     inputSchema: {
       type: 'object',
       properties: {

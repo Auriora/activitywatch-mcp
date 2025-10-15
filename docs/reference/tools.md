@@ -77,6 +77,12 @@ Focus vs meeting time:
 
 **🌟 Recommended: Analyzes computer activity with unified window, browser, and editor data.**
 
+Behind the scenes it assembles a cohesive view by layering multiple sources:
+- **Focused windows** form the backbone—only the apps you actually had in the foreground count.
+- **Browser sessions** are merged only for the intervals when the matching browser window was active.
+- **Editor sessions** likewise merge only while that editor had focus.
+- **Calendar meetings** are unioned on top, ensuring scheduled time takes precedence and any overlapping app time is trimmed to avoid double-counting.
+
 ### When to Use
 - User asks about time spent on applications, websites, or coding
 - Questions like "What did I work on today?" or "How much time on GitHub?"
