@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   activitywatch-mcp-http:
     image: ghcr.io/auriora/activitywatch-mcp:latest
