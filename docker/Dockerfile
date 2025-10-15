@@ -40,6 +40,7 @@ COPY docker/entrypoint.sh ./entrypoint.sh
 COPY docker/healthcheck.js ./healthcheck.js
 
 RUN chmod +x ./entrypoint.sh
+RUN chmod +x ./healthcheck.js
 
 EXPOSE 3000
 

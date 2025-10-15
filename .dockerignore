@@ -9,4 +9,5 @@ Dockerfile
 **/*.log
 **/*.tmp
 **/*.swp
+**/*.md
 /.coverage
