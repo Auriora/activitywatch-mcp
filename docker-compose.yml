@@ -10,6 +10,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "${MCP_PORT:-3000}:3000"
+    networks:
+      - default
+      - activitywatch
     healthcheck:
       test: ["CMD", "node", "/app/healthcheck.js"]
       interval: 30s
@@ -29,3 +32,11 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     profiles:
       - stdio
+    networks:
+      - default
+      - activitywatch
+
+networks:
+  activitywatch:
+    external: true
+    name: activitywatch_default
