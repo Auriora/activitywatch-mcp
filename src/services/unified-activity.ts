@@ -21,7 +21,12 @@ import {
   CalendarEvent,
   CalendarEnrichment,
   CalendarSummary,
-  UnifiedActivityResult
+  UnifiedActivityResult,
+  MeetingContextParams,
+  MeetingContextResult,
+  MeetingContextEntry,
+  MeetingContextFocus,
+  MeetingContextMeeting
 } from '../types.js';
 import { getTimeRange } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
@@ -32,6 +37,9 @@ import {
 } from '../utils/configurable-title-parser.js';
 import { getTitleParsingConfig } from '../config/app-names.js';
 import { mergeIntervals, calculateOverlap, intersectIntervals, Interval } from '../utils/intervals.js';
+import { AWError } from '../types.js';
+
+const SYSTEM_APPS = ['Finder', 'Dock', 'Window Server', 'explorer.exe', 'dwm.exe'];
 
 interface EnrichedEvent {
   app: string;
@@ -168,8 +176,7 @@ export class UnifiedActivityService {
     // Exclude system apps if requested (before grouping)
     let eventsToGroup = combinedEvents;
     if (params.exclude_system_apps) {
-      const systemApps = ['Finder', 'Dock', 'Window Server', 'explorer.exe', 'dwm.exe'];
-      eventsToGroup = combinedEvents.filter(e => !systemApps.includes(e.app));
+      eventsToGroup = combinedEvents.filter(e => !SYSTEM_APPS.includes(e.app));
     }
 
     // Always apply categorization
@@ -214,6 +221,242 @@ export class UnifiedActivityService {
         end: timeRange.end.toISOString(),
       },
       calendar_summary: calendarSummary,
+    };
+  }
+
+  /**
+   * Provide focused application context for the specified meeting or meetings in a range.
+   */
+  async getMeetingContext(params: MeetingContextParams): Promise<MeetingContextResult> {
+    if (!this.calendarService) {
+      throw new AWError(
+        'Calendar service is not configured. Ensure calendar integration is enabled.',
+        'CALENDAR_SERVICE_UNAVAILABLE'
+      );
+    }
+
+    const minDuration = params.min_duration_seconds ?? 30;
+    const excludeSystem = params.exclude_system_apps ?? true;
+
+    let meetings: CalendarEvent[] = [];
+    let rangeStart: Date | null = null;
+    let rangeEnd: Date | null = null;
+
+    if (params.meeting_id) {
+      const meeting = await this.calendarService.getEventById(params.meeting_id);
+      if (!meeting) {
+        return {
+          meetings: [],
+          message: `No meeting found with id "${params.meeting_id}".`,
+        };
+      }
+      meetings = [meeting];
+      rangeStart = new Date(meeting.start);
+      rangeEnd = new Date(meeting.end);
+    } else {
+      const timeRange = getTimeRange(
+        params.time_period ?? 'today',
+        params.custom_start,
+        params.custom_end
+      );
+
+      const calendarResult = await this.calendarService.getEvents({
+        time_period: 'custom',
+        custom_start: timeRange.start.toISOString(),
+        custom_end: timeRange.end.toISOString(),
+        include_all_day: false,
+        include_cancelled: false,
+      });
+
+      meetings = calendarResult.events;
+      if (meetings.length > 0) {
+        const starts = meetings.map(meeting => new Date(meeting.start).getTime());
+        const ends = meetings.map(meeting => new Date(meeting.end).getTime());
+        rangeStart = new Date(Math.min(...starts));
+        rangeEnd = new Date(Math.max(...ends));
+      } else {
+        rangeStart = timeRange.start;
+        rangeEnd = timeRange.end;
+      }
+    }
+
+    if (meetings.length === 0 || !rangeStart || !rangeEnd) {
+      return {
+        meetings: [],
+        message: 'No meetings found for the given parameters.',
+      };
+    }
+
+    const canonical = await this.queryService.getCanonicalEvents(rangeStart, rangeEnd);
+    const enrichedEvents = this.enrichWindowEvents(
+      canonical.window_events,
+      canonical.browser_events,
+      canonical.editor_events
+    );
+
+    const entries: MeetingContextEntry[] = [];
+    for (const meeting of meetings) {
+      const entry = this.buildMeetingContextEntry(
+        meeting,
+        enrichedEvents,
+        minDuration,
+        excludeSystem
+      );
+      if (entry) {
+        entries.push(entry);
+      }
+    }
+
+    if (entries.length === 0) {
+      return {
+        meetings: [],
+        message: 'No overlapping focus data found for the requested meetings.',
+      };
+    }
+
+    return {
+      meetings: entries.sort((a, b) =>
+        new Date(a.meeting.start).getTime() - new Date(b.meeting.start).getTime()
+      ),
+      time_range: {
+        start: rangeStart.toISOString(),
+        end: rangeEnd.toISOString(),
+      },
+    };
+  }
+
+  private buildMeetingContextEntry(
+    meeting: CalendarEvent,
+    events: EnrichedEvent[],
+    minDuration: number,
+    excludeSystem: boolean
+  ): MeetingContextEntry | null {
+    const meetingStart = new Date(meeting.start).getTime();
+    const meetingEnd = new Date(meeting.end).getTime();
+
+    if (!Number.isFinite(meetingStart) || !Number.isFinite(meetingEnd) || meetingEnd <= meetingStart) {
+      logger.warn('Skipping meeting with invalid time bounds', {
+        meetingId: meeting.id,
+        start: meeting.start,
+        end: meeting.end,
+      });
+      return null;
+    }
+
+    const scheduledSeconds = Math.max(0, (meetingEnd - meetingStart) / 1000);
+    if (scheduledSeconds === 0) {
+      logger.warn('Skipping zero-duration meeting', { meetingId: meeting.id });
+      return null;
+    }
+
+    interface FocusAggregate {
+      app: string;
+      titles: Set<string>;
+      duration: number;
+      eventCount: number;
+      browser?: BrowserEnrichment;
+      browserOverlap: number;
+      editor?: EditorEnrichment;
+      editorOverlap: number;
+    }
+
+    const focusMap = new Map<string, FocusAggregate>();
+    let overlapAccumulator = 0;
+
+    for (const event of events) {
+      const eventStart = new Date(event.timestamp).getTime();
+      const eventEnd = eventStart + (event.duration * 1000);
+
+      if (!Number.isFinite(eventStart) || !Number.isFinite(eventEnd) || eventEnd <= eventStart) {
+        continue;
+      }
+
+      const intersection = intersectIntervals(
+        { start: eventStart, end: eventEnd },
+        { start: meetingStart, end: meetingEnd }
+      );
+
+      if (!intersection) {
+        continue;
+      }
+
+      const overlapSeconds = (intersection.end - intersection.start) / 1000;
+      if (overlapSeconds <= 0) {
+        continue;
+      }
+
+      if (excludeSystem && SYSTEM_APPS.includes(event.app)) {
+        continue;
+      }
+
+      overlapAccumulator += overlapSeconds;
+
+      let aggregate = focusMap.get(event.app);
+      if (!aggregate) {
+        aggregate = {
+          app: event.app,
+          titles: new Set<string>(),
+          duration: 0,
+          eventCount: 0,
+          browserOverlap: 0,
+          editorOverlap: 0,
+        };
+        focusMap.set(event.app, aggregate);
+      }
+
+      aggregate.duration += overlapSeconds;
+      aggregate.eventCount += 1;
+      if (event.title) {
+        aggregate.titles.add(event.title);
+      }
+
+      if (event.browser && overlapSeconds >= aggregate.browserOverlap) {
+        aggregate.browser = event.browser;
+        aggregate.browserOverlap = overlapSeconds;
+      }
+
+      if (event.editor && overlapSeconds >= aggregate.editorOverlap) {
+        aggregate.editor = event.editor;
+        aggregate.editorOverlap = overlapSeconds;
+      }
+    }
+
+    const cappedOverlapSeconds = Math.min(scheduledSeconds, overlapAccumulator);
+    const meetingOnlySeconds = Math.max(0, scheduledSeconds - cappedOverlapSeconds);
+
+    const focusEntries: MeetingContextFocus[] = Array.from(focusMap.values())
+      .filter(item => item.duration >= minDuration)
+      .sort((a, b) => b.duration - a.duration)
+      .map(item => ({
+        app: item.app,
+        titles: Array.from(item.titles),
+        duration_seconds: item.duration,
+        percentage: scheduledSeconds > 0 ? (item.duration / scheduledSeconds) * 100 : 0,
+        event_count: item.eventCount,
+        ...(item.browser ? { browser: item.browser } : {}),
+        ...(item.editor ? { editor: item.editor } : {}),
+      }));
+
+    const metadata: MeetingContextMeeting = {
+      id: meeting.id,
+      summary: meeting.summary,
+      start: meeting.start,
+      end: meeting.end,
+      duration_seconds: scheduledSeconds,
+      attendees: meeting.attendees,
+      calendar: meeting.calendar,
+      location: meeting.location,
+      status: meeting.status,
+    };
+
+    return {
+      meeting: metadata,
+      totals: {
+        scheduled_seconds: scheduledSeconds,
+        overlap_seconds: cappedOverlapSeconds,
+        meeting_only_seconds: meetingOnlySeconds,
+      },
+      focus: focusEntries,
     };
   }
 

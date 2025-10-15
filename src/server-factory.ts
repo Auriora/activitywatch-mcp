@@ -27,6 +27,7 @@ import {
   GetPeriodSummarySchema,
   GetRawEventsSchema,
   QueryEventsSchema,
+  GetMeetingContextSchema,
 } from './tools/schemas.js';
 import type {
   GetCapabilitiesParams,
@@ -34,6 +35,7 @@ import type {
   GetPeriodSummaryParams,
   GetRawEventsParams,
   QueryEventsParams,
+  GetMeetingContextParams,
 } from './tools/schemas.js';
 
 import { AWError } from './types.js';
@@ -48,6 +50,7 @@ import {
 import { logger } from './utils/logger.js';
 import { performHealthCheck, formatHealthCheckResult } from './utils/health.js';
 import { tools } from './tools/definitions.js';
+import { formatDuration } from './utils/time.js';
 
 export interface ServerDependencies {
   client: IActivityWatchClient;
@@ -390,6 +393,96 @@ export async function createServerWithDependencies(
               {
                 type: 'text',
                 text: formatQueryResultsConcise(result),
+              },
+            ],
+          };
+        }
+
+        case 'aw_get_meeting_context': {
+          const params: GetMeetingContextParams = GetMeetingContextSchema.parse(args);
+          const { response_format: responseFormat, ...serviceParams } = params;
+          const result = await unifiedService.getMeetingContext(serviceParams);
+
+          if ((responseFormat ?? 'detailed') === 'concise') {
+            if (result.meetings.length === 0) {
+              const message = result.message ?? 'No meeting focus data available.';
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: message,
+                  },
+                ],
+              };
+            }
+
+            const lines: string[] = [];
+            lines.push('# Meeting Focus Context');
+            if (result.time_range) {
+              lines.push(
+                `**Range**: ${result.time_range.start} → ${result.time_range.end}`
+              );
+            }
+            lines.push('');
+
+            for (const entry of result.meetings) {
+              lines.push(`## ${entry.meeting.summary}`);
+              lines.push(
+                `- When: ${entry.meeting.start} → ${entry.meeting.end}`
+              );
+              if (entry.meeting.calendar) {
+                lines.push(`- Calendar: ${entry.meeting.calendar}`);
+              }
+              if (entry.meeting.location) {
+                lines.push(`- Location: ${entry.meeting.location}`);
+              }
+              if (entry.meeting.attendees?.length) {
+                lines.push(
+                  `- Attendees: ${entry.meeting.attendees.map(a => a.name ?? a.email ?? 'Unknown').join(', ')}`
+                );
+              }
+              const totals = entry.totals;
+              lines.push(
+                `- Overlap: ${formatDuration(totals.overlap_seconds)} of ${formatDuration(totals.scheduled_seconds)}`
+              );
+              if (totals.meeting_only_seconds > 0) {
+                lines.push(
+                  `- Meeting-only: ${formatDuration(totals.meeting_only_seconds)}`
+                );
+              }
+              lines.push('');
+              if (entry.focus.length > 0) {
+                lines.push('### Focused Apps');
+                for (const focus of entry.focus) {
+                  const titles = focus.titles.length > 0
+                    ? ` — ${focus.titles.slice(0, 3).join(', ')}${focus.titles.length > 3 ? '…' : ''}`
+                    : '';
+                  lines.push(
+                    `- ${focus.app}: ${formatDuration(focus.duration_seconds)} (${focus.percentage.toFixed(1)}%)${titles}`
+                  );
+                }
+              } else {
+                lines.push('### Focused Apps');
+                lines.push('- No overlapping focus data during this meeting.');
+              }
+              lines.push('');
+            }
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: lines.join('\n'),
+                },
+              ],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };

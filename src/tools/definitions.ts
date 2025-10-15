@@ -343,6 +343,75 @@ LIMITATIONS:
     },
   },
   {
+    name: 'aw_get_meeting_context',
+    description: `Analyzes focus overlap for specific meetings to support timesheets and retrospective reviews.
+
+WHEN TO USE:
+- You need to understand which applications were active during a meeting
+- Building meeting notes that include what work was happening simultaneously
+- Preparing timesheets that reconcile calendar commitments with focus data
+
+WHEN NOT TO USE:
+- For generic activity queries → use aw_get_activity
+- For browsing the calendar itself → use aw_get_calendar_events
+
+CAPABILITIES:
+- Accepts either a specific meeting_id or a time range of meetings
+- Pulls canonical (AFK-filtered) window/browser/editor events that overlap each meeting
+- Returns meeting metadata alongside overlap totals and focused apps with percentages
+- Provides browser/editor enrichment when available
+
+RETURNS:
+- meetings: Array of meetings with metadata, totals (scheduled/overlap/meeting-only), and focused apps
+- time_range: Start/end timestamps used for canonical event queries
+- message: Friendly status when no meetings or overlaps are found
+
+LIMITATIONS:
+- Requires aw-import-ical buckets; returns empty result when calendar data is missing
+- Overlap only reflects focused foreground apps (background processes are excluded)`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        meeting_id: {
+          type: 'string',
+          description: 'Composite meeting identifier (e.g., "aw-import-ical_primary:<uid>"). When provided, this lookup is preferred over time ranges.',
+        },
+        time_period: {
+          type: 'string',
+          enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
+          default: 'today',
+          description: 'Time window to inspect when meeting_id is not supplied. Use "custom" with custom_start/custom_end for explicit ranges.',
+        },
+        custom_start: {
+          type: 'string',
+          description: 'Custom range start (ISO 8601). Required with custom_end when time_period="custom" and meeting_id is not provided.',
+        },
+        custom_end: {
+          type: 'string',
+          description: 'Custom range end (ISO 8601). Required with custom_start when time_period="custom" and meeting_id is not provided.',
+        },
+        min_duration_seconds: {
+          type: 'number',
+          minimum: 0,
+          default: 30,
+          description: 'Minimum overlap duration (seconds) for an app to appear in the focus list. Default: 30 seconds.',
+        },
+        exclude_system_apps: {
+          type: 'boolean',
+          default: true,
+          description: 'Exclude common system apps (Finder, Dock, explorer.exe, etc.) from focus results. Default: true.',
+        },
+        response_format: {
+          type: 'string',
+          enum: ['concise', 'detailed', 'raw'],
+          default: 'detailed',
+          description: 'Output format. "concise": Meeting-by-meeting summary text. "detailed": Structured JSON. "raw": Alias for detailed JSON.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'aw_get_raw_events',
     description: `Retrieves raw, unprocessed events from a specific ActivityWatch data bucket.
 

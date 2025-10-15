@@ -1,6 +1,6 @@
 # Tools Reference
 
-**Last updated:** October 11, 2025
+**Last updated:** October 15, 2025
 
 Complete reference for all ActivityWatch MCP tools with parameters, return values, and usage examples.
 
@@ -11,6 +11,7 @@ Complete reference for all ActivityWatch MCP tools with parameters, return value
 | [`aw_get_capabilities`](#aw_get_capabilities) | Discovery | **Always call first** - Check available data |
 | [`aw_get_activity`](#aw_get_activity) | **Unified Analysis** | **Primary tool** - Apps, websites, and coding with enrichment |
 | [`aw_get_calendar_events`](#aw_get_calendar_events) | Calendar | Surface meetings that override AFK |
+| [`aw_get_meeting_context`](#aw_get_meeting_context) | Meeting Focus | Map meetings to overlapping app activity |
 | [`aw_get_period_summary`](#aw_get_period_summary) | Period Overview | Comprehensive daily/week/month summaries |
 | [`aw_query_events`](#aw_query_events) | Custom Queries | Advanced filtering and custom queries |
 | [`aw_get_raw_events`](#aw_get_raw_events) | Raw Data | Debugging and exact timestamps |
@@ -270,6 +271,107 @@ Focus vs meeting time:
   "custom_end": "2025-02-11T00:00:00Z",
   "include_all_day": false,
   "response_format": "detailed"
+}
+```
+
+---
+
+## aw_get_meeting_context
+
+**Answer “What did I have in focus while this meeting was happening?” by overlaying canonical activity onto calendar events.**
+
+### When to Use
+- Capture which applications were active during an important meeting
+- Build timesheets that reconcile calendar invites with actual work
+- Enrich meeting notes with context about focus overlaps
+
+### When NOT to Use
+- For generic activity rollups → use `aw_get_activity`
+- When you only need the calendar itself → stick with `aw_get_calendar_events`
+- For raw bucket inspection or non-meeting ranges → consider `aw_query_events`
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `meeting_id` | string | — | Composite identifier like `aw-import-ical_primary:<uid>`. Takes precedence when supplied. |
+| `time_period` | enum | `today` | `"today"`, `"yesterday"`, `"this_week"`, `"last_week"`, `"last_7_days"`, `"last_30_days"`, `"custom"`. Only used when `meeting_id` is omitted. |
+| `custom_start` | string | — | ISO 8601 timestamp. Required with `custom_end` when `time_period="custom"` and no `meeting_id`. |
+| `custom_end` | string | — | ISO 8601 timestamp. Required with `custom_start` when `time_period="custom"` and no `meeting_id`. |
+| `min_duration_seconds` | number | `30` | Minimum overlap duration for an app to appear in the focus list. |
+| `exclude_system_apps` | boolean | `true` | Filter out Finder, Dock, `explorer.exe`, and similar system apps. |
+| `response_format` | enum | `detailed` | `"concise"`, `"detailed"`, or `"raw"` (raw is an alias of detailed JSON). |
+
+### Returns
+
+```typescript
+{
+  meetings: Array<{
+    meeting: {
+      id: string;
+      summary: string;
+      start: string;
+      end: string;
+      duration_seconds: number;
+      attendees?: Array<{
+        name?: string;
+        email?: string;
+        response_status?: string;
+        organizer?: boolean;
+      }>;
+      calendar?: string;
+      location?: string;
+      status?: string;
+    };
+    totals: {
+      scheduled_seconds: number;
+      overlap_seconds: number;
+      meeting_only_seconds: number;
+    };
+    focus: Array<{
+      app: string;
+      titles: string[];
+      duration_seconds: number;
+      percentage: number;
+      event_count: number;
+      browser?: {
+        url: string;
+        domain: string;
+        title?: string;
+      };
+      editor?: {
+        file: string;
+        project?: string;
+        language?: string;
+      };
+    }>;
+  }>;
+  time_range?: {
+    start: string;
+    end: string;
+  };
+  message?: string; // Present when no meetings or overlaps are found
+}
+```
+
+### Examples
+
+**Single meeting by identifier:**
+```json
+{
+  "meeting_id": "aw-import-ical_primary:3b3af4d0d3",
+  "response_format": "concise"
+}
+```
+
+**Morning standups with overlapping focus apps:**
+```json
+{
+  "time_period": "custom",
+  "custom_start": "2025-10-15T08:00:00Z",
+  "custom_end": "2025-10-15T12:00:00Z",
+  "min_duration_seconds": 60,
+  "exclude_system_apps": true
 }
 ```
 

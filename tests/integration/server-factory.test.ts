@@ -59,6 +59,41 @@ const createDeps = () => {
         },
       ],
     }),
+    getMeetingContext: vi.fn().mockResolvedValue({
+      meetings: [
+        {
+          meeting: {
+            id: 'aw-import-ical_primary:meeting-1',
+            summary: 'Weekly Sync',
+            start: '2025-01-01T10:00:00.000Z',
+            end: '2025-01-01T11:00:00.000Z',
+            duration_seconds: 3600,
+            attendees: [{ name: 'Alice', email: 'alice@example.com' }],
+            calendar: 'Team',
+            location: 'Room 1',
+            status: 'confirmed',
+          },
+          totals: {
+            scheduled_seconds: 3600,
+            overlap_seconds: 1800,
+            meeting_only_seconds: 1800,
+          },
+          focus: [
+            {
+              app: 'VS Code',
+              titles: ['Feature work'],
+              duration_seconds: 1200,
+              percentage: 33.3333333333,
+              event_count: 1,
+            },
+          ],
+        },
+      ],
+      time_range: {
+        start: '2025-01-01T09:00:00.000Z',
+        end: '2025-01-01T12:00:00.000Z',
+      },
+    }),
   };
 
   const calendarService = {
@@ -205,6 +240,26 @@ describe('Server tool handlers', () => {
     const text = response.content[0]?.text ?? '';
     expect(text).toContain('Calendar Events (Detailed)');
     expect(text).toContain('Weekly Sync');
+  });
+
+  it('formats meeting context in concise mode', async () => {
+    const { server, deps } = await createServer();
+
+    const response = await callTool(server, 'aw_get_meeting_context', {
+      response_format: 'concise',
+      meeting_id: 'aw-import-ical_primary:meeting-1',
+    });
+
+    const text = response.content[0]?.text ?? '';
+    expect(text).toContain('Meeting Focus Context');
+    expect(text).toContain('Weekly Sync');
+    expect(text).toContain('Overlap');
+    expect(deps.unifiedService.getMeetingContext).toHaveBeenCalledWith({
+      meeting_id: 'aw-import-ical_primary:meeting-1',
+      min_duration_seconds: 30,
+      exclude_system_apps: true,
+      time_period: 'today',
+    });
   });
 
   it('returns capabilities payload as JSON text', async () => {

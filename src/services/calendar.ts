@@ -129,6 +129,44 @@ export class CalendarService {
   }
 
   /**
+   * Retrieve a single calendar event by its composite identifier.
+   * The identifier is generated via buildEventId and follows the pattern
+   * "<bucketId>:<eventUid>".
+   */
+  async getEventById(meetingId: string): Promise<CalendarEvent | null> {
+    const separatorIndex = meetingId.indexOf(':');
+    if (separatorIndex <= 0 || separatorIndex === meetingId.length - 1) {
+      throw new AWError(
+        `Invalid meeting_id format: "${meetingId}". Expected "<bucketId>:<eventId>".`,
+        'CALENDAR_INVALID_MEETING_ID'
+      );
+    }
+
+    const bucketId = meetingId.slice(0, separatorIndex);
+    const calendarBuckets = await this.capabilities.findCalendarBuckets();
+    const bucket = calendarBuckets.find(b => b.id === bucketId);
+
+    if (!bucket) {
+      return null;
+    }
+
+    const events = await this.client.getEvents(bucketId, {
+      start: '1970-01-01T00:00:00Z',
+      end: '2100-01-01T00:00:00Z',
+      limit: 5000,
+    });
+
+    for (const event of events) {
+      const normalized = this.normalizeEvent(event, bucketId);
+      if (normalized && normalized.id === meetingId) {
+        return normalized;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Convert normalized events into lightweight summaries for dashboards.
    */
   summarizeEvents(

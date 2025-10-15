@@ -149,6 +149,56 @@ export interface CalendarEventSummary {
   readonly calendar?: string;
 }
 
+export interface MeetingContextParams {
+  readonly meeting_id?: string;
+  readonly time_period?: TimePeriod;
+  readonly custom_start?: string;
+  readonly custom_end?: string;
+  readonly min_duration_seconds?: number;
+  readonly exclude_system_apps?: boolean;
+}
+
+export interface MeetingContextFocus {
+  readonly app: string;
+  readonly titles: readonly string[];
+  readonly duration_seconds: number;
+  readonly percentage: number;
+  readonly event_count: number;
+  readonly browser?: BrowserEnrichment;
+  readonly editor?: EditorEnrichment;
+}
+
+export interface MeetingContextMeeting {
+  readonly id: string;
+  readonly summary: string;
+  readonly start: string;
+  readonly end: string;
+  readonly duration_seconds: number;
+  readonly attendees?: readonly CalendarAttendee[];
+  readonly calendar?: string;
+  readonly location?: string;
+  readonly status?: string;
+}
+
+export interface MeetingContextEntry {
+  readonly meeting: MeetingContextMeeting;
+  readonly totals: {
+    readonly scheduled_seconds: number;
+    readonly overlap_seconds: number;
+    readonly meeting_only_seconds: number;
+  };
+  readonly focus: readonly MeetingContextFocus[];
+}
+
+export interface MeetingContextResult {
+  readonly meetings: readonly MeetingContextEntry[];
+  readonly time_range?: {
+    readonly start: string;
+    readonly end: string;
+  };
+  readonly message?: string;
+}
+
 export interface HourlyActivity {
   readonly hour: number;
   readonly active_seconds: number;

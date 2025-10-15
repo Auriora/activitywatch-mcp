@@ -181,6 +181,63 @@ export const QueryEventsSchema = z.object({
   ),
 });
 
+export const GetMeetingContextSchema = z.object({
+  meeting_id: z.string().optional().describe(
+    'Composite meeting identifier (e.g., "aw-import-ical_primary:<uid>"). When provided, takes precedence over other parameters.'
+  ),
+  time_period: TimePeriodSchema.default('today').describe(
+    'Time window to inspect when meeting_id is not supplied. Defaults to "today". Use "custom" with custom_start/custom_end for specific ranges.'
+  ),
+  custom_start: z.string().optional().describe(
+    'Custom range start (ISO 8601). Required with custom_end when time_period="custom" and meeting_id is not provided.'
+  ),
+  custom_end: z.string().optional().describe(
+    'Custom range end (ISO 8601). Required with custom_start when time_period="custom" and meeting_id is not provided.'
+  ),
+  min_duration_seconds: z.number().min(0).default(30).describe(
+    'Minimum overlap duration (seconds) required to include an app in the meeting focus list. Default: 30s.'
+  ),
+  exclude_system_apps: z.boolean().default(true).describe(
+    'Whether to filter out common system/OS applications from the focus list. Default: true.'
+  ),
+  response_format: ResponseFormatSchema.default('detailed').describe(
+    'Output format. "concise": Human summary, "detailed": Structured JSON payload, "raw": Alias for detailed.'
+  ),
+}).superRefine((data, ctx) => {
+  if (data.meeting_id) {
+    return;
+  }
+
+  if (data.time_period === 'custom') {
+    if (!data.custom_start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['custom_start'],
+        message: 'custom_start is required when time_period is "custom" and meeting_id is not provided',
+      });
+    }
+    if (!data.custom_end) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['custom_end'],
+        message: 'custom_end is required when time_period is "custom" and meeting_id is not provided',
+      });
+    }
+
+    if (data.custom_start && data.custom_end) {
+      const start = new Date(data.custom_start).getTime();
+      const end = new Date(data.custom_end).getTime();
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['custom_start'],
+          message: 'custom_start must be before custom_end and both must be valid dates',
+        });
+      }
+    }
+  }
+});
+
 /**
  * Type exports
  */
@@ -190,3 +247,4 @@ export type GetPeriodSummaryParams = z.infer<typeof GetPeriodSummarySchema>;
 export type GetCalendarEventsParams = z.infer<typeof GetCalendarEventsSchema>;
 export type GetRawEventsParams = z.infer<typeof GetRawEventsSchema>;
 export type QueryEventsParams = z.infer<typeof QueryEventsSchema>;
+export type GetMeetingContextParams = z.infer<typeof GetMeetingContextSchema>;
