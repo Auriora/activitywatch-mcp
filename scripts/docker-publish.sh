@@ -141,7 +141,7 @@ VERSION=$(read_package_version) || {
 
 printf 'Resolved package version: v%s\n' "$VERSION"
 
-TAGS=("v$VERSION" "v$VERSION-dev")
+TAGS=("v$VERSION-dev" "dev")
 if [[ ${#USER_TAGS[@]} -gt 0 ]]; then
   TAGS+=("${USER_TAGS[@]}")
 fi
