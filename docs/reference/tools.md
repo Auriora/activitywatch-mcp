@@ -92,7 +92,8 @@ Focus vs meeting time:
 - **Window-Based Filtering**: Browser/editor data only when those windows were active
 - **No Double-Counting**: Prevents inflated metrics
 - **Rich Enrichment**: Browser URLs/domains and editor files/projects
-- **Calendar Overlay**: Merges meetings, annotates overlapping focus time, and adds calendar-only segments without double-counting
+- **Calendar Overlay**: Meetings take precedence—scheduled events become primary activities, focus time is reduced to minutes outside meetings, and calendar-only segments ensure you still see meetings when away from the keyboard
+- **Conferencing Detection**: Audible sessions in Teams, Google Meet, Zoom, WhatsApp, Webex, and similar tools are auto-categorised under `Comms > Video Conferencing`
 
 ### Parameters
 
@@ -110,7 +111,7 @@ Focus vs meeting time:
 ### Returns
 ```typescript
 {
-  total_time_seconds: number;          // Focus time plus meeting-only time (calendar overrides AFK)
+  total_time_seconds: number;          // Meeting duration plus focus that happens outside meetings (calendar takes precedence)
   activities: Array<{
     app: string;                       // Application name
     title: string;                     // Window title

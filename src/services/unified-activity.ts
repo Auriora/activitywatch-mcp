@@ -58,6 +58,31 @@ interface CalendarOverlayStats {
 }
 
 export class UnifiedActivityService {
+  private static readonly VIDEO_APP_KEYWORDS = [
+    'teams',
+    'zoom',
+    'meet',
+    'webex',
+    'bluejeans',
+    'gotomeeting',
+    'slack call',
+    'google meet',
+    'whatsapp',
+    'hangouts'
+  ];
+
+  private static readonly VIDEO_DOMAINS = [
+    'meet.google.com',
+    'teams.microsoft.com',
+    'zoom.us',
+    'webex.com',
+    'bluejeans.com',
+    'whereby.com',
+    'call.whatsapp.com',
+    'video.whatsapp.com',
+    'hangouts.google.com'
+  ];
+
   constructor(
     private queryService: QueryService,
     private categoryService: CategoryService,
@@ -125,16 +150,17 @@ export class UnifiedActivityService {
     );
 
     const overlay = this.applyCalendarOverlay(enrichedEvents, calendarEvents);
+    const adjustedEvents = overlay.events;
 
-    // Filter by minimum duration (calendar-only events are always retained)
+    // Filter by minimum duration (meeting events are always retained)
     const minDuration = params.min_duration_seconds ?? 5;
-    const filteredWindowEvents = enrichedEvents.filter(e => e.duration >= minDuration);
-    const combinedEvents = [...filteredWindowEvents, ...overlay.calendarOnlyEvents];
+    const filteredWindowEvents = adjustedEvents.filter(e => e.duration >= minDuration);
+    const combinedEvents = [...filteredWindowEvents, ...overlay.meetingEvents];
 
     logger.debug('Calendar overlay statistics', {
       min_duration: minDuration,
       retained_window_events: filteredWindowEvents.length,
-      calendar_only_events: overlay.calendarOnlyEvents.length,
+      meeting_events: overlay.meetingEvents.length,
       meeting_seconds: overlay.stats.meetingSeconds,
       meeting_overlap_seconds: overlay.stats.overlapSeconds,
     });
@@ -161,10 +187,8 @@ export class UnifiedActivityService {
       .sort((a, b) => b.duration_seconds - a.duration_seconds)
       .slice(0, topN);
 
-    const calendarSummary = this.buildCalendarSummary(
-      canonical.total_duration_seconds,
-      overlay.stats
-    );
+    const focusSeconds = adjustedEvents.reduce((sum, event) => sum + event.duration, 0);
+    const calendarSummary = this.buildCalendarSummary(focusSeconds, overlay.stats);
 
     // Calculate percentages using union time (focus + meeting-only)
     const totalTime = calendarSummary.union_seconds;
@@ -334,20 +358,20 @@ export class UnifiedActivityService {
   }
 
   /**
-   * Overlay calendar data onto enriched events and create calendar-only segments
+   * Overlay calendar data onto enriched events and create meeting segments
    */
   private applyCalendarOverlay(
     events: EnrichedEvent[],
     calendarEvents: readonly CalendarEvent[]
   ): {
     events: EnrichedEvent[];
-    calendarOnlyEvents: EnrichedEvent[];
+    meetingEvents: EnrichedEvent[];
     stats: CalendarOverlayStats;
   } {
     if (!calendarEvents || calendarEvents.length === 0) {
       return {
         events,
-        calendarOnlyEvents: [],
+        meetingEvents: [],
         stats: {
           meetingSeconds: 0,
           overlapSeconds: 0,
@@ -357,7 +381,7 @@ export class UnifiedActivityService {
       };
     }
 
-    const calendarOnlyEvents: EnrichedEvent[] = [];
+    const meetingEvents: EnrichedEvent[] = [];
     let totalMeetingSeconds = 0;
     let totalOverlapSeconds = 0;
     let totalMeetingOnlySeconds = 0;
@@ -440,34 +464,42 @@ export class UnifiedActivityService {
       const meetingOnlySeconds = Math.max(0, meetingDurationSeconds - overlapSeconds);
       if (meetingOnlySeconds > 0) {
         totalMeetingOnlySeconds += meetingOnlySeconds;
+      }
 
-        const meetingEnrichment: CalendarEnrichment = {
-          meeting_id: meeting.id,
-          summary: meeting.summary,
-          start: meeting.start,
-          end: meeting.end,
-          status: meeting.status,
-          all_day: meeting.all_day,
-          location: meeting.location,
-          calendar: meeting.calendar,
-          overlap_seconds: 0,
-          meeting_only_seconds: meetingOnlySeconds,
-        };
+      const meetingEnrichment: CalendarEnrichment = {
+        meeting_id: meeting.id,
+        summary: meeting.summary,
+        start: meeting.start,
+        end: meeting.end,
+        status: meeting.status,
+        all_day: meeting.all_day,
+        location: meeting.location,
+        calendar: meeting.calendar,
+        overlap_seconds: overlapSeconds,
+        meeting_only_seconds: meetingOnlySeconds > 0 ? meetingOnlySeconds : undefined,
+      };
 
-        calendarOnlyEvents.push({
-          app: meeting.calendar || 'Calendar',
-          title: meeting.summary,
-          duration: meetingOnlySeconds,
-          timestamp: meeting.start,
-          calendar: [meetingEnrichment],
-          calendarOnly: true,
-        });
+      meetingEvents.push({
+        app: meeting.calendar || 'Calendar',
+        title: meeting.summary,
+        duration: meetingDurationSeconds,
+        timestamp: meeting.start,
+        calendar: [meetingEnrichment],
+        meetingOverlapSeconds: overlapSeconds > 0 ? overlapSeconds : undefined,
+        calendarOnly: overlapSeconds === 0,
+      });
+    }
+
+    for (const interval of eventIntervals) {
+      if (interval.event.meetingOverlapSeconds) {
+        const reducedDuration = Math.max(0, interval.event.duration - interval.event.meetingOverlapSeconds);
+        interval.event.duration = reducedDuration;
       }
     }
 
     return {
       events,
-      calendarOnlyEvents,
+      meetingEvents,
       stats: {
         meetingSeconds: totalMeetingSeconds,
         overlapSeconds: totalOverlapSeconds,
@@ -480,11 +512,8 @@ export class UnifiedActivityService {
   private buildCalendarSummary(focusSeconds: number, stats: CalendarOverlayStats): CalendarSummary {
     const meetingSeconds = stats.meetingSeconds;
     const overlapSeconds = Math.min(meetingSeconds, stats.overlapSeconds);
-    const meetingOnlySeconds = Math.max(
-      0,
-      stats.meetingOnlySeconds > 0 ? stats.meetingOnlySeconds : meetingSeconds - overlapSeconds
-    );
-    const unionSeconds = focusSeconds + meetingOnlySeconds;
+    const meetingOnlySeconds = Math.max(0, Math.min(meetingSeconds, stats.meetingOnlySeconds));
+    const unionSeconds = focusSeconds + meetingSeconds;
 
     return {
       focus_seconds: focusSeconds,
@@ -889,6 +918,23 @@ export class UnifiedActivityService {
     return result;
   }
 
+  private isVideoConferenceEvent(event: EnrichedEvent): boolean {
+    const appLower = (event.app || '').toLowerCase();
+    const titleLower = (event.title || '').toLowerCase();
+    const domainLower = event.browser?.domain ? event.browser.domain.toLowerCase() : '';
+
+    const audioActive = event.browser?.audible === true || /\b(call|meeting|conference|video)\b/.test(titleLower);
+
+    const matchesAppKeyword = UnifiedActivityService.VIDEO_APP_KEYWORDS.some(keyword =>
+      appLower.includes(keyword)
+    );
+
+    const matchesDomain = domainLower.length > 0 &&
+      UnifiedActivityService.VIDEO_DOMAINS.some(domain => domainLower.includes(domain));
+
+    return audioActive && (matchesAppKeyword || matchesDomain);
+  }
+
   /**
    * Apply category classification to enriched events
    */
@@ -915,14 +961,20 @@ export class UnifiedActivityService {
         }
       }
 
+      if (this.isVideoConferenceEvent(event)) {
+        matchedCategories.push('Comms > Video Conferencing');
+      }
+
+      const uniqueCategories = matchedCategories.length > 0 ? Array.from(new Set(matchedCategories)) : undefined;
+
       if (matchedCategories.length > 0) {
         logger.debug(`Event "${event.app}" matched categories: ${matchedCategories.join(', ')}`);
       }
 
       return {
         ...event,
-        category: matchedCategories[0], // Deprecated: first match for backward compatibility
-        categories: matchedCategories.length > 0 ? matchedCategories : undefined,
+        category: uniqueCategories ? uniqueCategories[0] : undefined, // Deprecated: first match for backward compatibility
+        categories: uniqueCategories,
       };
     });
   }

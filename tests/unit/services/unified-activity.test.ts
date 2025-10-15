@@ -42,6 +42,14 @@ describe('UnifiedActivityService calendar overlay', () => {
     calendarService.getEvents.mockReset();
 
     categoryService.getCategories.mockReturnValue([]);
+    calendarService.getEvents.mockResolvedValue({
+      events: [],
+      buckets: [],
+      time_range: {
+        start: '2025-01-01T00:00:00.000Z',
+        end: '2025-01-02T00:00:00.000Z',
+      },
+    });
 
     service = new UnifiedActivityService(
       queryService,
@@ -95,24 +103,30 @@ describe('UnifiedActivityService calendar overlay', () => {
 
     const result: UnifiedActivityResult = await service.getActivity(params);
 
-    expect(result.total_time_seconds).toBeCloseTo(5400); // 3600 focus + 1800 meeting-only
+    expect(result.total_time_seconds).toBeCloseTo(5400); // Meetings take precedence
 
     expect(result.calendar_summary).toBeDefined();
-    expect(result.calendar_summary?.focus_seconds).toBeCloseTo(3600);
+    expect(result.calendar_summary?.focus_seconds).toBeCloseTo(0);
     expect(result.calendar_summary?.meeting_seconds).toBeCloseTo(5400);
     expect(result.calendar_summary?.meeting_only_seconds).toBeCloseTo(1800);
     expect(result.calendar_summary?.union_seconds).toBeCloseTo(5400);
     expect(result.calendar_summary?.meeting_count).toBe(2);
 
-    const focusEntry = result.activities.find(activity => activity.app === 'FocusApp');
-    expect(focusEntry).toBeDefined();
-    expect(focusEntry?.calendar?.[0].summary).toBe('Daily Standup');
-    expect(focusEntry?.meeting_overlap_seconds).toBeCloseTo(3600);
+    const meetingEntry = result.activities.find(activity => activity.app === 'Primary');
+    expect(meetingEntry).toBeDefined();
+    if (!meetingEntry) return;
+    expect(meetingEntry.duration_seconds).toBeCloseTo(5400);
+    expect(meetingEntry.calendar_only).toBeUndefined();
+    expect(meetingEntry.calendar?.length).toBe(2);
 
-    const calendarEntry = result.activities.find(activity => activity.app === 'Primary');
-    expect(calendarEntry).toBeDefined();
-    expect(calendarEntry?.calendar_only).toBe(true);
-    expect(calendarEntry?.duration_seconds).toBeCloseTo(1800);
+    const calendarOnlyEntry = meetingEntry.calendar?.find(c => c.summary === 'One-on-one');
+    expect(calendarOnlyEntry?.meeting_only_seconds).toBeCloseTo(1800);
+
+    const overlapEntry = meetingEntry.calendar?.find(c => c.summary === 'Daily Standup');
+    expect(overlapEntry?.overlap_seconds).toBeCloseTo(3600);
+
+    const focusEntry = result.activities.find(activity => activity.app === 'FocusApp');
+    expect(focusEntry).toBeUndefined();
   });
 
   it('respects system app filtering and multi-level grouping', async () => {
@@ -171,5 +185,49 @@ describe('UnifiedActivityService calendar overlay', () => {
     expect(activity.editor?.project).toBe('ProjectX');
     expect(activity.category).toBe('Work > Coding');
     expect(categoryService.getCategories).toHaveBeenCalled();
+  });
+
+  it('classifies audible conferencing sessions as video conferencing', async () => {
+    const windowEvent = makeAwEvent('2025-01-01T09:00:00.000Z', 900, {
+      app: 'Google-chrome',
+      title: 'Meet - Planning Call',
+    });
+
+    const browserEvent = makeAwEvent('2025-01-01T09:00:00.000Z', 900, {
+      url: 'https://meet.google.com/abc-defg-hij',
+      title: 'Planning Call',
+      audible: true,
+      tabCount: 1,
+      incognito: false,
+    });
+
+    queryService.getCanonicalEvents.mockResolvedValue({
+      window_events: [windowEvent],
+      browser_events: [browserEvent],
+      editor_events: [],
+      total_duration_seconds: 900,
+    });
+
+    calendarService.getEvents.mockResolvedValue({
+      events: [],
+      buckets: [],
+      time_range: {
+        start: '2025-01-01T08:00:00.000Z',
+        end: '2025-01-01T10:00:00.000Z',
+      },
+    });
+
+    const params = {
+      time_period: 'custom',
+      custom_start: '2025-01-01T09:00:00.000Z',
+      custom_end: '2025-01-01T10:00:00.000Z',
+      response_format: 'detailed',
+    } as const;
+
+    const result: UnifiedActivityResult = await service.getActivity(params);
+
+    const activity = result.activities.find(a => a.app === 'Google-chrome');
+    expect(activity).toBeDefined();
+    expect(activity?.category).toBe('Comms > Video Conferencing');
   });
 });
