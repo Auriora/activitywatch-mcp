@@ -268,7 +268,7 @@ export class UnifiedActivityService {
         include_cancelled: false,
       });
 
-      meetings = calendarResult.events;
+      meetings = [...calendarResult.events];
       if (meetings.length > 0) {
         const starts = meetings.map(meeting => new Date(meeting.start).getTime());
         const ends = meetings.map(meeting => new Date(meeting.end).getTime());
