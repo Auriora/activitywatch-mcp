@@ -1,6 +1,6 @@
 # HTTP Server Development Mode
 
-Last updated: October 13, 2025
+Last updated: October 15, 2025
 
 ## Overview
 
@@ -81,6 +81,7 @@ After changing the config, restart Claude Desktop to connect to the HTTP server.
 - `MCP_PORT` - HTTP server port (default: 3000)
 - `AW_URL` - ActivityWatch server URL (default: http://localhost:5600)
 - `LOG_LEVEL` - Logging level: DEBUG, INFO, WARN, ERROR (default: INFO)
+- `MCP_SSE_HEARTBEAT_INTERVAL` - Interval (ms) for server-sent event keep-alives. Defaults to 15000; set to `0` to disable. Helps reverse proxies keep the stream open.
 
 Example:
 
@@ -105,6 +106,12 @@ curl http://localhost:3000/health
 
 # Verbose logging
 LOG_LEVEL=DEBUG npm run start:http
+
+# SSE Heartbeats & Proxies
+
+- The HTTP transport now pushes `: keep-alive` comments over the SSE stream. Most proxies terminate idle streams after ~60 s without traffic; the default heartbeat keeps connections alive.
+- Adjust `MCP_SSE_HEARTBEAT_INTERVAL` if you deploy behind infrastructure with stricter or more lenient idle timeouts. Lower values (e.g., `5000`) suit aggressive proxy timeouts; higher values reduce chatter on trusted networks.
+- Clients should continue to POST MCP messages to `/messages?sessionId=…`; the heartbeat does not replace client-originated traffic.
 ```
 
 ### Concurrency & Isolation

@@ -6,6 +6,7 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2025-10-15 17:16 — [Stabilize HTTP SSE transport with heartbeats](./2025-10-15-1716-sse-heartbeat-stabilization.md)
 - 2025-10-13 15:35 — [Rename project to activitywatch-mcp](./2025-10-13-1535-repo-rename.md)
 - 2025-10-13 12:41 — [Document transport concurrency and session isolation](./2025-10-13-1241-transport-concurrency.md)
 - 2025-10-13 09:58 — [Release automation scripts](./2025-10-13-0958-release-automation.md)

@@ -36,6 +36,8 @@ interface HttpServerState {
   sessions: Map<string, SessionData>;
 }
 
+const DEFAULT_SSE_HEARTBEAT_INTERVAL_MS = 15000;
+
 interface HttpServerInstance {
   app: ReturnType<typeof express>;
   state: HttpServerState;
@@ -314,6 +316,8 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 
     logger.info('Creating new pure SSE session (no session ID in header)');
 
+    let clearHeartbeat: (() => void) | undefined;
+
     try {
       const transport = new SSEServerTransport('/messages', res);
       const newSessionId = transport.sessionId;
@@ -326,7 +330,60 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
       state.sessions.set(newSessionId, sessionData);
       logger.debug(`Pure SSE session stored in map with ID: ${newSessionId}`);
 
+      clearHeartbeat = (() => {
+        let heartbeatTimer: NodeJS.Timeout | null = null;
+
+        const stop = (): void => {
+          if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+          }
+        };
+
+        const start = (): void => {
+          const configured = Number.parseInt(process.env.MCP_SSE_HEARTBEAT_INTERVAL ?? `${DEFAULT_SSE_HEARTBEAT_INTERVAL_MS}`, 10);
+          if (Number.isNaN(configured) || configured <= 0) {
+            logger.debug('SSE heartbeat disabled via MCP_SSE_HEARTBEAT_INTERVAL', {
+              sessionId: newSessionId,
+              configured,
+            });
+            return;
+          }
+
+          const sendHeartbeat = (): void => {
+            if (res.writableEnded || res.writableFinished) {
+              stop();
+              return;
+            }
+
+            try {
+              res.write(': keep-alive\n\n');
+            } catch (heartbeatError) {
+              logger.debug('Failed to write SSE heartbeat', {
+                sessionId: newSessionId,
+                error: heartbeatError instanceof Error ? heartbeatError.message : heartbeatError,
+              });
+              stop();
+            }
+          };
+
+          sendHeartbeat();
+          heartbeatTimer = setInterval(sendHeartbeat, configured);
+          if (typeof heartbeatTimer.unref === 'function') {
+            heartbeatTimer.unref();
+          }
+        };
+
+        start();
+
+        res.on('close', stop);
+        res.on('error', stop);
+
+        return stop;
+      })();
+
       transport.onclose = () => {
+        clearHeartbeat?.();
         logger.info(`Pure SSE transport closed for session ${newSessionId}, cleaning up`);
         state.sessions.delete(newSessionId);
       };
@@ -335,6 +392,7 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 
       logger.debug(`Pure SSE stream established with session ID: ${newSessionId}`);
     } catch (error) {
+      clearHeartbeat?.();
       logger.error('Error establishing pure SSE stream', error);
       if (!res.headersSent) {
         res.status(500).send('Error establishing SSE stream');
@@ -345,7 +403,7 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
   app.post('/messages', async (req, res) => {
     const sessionId = req.query.sessionId as string | undefined;
 
-    logger.debug(`POST /messages request received`, {
+    logger.info('POST /messages request received', {
       sessionId,
       hasSessionId: !!sessionId,
       sessionExists: sessionId ? state.sessions.has(sessionId) : false,
@@ -371,6 +429,10 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 
       if ('handlePostMessage' in sessionData.transport) {
         await sessionData.transport.handlePostMessage(req, res, req.body);
+        logger.info('SSE message delivered to transport', {
+          sessionId,
+          contentLength: req.headers['content-length'] ?? null,
+        });
       } else {
         logger.error(`Transport for session ${sessionId} does not support handlePostMessage`);
         res.status(500).send('Invalid transport type for SSE messages');
