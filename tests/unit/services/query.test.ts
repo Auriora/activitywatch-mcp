@@ -49,7 +49,8 @@ describe('QueryService helper methods', () => {
 
     const [timeperiods, query] = client.query.mock.calls[0];
     expect(timeperiods).toEqual(['2025-01-01T09:00:00.000Z/2025-01-01T10:00:00.000Z']);
-    expect(query).toContain('events = merge_events([query_bucket("aw-watcher-window_main"), query_bucket("aw-watcher-editor_code")]);');
+    expect(query).toContain('events = query_bucket("aw-watcher-window_main");');
+    expect(query).toContain('events = concat(events, query_bucket("aw-watcher-editor_code"));');
     expect(query).toContain('afk_events = query_bucket("aw-watcher-afk_main");');
     expect(query).toContain('events = filter_period_intersect(events, not_afk);');
   });

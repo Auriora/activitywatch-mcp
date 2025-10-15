@@ -204,12 +204,10 @@ export class QueryService {
       return ['RETURN = []'];
     }
 
-    const bucketExpressions = bucketIds
-      .map(id => `query_bucket("${id}")`)
-      .join(', ');
+    const bucketExpressions = bucketIds.map(id => `query_bucket("${id}")`);
 
     const query: string[] = [];
-    query.push(`events = merge_events([${bucketExpressions}]);`);
+    query.push(...this.buildMergeStatements('events', bucketExpressions));
 
     if (afkBucketId) {
       query.push(`afk_events = query_bucket("${afkBucketId}");`);
@@ -296,10 +294,8 @@ export class QueryService {
     }
 
     if (windowBucketIds.length > 0) {
-      const windowBucketsExpr = windowBucketIds
-        .map(id => `query_bucket("${id}")`)
-        .join(', ');
-      query.push(`window_events = merge_events([${windowBucketsExpr}]);`);
+      const windowSources = windowBucketIds.map(id => `query_bucket("${id}")`);
+      query.push(...this.buildMergeStatements('window_events', windowSources));
       if (afkBucketId) {
         query.push('window_events = filter_period_intersect(window_events, not_afk);');
       }
@@ -308,21 +304,24 @@ export class QueryService {
     }
 
     if (browserConfigs.length > 0) {
-    const browserComponents = browserConfigs.map(({ bucketId, appNames }) => {
+      const browserSources: string[] = [];
+
+      browserConfigs.forEach(({ bucketId, appNames }, index) => {
+        const componentVar = `browser_component_${index}`;
+
         if (windowBucketIds.length > 0 && appNames.length > 0) {
+          const filterVar = `browser_window_filter_${index}`;
           const appNamesJson = JSON.stringify(appNames);
-          return [
-            `filter_period_intersect(` +
-            `query_bucket("${bucketId}"), ` +
-            `filter_keyvals(window_events, "app", ${appNamesJson})` +
-            `)`
-          ].join('');
+          query.push(`${filterVar} = filter_keyvals(window_events, "app", ${appNamesJson});`);
+          query.push(`${componentVar} = filter_period_intersect(query_bucket("${bucketId}"), ${filterVar});`);
+        } else {
+          query.push(`${componentVar} = query_bucket("${bucketId}");`);
         }
-        return `query_bucket("${bucketId}")`;
+
+        browserSources.push(componentVar);
       });
 
-      query.push(`browser_components = [${browserComponents.join(', ')}];`);
-      query.push('browser_events = merge_events(browser_components);');
+      query.push(...this.buildMergeStatements('browser_events', browserSources));
       if (windowBucketIds.length === 0 && afkBucketId) {
         query.push('browser_events = filter_period_intersect(browser_events, not_afk);');
       }
@@ -331,21 +330,24 @@ export class QueryService {
     }
 
     if (editorConfigs.length > 0) {
-    const editorComponents = editorConfigs.map(({ bucketId, appNames }) => {
+      const editorSources: string[] = [];
+
+      editorConfigs.forEach(({ bucketId, appNames }, index) => {
+        const componentVar = `editor_component_${index}`;
+
         if (windowBucketIds.length > 0 && appNames.length > 0) {
+          const filterVar = `editor_window_filter_${index}`;
           const appNamesJson = JSON.stringify(appNames);
-          return [
-            `filter_period_intersect(` +
-            `query_bucket("${bucketId}"), ` +
-            `filter_keyvals(window_events, "app", ${appNamesJson})` +
-            `)`
-          ].join('');
+          query.push(`${filterVar} = filter_keyvals(window_events, "app", ${appNamesJson});`);
+          query.push(`${componentVar} = filter_period_intersect(query_bucket("${bucketId}"), ${filterVar});`);
+        } else {
+          query.push(`${componentVar} = query_bucket("${bucketId}");`);
         }
-        return `query_bucket("${bucketId}")`;
+
+        editorSources.push(componentVar);
       });
 
-      query.push(`editor_components = [${editorComponents.join(', ')}];`);
-      query.push('editor_events = merge_events(editor_components);');
+      query.push(...this.buildMergeStatements('editor_events', editorSources));
       if (windowBucketIds.length === 0 && afkBucketId) {
         query.push('editor_events = filter_period_intersect(editor_events, not_afk);');
       }
@@ -459,4 +461,21 @@ export class QueryService {
     return result;
   }
 
+  private buildMergeStatements(
+    variableName: string,
+    sources: readonly string[]
+  ): string[] {
+    if (sources.length === 0) {
+      return [`${variableName} = [];`];
+    }
+
+    const [firstSource, ...restSources] = sources;
+    const statements = [`${variableName} = ${firstSource};`];
+
+    for (const source of restSources) {
+      statements.push(`${variableName} = concat(${variableName}, ${source});`);
+    }
+
+    return statements;
+  }
 }
