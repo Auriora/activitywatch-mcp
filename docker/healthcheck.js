@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
+import http from 'node:http';
+
 // Lightweight health check for Docker healthcheck
 // Exits 0 if the HTTP server reports healthy (status 200), otherwise exits 1.
 // Honors MCP_PORT env var (defaults to 3000). Uses a short timeout to fail fast.
-
-const http = require('http');
 
 const port = Number(process.env.MCP_PORT) || 3000;
 const options = {
