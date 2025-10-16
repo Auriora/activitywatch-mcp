@@ -59,12 +59,17 @@ describe('HTTP server session flows with mocked transports', () => {
       class MockSSETransport {
         public sessionId: string;
         public onclose?: () => void;
+        private res: any;
         constructor(_path: string, res: any) {
           this.sessionId = `sse-${Math.random().toString(16).slice(2, 8)}`;
+          this.res = res;
           sseTransports.push(this);
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.status(200).write('data: ok\n\n');
-          res.end();
+        }
+
+        async start() {
+          this.res.setHeader('Content-Type', 'text/event-stream');
+          this.res.status(200);
+          this.res.write('data: ok\n\n');
         }
 
         async handlePostMessage(_req: any, res: any, _body: any) {
@@ -72,6 +77,7 @@ describe('HTTP server session flows with mocked transports', () => {
         }
 
         async close() {
+          this.res.end();
           this.onclose?.();
         }
       }

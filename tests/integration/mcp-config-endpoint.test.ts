@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { AddressInfo } from 'node:net';
 
 import { createHttpServer } from '../../src/http-server.js';
@@ -12,18 +12,6 @@ const startServer = async (instance: ReturnType<typeof createHttpServer>) => {
 };
 
 describe('MCP config endpoints', () => {
-  const OLD_ENV = process.env;
-
-  beforeEach(() => {
-    vi.resetModules();
-    process.env = { ...OLD_ENV };
-    delete process.env.REQUIRE_AUTH;
-  });
-
-  afterEach(() => {
-    process.env = OLD_ENV;
-  });
-
   it('serves /.well-known/mcp.json with auth_required=false by default', async () => {
     const instance = createHttpServer({ enableResourceLogging: false });
     const { server, baseUrl } = await startServer(instance);
@@ -38,20 +26,6 @@ describe('MCP config endpoints', () => {
       expect(body.auth.required).toBe(false);
       expect(body.auth.type).toBe('none');
       expect(Array.isArray(body.auth.schemes)).toBe(true);
-    } finally {
-      server.close();
-    }
-  });
-
-  it('honors REQUIRE_AUTH=true in /.well-known/mcp.json', async () => {
-    process.env.REQUIRE_AUTH = 'true';
-    const instance = createHttpServer({ enableResourceLogging: false });
-    const { server, baseUrl } = await startServer(instance);
-    try {
-      const res = await fetch(`${baseUrl}/.well-known/mcp.json`);
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.auth_required).toBe(true);
     } finally {
       server.close();
     }

@@ -18,7 +18,6 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createMCPServer } from './server-factory.js';
 import { logger } from './utils/logger.js';
 import { logStartupDiagnostics, performHealthCheck } from './utils/health.js';
-import { isAuthRequired } from './config/env.js';
 
 /** Session state held for active MCP transports */
 export interface SessionData {
@@ -184,15 +183,14 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
  */
   app.get('/.well-known/mcp.json', (_req, res) => {
     try {
-      const required = isAuthRequired();
       res.setHeader('Cache-Control', 'no-store');
       res.status(200).json({
         name: 'activitywatch-mcp',
-        auth_required: required,
+        auth_required: false,
         auth: {
-          required,
-          type: required ? 'oauth2' : 'none',
-          schemes: required ? ['oauth2'] : []
+          required: false,
+          type: 'none',
+          schemes: []
         },
         transports: ['http', 'sse']
       });
@@ -204,15 +202,14 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 
   app.get('/mcp/config', (_req, res) => {
     try {
-      const required = isAuthRequired();
       res.setHeader('Cache-Control', 'no-store');
       res.status(200).json({
         name: 'activitywatch-mcp',
-        auth_required: required,
+        auth_required: false,
         auth: {
-          required,
-          type: required ? 'oauth2' : 'none',
-          schemes: required ? ['oauth2'] : []
+          required: false,
+          type: 'none',
+          schemes: []
         },
         transports: ['http', 'sse']
       });
@@ -381,6 +378,8 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 
     try {
       const transport = new SSEServerTransport('/messages', res);
+      await transport.start();
+
       const newSessionId = transport.sessionId;
 
       logger.info(`Pure SSE session created with ID: ${newSessionId}`);
