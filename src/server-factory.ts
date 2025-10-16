@@ -9,6 +9,8 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  McpError,
+  ErrorCode,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { ActivityWatchClient, type IActivityWatchClient } from './client/activitywatch.js';
@@ -49,8 +51,12 @@ import {
 } from './utils/formatters.js';
 import { logger } from './utils/logger.js';
 import { performHealthCheck, formatHealthCheckResult } from './utils/health.js';
-import { tools } from './tools/definitions.js';
 import { formatDuration } from './utils/time.js';
+import { getPackageVersion } from './utils/version.js';
+import { ToolRegistry, buildToolAvailability } from './tools/registry.js';
+
+const SERVER_TITLE = 'ActivityWatch MCP Server';
+const SERVER_INSTRUCTIONS = `ActivityWatch tracks activities including foreground usage, time-on-task, and scheduled meetings; it cannot observe background apps, gauge productivity quality, or perform system configuration. Use this MCP server when you need quantified timelines or evidence from ActivityWatch; skip it for speculative reasoning or data outside the user's tracked devices. Always begin by calling aw_get_capabilities so you understand which ActivityWatch buckets and data types (window focus, browser tabs, editor sessions, AFK spans, calendar imports) are present.`;
 
 export interface ServerDependencies {
   client: IActivityWatchClient;
@@ -114,20 +120,42 @@ export async function createServerWithDependencies(
     logger.debug(formatHealthCheckResult(healthCheck));
   }
 
+  const toolRegistry = new ToolRegistry(capabilitiesService);
+  const { tools: initialTools } = await toolRegistry.initialize();
+  logger.info('Tool registry initialized', { toolCount: initialTools.length });
+
   const server = new Server(
     {
       name: 'activitywatch-mcp',
-      version: '1.0.0',
+      version: getPackageVersion(),
+      title: SERVER_TITLE,
     },
     {
       capabilities: {
-        tools: {},
+        tools: {
+          listChanged: true,
+        },
       },
+      instructions: SERVER_INSTRUCTIONS,
     }
   );
 
+  const notifyToolsChanged = async (changed: boolean): Promise<void> => {
+    if (!changed) {
+      return;
+    }
+
+    try {
+      await server.sendToolListChanged();
+    } catch (error) {
+      logger.warn('Failed to send tool list change notification', { error });
+    }
+  };
+
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools };
+    const { tools: availableTools, changed } = await toolRegistry.refresh();
+    await notifyToolsChanged(changed);
+    return { tools: availableTools };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -135,11 +163,21 @@ export async function createServerWithDependencies(
 
     logger.info(`Tool called: ${name}`, { args });
 
+    if (!toolRegistry.isEnabled(name)) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        `Tool ${name} is not available for the current ActivityWatch configuration.`,
+        { tool: name }
+      );
+    }
+
     try {
       switch (name) {
         case 'aw_get_capabilities': {
           const params = GetCapabilitiesSchema.parse((args ?? {}) as GetCapabilitiesParams);
           logger.debug('Fetching capabilities', { params });
+
+          capabilitiesService.clearCache();
 
           const [buckets, capabilities, suggestedTools] = await Promise.all([
             capabilitiesService.getAvailableBuckets(),
@@ -147,10 +185,15 @@ export async function createServerWithDependencies(
             capabilitiesService.getSuggestedTools(),
           ]);
 
+          const toolAvailability = buildToolAvailability(capabilities, buckets);
+          const { changed } = await toolRegistry.refresh();
+          await notifyToolsChanged(changed);
+
           logger.info('Capabilities retrieved', {
             bucketCount: buckets.length,
             capabilities,
             suggestedToolCount: suggestedTools.length,
+            enabledToolCount: toolAvailability.filter(tool => tool.enabled).length,
           });
 
           return {
@@ -162,6 +205,7 @@ export async function createServerWithDependencies(
                     available_buckets: buckets,
                     capabilities,
                     suggested_tools: suggestedTools,
+                    tool_availability: toolAvailability,
                   },
                   null,
                   2
