@@ -378,8 +378,6 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 
     try {
       const transport = new SSEServerTransport('/messages', res);
-      await transport.start();
-
       const newSessionId = transport.sessionId;
 
       logger.info(`Pure SSE session created with ID: ${newSessionId}`);
@@ -389,6 +387,13 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
       const sessionData = { transport, server };
       state.sessions.set(newSessionId, sessionData);
       logger.debug(`Pure SSE session stored in map with ID: ${newSessionId}`);
+
+      transport.onclose = () => {
+        clearHeartbeat?.();
+        logger.info(`Pure SSE transport closed for session ${newSessionId}, cleaning up`);
+        state.sessions.delete(newSessionId);
+      };
+      await server.connect(transport);
 
       clearHeartbeat = (() => {
         let heartbeatTimer: NodeJS.Timeout | null = null;
@@ -441,14 +446,6 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 
         return stop;
       })();
-
-      transport.onclose = () => {
-        clearHeartbeat?.();
-        logger.info(`Pure SSE transport closed for session ${newSessionId}, cleaning up`);
-        state.sessions.delete(newSessionId);
-      };
-
-      await server.connect(transport);
 
       logger.debug(`Pure SSE stream established with session ID: ${newSessionId}`);
     } catch (error) {
