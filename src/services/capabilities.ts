@@ -7,6 +7,7 @@ import { BucketInfo, Capabilities, AWError } from '../types.js';
 import { formatDateForAPI } from '../utils/time.js';
 import { SimpleCache } from '../utils/cache.js';
 import { loadUserPreferences } from '../config/user-preferences.js';
+import { isAuthRequired } from '../config/env.js';
 
 export class CapabilitiesService {
   private bucketsCache = new SimpleCache<BucketInfo[]>(60000); // 1 minute cache
@@ -138,6 +139,7 @@ export class CapabilitiesService {
           b.id.startsWith('aw-import-ical')
         ),
         has_categories: this.hasCategoriesConfigured,
+        auth_required: isAuthRequired(),
         user_preferences: {
           timezone: userPrefs.timezone,
           timezone_offset_minutes: userPrefs.timezoneOffsetMinutes,

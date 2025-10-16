@@ -48,6 +48,11 @@ export interface Capabilities {
   readonly has_editor_tracking: boolean;
   readonly has_calendar_events: boolean;
   readonly has_categories: boolean;
+  /**
+   * Whether the MCP server requires authentication to interact.
+   * If omitted, clients may assume unknown. When present and false, clients can suppress auth prompts.
+   */
+  readonly auth_required?: boolean;
   readonly user_preferences?: {
     readonly timezone: string;
     readonly timezone_offset_minutes: number;

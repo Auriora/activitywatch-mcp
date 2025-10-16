@@ -106,6 +106,7 @@ describe('CapabilitiesService capability detection', () => {
       has_editor_tracking: true,
       has_calendar_events: true,
       has_categories: false,
+      auth_required: false,
       user_preferences: {
         timezone: 'UTC',
         timezone_offset_minutes: 0,

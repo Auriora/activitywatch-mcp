@@ -18,6 +18,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createMCPServer } from './server-factory.js';
 import { logger } from './utils/logger.js';
 import { logStartupDiagnostics, performHealthCheck } from './utils/health.js';
+import { isAuthRequired } from './config/env.js';
 
 /** Session state held for active MCP transports */
 export interface SessionData {
@@ -179,6 +180,49 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
   });
 
 /**
+ * MCP server config endpoints for pre-connect discovery
+ */
+  app.get('/.well-known/mcp.json', (_req, res) => {
+    try {
+      const required = isAuthRequired();
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json({
+        name: 'activitywatch-mcp',
+        auth_required: required,
+        auth: {
+          required,
+          type: required ? 'oauth2' : 'none',
+          schemes: required ? ['oauth2'] : []
+        },
+        transports: ['http', 'sse']
+      });
+    } catch (error) {
+      logger.warn('Failed to serve /.well-known/mcp.json', error);
+      res.status(500).json({ error: 'failed to generate config' });
+    }
+  });
+
+  app.get('/mcp/config', (_req, res) => {
+    try {
+      const required = isAuthRequired();
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json({
+        name: 'activitywatch-mcp',
+        auth_required: required,
+        auth: {
+          required,
+          type: required ? 'oauth2' : 'none',
+          schemes: required ? ['oauth2'] : []
+        },
+        transports: ['http', 'sse']
+      });
+    } catch (error) {
+      logger.warn('Failed to serve /mcp/config', error);
+      res.status(500).json({ error: 'failed to generate config' });
+    }
+  });
+
+/**
  * MCP POST endpoint - handles initialization and tool calls
  */
   app.post('/mcp', async (req, res) => {
@@ -277,6 +321,23 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
 });
 
   app.get('/mcp', async (req, res) => {
+    // Ensure long-lived SSE/streamable HTTP connections are not timed out by Node/Express
+    try {
+      // Disable response timeout for this request (keeps stream open)
+      // 0 means no timeout
+      if (typeof res.setTimeout === 'function') {
+        res.setTimeout(0);
+      }
+      // Keep the underlying socket alive
+      if (req.socket) {
+        try { req.socket.setKeepAlive?.(true); } catch {}
+        try { req.socket.setTimeout?.(0); } catch {}
+        try { req.socket.setNoDelay?.(true); } catch {}
+      }
+      // Helpful headers for SSE/streamable connections
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+    } catch {}
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
     logger.debug(`GET /mcp request received`, {
