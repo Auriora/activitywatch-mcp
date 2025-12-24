@@ -6,6 +6,7 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2025-12-24 16:05 — [Mock health check in HTTP integration tests](./2025-12-24-1605-mock-health-check-test.md)
 - 2025-12-23 15:30 — [Add configurable ActivityWatch timeout and canonical query chunking](./2025-12-23-1530-aw-timeout-and-chunking.md)
 - 2025-12-22 21:15 — [Optimize unified activity enrichment](./2025-12-22-2115-optimize-activity-enrichment.md)
 - 2025-12-22 18:30 — [Add live activity test coverage and timing logs](./2025-12-22-1830-live-activity-tests-and-timing.md)
