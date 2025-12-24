@@ -26,98 +26,33 @@ The specialized tools were redundant because:
 
 ### What Was Removed
 
-#### Tools
-- `aw_get_window_activity` - Application/window usage analysis
-- `aw_get_web_activity` - Browser/website usage analysis  
-- `aw_get_editor_activity` - IDE/editor usage analysis
-
-#### Services
-- `src/services/window-activity.ts`
-- `src/services/web-activity.ts`
-- `src/services/editor-activity.ts`
-
-#### Schemas
-- `GetWindowActivitySchema`
-- `GetWebActivitySchema`
-- `GetEditorActivitySchema`
-
-#### Types
-- `WindowActivityParams`
-- `WebActivityParams`
-- `EditorActivityParams`
-
-Note: `AppUsage`, `WebUsage`, and `EditorUsage` types were retained as they're still used by `DailySummary`.
+- Legacy per-surface activity tools (window/web/editor) and their supporting services, schemas, and types.
+- Shared usage types remained where still needed for summaries.
 
 ### Migration Guide
 
-#### Before (Window Activity)
-```typescript
-aw_get_window_activity({
-  time_period: "today",
-  top_n: 10,
-  group_by: "application"
-})
-```
+Use `aw_get_activity` for unified analysis, then focus with grouping and filters:
 
-#### After (Unified Activity)
-```typescript
-aw_get_activity({
-  time_period: "today",
-  top_n: 10,
-  group_by: "application",
-  include_browser_details: false,  // Optional: exclude browser enrichment
-  include_editor_details: false    // Optional: exclude editor enrichment
-})
-```
-
-#### Before (Web Activity)
-```typescript
-aw_get_web_activity({
-  time_period: "today",
-  top_n: 10,
-  group_by: "domain"
-})
-```
-
-#### After (Unified Activity - Filter to Browser)
 ```typescript
 aw_get_activity({
   time_period: "today",
   top_n: 10,
   group_by: "application"
 })
-// Then filter results to only activities with browser data
 ```
 
-Or use `aw_query_events` for advanced filtering:
+For domain-specific or editor-specific filtering, use `aw_query_events`:
+
 ```typescript
 aw_query_events({
   query_type: "browser",
   start_time: "2025-10-11T00:00:00Z",
   end_time: "2025-10-11T23:59:59Z",
-  filter_domains: ["github.com"]  // Optional filtering
+  filter_domains: ["github.com"]
 })
 ```
 
-#### Before (Editor Activity)
 ```typescript
-aw_get_editor_activity({
-  time_period: "today",
-  group_by: "project",
-  include_git_info: true
-})
-```
-
-#### After (Unified Activity or Query)
-```typescript
-// Option 1: Use unified activity (includes editor data when available)
-aw_get_activity({
-  time_period: "today",
-  top_n: 10,
-  include_editor_details: true
-})
-
-// Option 2: Use query events for editor-specific filtering
 aw_query_events({
   query_type: "editor",
   start_time: "2025-10-11T00:00:00Z",

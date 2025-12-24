@@ -157,24 +157,17 @@ export class CapabilitiesService {
     const capabilities = await this.detectCapabilities();
     const tools: string[] = ['aw_get_capabilities', 'aw_get_raw_events'];
 
-    if (capabilities.has_window_tracking) {
-      tools.push('aw_get_window_activity');
-    }
+    const hasActivityData =
+      capabilities.has_window_tracking ||
+      capabilities.has_browser_tracking ||
+      capabilities.has_editor_tracking;
 
-    if (capabilities.has_browser_tracking) {
-      tools.push('aw_get_web_activity');
-    }
-
-    if (capabilities.has_editor_tracking) {
-      tools.push('aw_get_editor_activity');
+    if (hasActivityData) {
+      tools.push('aw_get_activity', 'aw_get_period_summary');
     }
 
     if (capabilities.has_calendar_events) {
       tools.push('aw_get_calendar_events');
-    }
-
-    if (capabilities.has_window_tracking || capabilities.has_browser_tracking || capabilities.has_editor_tracking) {
-      tools.push('aw_get_period_summary');
     }
 
     return tools;

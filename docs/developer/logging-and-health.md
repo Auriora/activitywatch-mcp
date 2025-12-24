@@ -170,7 +170,7 @@ Logged automatically during operation:
 Comprehensive error context:
 
 ```
-[ERROR] Tool error: aw_get_window_activity {"error":"No window activity buckets found","suggestion":"Check that ActivityWatch is running and window watcher is active","params":{"time_period":"today"}}
+[ERROR] Tool error: aw_get_activity {"error":"No window activity buckets found","suggestion":"Check that ActivityWatch is running and window watcher is active","params":{"time_period":"today"}}
 ```
 
 ### Data Flow Visibility

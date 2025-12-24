@@ -6,7 +6,7 @@ This document summarizes the major improvements made to the ActivityWatch MCP se
 ## Issues Addressed
 
 ### 1. IDE Events Not Included in Queries ✅ FIXED
-**Problem**: IDE watchers (WebStorm, PyCharm, Obsidian, etc.) use `app.editor.activity` bucket type, which was not being queried by `aw_get_window_activity` or `aw_get_daily_summary`.
+**Problem**: IDE watchers (WebStorm, PyCharm, Obsidian, etc.) use `app.editor.activity` bucket type, which was not being queried by `legacy window activity tool` or `aw_get_daily_summary`.
 
 **Impact**: 
 - Missing potentially hours of coding/editing activity
@@ -14,8 +14,8 @@ This document summarizes the major improvements made to the ActivityWatch MCP se
 - No visibility into development work
 
 **Solution**:
-- Created new `aw_get_editor_activity` tool for dedicated IDE/editor analysis
-- Modified `aw_get_window_activity` to include `app.editor.activity` buckets
+- Created new `legacy editor activity tool` tool for dedicated IDE/editor analysis
+- Modified `legacy window activity tool` to include `app.editor.activity` buckets
 - Updated `aw_get_daily_summary` to include editor activity
 - Enhanced category matching to work with editor event fields
 
@@ -41,7 +41,7 @@ This document summarizes the major improvements made to the ActivityWatch MCP se
 
 ## New Features
 
-### 1. New Tool: `aw_get_editor_activity`
+### 1. New Tool: `legacy editor activity tool`
 A dedicated tool for analyzing IDE and editor activity with rich metadata.
 
 **Capabilities**:
@@ -188,7 +188,7 @@ All activity tools now support categories with the `include_categories` paramete
 
 ### 3. Improved Capabilities Detection
 - Added `has_editor_tracking` capability
-- Suggests `aw_get_editor_activity` when editor buckets are available
+- Suggests `legacy editor activity tool` when editor buckets are available
 - Better tool recommendations based on available data
 
 ## Technical Changes
@@ -298,27 +298,27 @@ No breaking changes! All existing queries continue to work as before.
 
 **To enable new features**:
 1. Add `include_categories: true` to any activity query to see category information
-2. Use `aw_get_editor_activity` to analyze coding activity
-3. IDE activity now automatically appears in `aw_get_window_activity` results
+2. Use `legacy editor activity tool` to analyze coding activity
+3. IDE activity now automatically appears in `legacy window activity tool` results
 
 ### Example Queries
 
 **Before** (missing IDE activity):
 ```
-aw_get_window_activity({ time_period: "today" })
+legacy window activity tool({ time_period: "today" })
 → Shows: Terminal, Chrome, Firefox
 → Missing: WebStorm, PyCharm, Obsidian
 ```
 
 **After** (includes IDE activity):
 ```
-aw_get_window_activity({ time_period: "today" })
+legacy window activity tool({ time_period: "today" })
 → Shows: Terminal, Chrome, Firefox, webstorm, pycharm, Obsidian
 ```
 
 **New** (dedicated editor analysis):
 ```
-aw_get_editor_activity({ 
+legacy editor activity tool({ 
   time_period: "today",
   group_by: "project",
   include_git_info: true,
@@ -331,19 +331,19 @@ aw_get_editor_activity({
 
 1. **Test Editor Activity Tool**:
    ```
-   aw_get_editor_activity({ time_period: "today" })
+   legacy editor activity tool({ time_period: "today" })
    ```
    Should show your IDE/editor usage
 
 2. **Test Window Activity Includes IDEs**:
    ```
-   aw_get_window_activity({ time_period: "today" })
+   legacy window activity tool({ time_period: "today" })
    ```
    Should now include IDE names in the results
 
 3. **Test Category Support**:
    ```
-   aw_get_window_activity({ 
+   legacy window activity tool({ 
      time_period: "today",
      include_categories: true 
    })

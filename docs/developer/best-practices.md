@@ -1,6 +1,6 @@
 # MCP Tool Description Best Practices - Implementation
 
-Last updated: October 11, 2025
+Last updated: December 22, 2025
 
 This document describes how the ActivityWatch MCP Server tool descriptions follow MCP development best practices to optimize LLM agent performance.
 
@@ -46,10 +46,9 @@ RETURNS:
 - ❌ When NOT to use it (negative guidance with alternatives)
 - 🔄 Which tool to use instead for specific scenarios
 
-**Example from `aw_get_window_activity`:**
+**Example from `aw_get_activity`:**
 ```
 WHEN NOT TO USE:
-- For website/browser activity → use aw_get_web_activity instead
 - For comprehensive period overview → use aw_get_period_summary instead
 - For exact event timestamps → use aw_get_raw_events instead
 ```
@@ -60,18 +59,18 @@ WHEN NOT TO USE:
 
 **Solution**: Clearly document what the tool CAN and CANNOT do.
 
-**Example from `aw_get_web_activity`:**
+**Example from `aw_get_activity`:**
 ```
 CAPABILITIES:
-- Automatically discovers and aggregates data from all browser tracking buckets
-- Combines data across multiple browsers (Chrome, Firefox, Safari, etc.)
-- Extracts and normalizes domain names from URLs
+- Combines focused window data with browser/editor enrichment when available
+- Filters browser/editor data to only when those windows are active
+- Extracts and normalizes browser domains when present
 ...
 
 LIMITATIONS:
 - Cannot see page CONTENT or what you read/typed
 - Cannot determine if time was productive or not
-- Only tracks active tab time (not background tabs)
+- Only tracks active window time (not background processes)
 ```
 
 ### 4. **User Question Pattern Matching**
@@ -81,8 +80,8 @@ LIMITATIONS:
 **Solution**: Include example question patterns in "WHEN TO USE" sections.
 
 **Examples:**
-- `aw_get_window_activity`: "How long did I use VS Code?"
-- `aw_get_web_activity`: "What websites did I visit most?"
+- `aw_get_activity`: "How long did I use VS Code?"
+- `aw_get_activity`: "What websites did I visit most?"
 - `aw_get_period_summary`: "What did I do yesterday?"
 
 ### 5. **Prerequisite and Dependency Information**
@@ -91,7 +90,7 @@ LIMITATIONS:
 
 **Solution**: Document dependencies and suggest checking capabilities first.
 
-**Example from `aw_get_window_activity`:**
+**Example from `aw_get_activity`:**
 ```
 WHEN NOT TO USE:
 - If no window tracking data exists (check with aw_get_capabilities first)
@@ -139,7 +138,7 @@ Default response is human-readable summary. Use response_format='detailed' for s
 **Tool Hierarchy:**
 1. **Discovery**: `aw_get_capabilities` (always first)
 2. **High-level**: `aw_get_period_summary` (comprehensive overview)
-3. **Specific**: `aw_get_window_activity`, `aw_get_web_activity` (focused analysis)
+3. **Focused**: `aw_get_activity` (use grouping for app/site/project focus)
 4. **Low-level**: `aw_get_raw_events` (debugging/advanced)
 
 ### 9. **Error Prevention**
@@ -197,7 +196,6 @@ WHEN TO USE:
 - Identifying most-used applications
 
 WHEN NOT TO USE:
-- For website/browser activity → use aw_get_web_activity instead
 - For comprehensive period overview → use aw_get_period_summary instead
 - For exact event timestamps → use aw_get_raw_events instead
 - If no window tracking data exists (check with aw_get_capabilities first)
@@ -270,14 +268,14 @@ To validate these improvements, test with:
 
 1. **Ambiguous Queries**
    - "Show me my activity" → Should route to aw_get_period_summary
-   - "What did I work on?" → Should route to aw_get_window_activity
+   - "What did I work on?" → Should route to aw_get_activity
 
 2. **Edge Cases**
    - No data available → Should call aw_get_capabilities first
    - Missing browser data → Should gracefully explain limitation
 
 3. **Tool Selection**
-   - Website questions → Should use aw_get_web_activity, not aw_get_window_activity
+   - Website questions → Should use aw_get_activity with domain grouping
    - Overview questions → Should use aw_get_period_summary, not multiple specific tools
 
 4. **Error Recovery**

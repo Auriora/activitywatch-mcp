@@ -1,6 +1,6 @@
 # ActivityWatch MCP Server - Implementation Details
 
-Last updated: October 11, 2025
+Last updated: December 22, 2025
 
 ## Overview
 
@@ -10,7 +10,7 @@ This MCP server provides LLM agents with tools to query and analyze ActivityWatc
 
 The server uses ActivityWatch's canonical events pattern and AFK filtering across all tools. For the conceptual model and rationale, see: ../concepts/canonical-events.md
 
-**Key Tool**: `aw_get_activity` — the recommended unified tool that returns enriched activity data with browser/editor details when available. Legacy tools (`aw_get_window_activity`, `aw_get_web_activity`, `aw_get_editor_activity`) remain supported.
+**Key Tool**: `aw_get_activity` — the recommended unified tool that returns enriched activity data with browser/editor details when available.
 
 ## Architecture
 
@@ -24,9 +24,6 @@ The server uses ActivityWatch's canonical events pattern and AFK filtering acros
 │  - CapabilitiesService              │
 │  - QueryService (canonical queries) │  ← Uses ActivityWatch query API
 │  - UnifiedActivityService           │  ← Canonical events implementation
-│  - WindowActivityService            │  ← Legacy (still supported)
-│  - WebActivityService               │  ← Legacy (still supported)
-│  - EditorActivityService            │  ← Legacy (still supported)
 │  - PeriodSummaryService             │
 │  - QueryBuilderService              │  ← Custom query builder powering aw_query_events
 ├─────────────────────────────────────┤
@@ -51,9 +48,6 @@ src/
 │   ├── capabilities.ts        # Bucket discovery & capabilities detection
 │   ├── query.ts               # Canonical query service (window-based filtering)
 │   ├── unified-activity.ts    # Unified activity service (canonical events)
-│   ├── window-activity.ts     # Window/app activity analysis (legacy)
-│   ├── web-activity.ts        # Browser/web activity analysis (legacy)
-│   ├── editor-activity.ts     # Editor/IDE activity analysis (legacy)
 │   ├── period-summary.ts      # Period summary generation
 │   └── query-builder.ts       # Custom query builder for aw_query_events
 ├── tools/
@@ -144,61 +138,25 @@ AFK filtering is implemented across all activity tools using ActivityWatch's que
 
 ---
 
-### 2. aw_get_window_activity
+### 2. aw_get_activity
 
-**Purpose**: Application/window activity analysis
-
-**Implementation**:
-1. Parse time period to exact timestamps
-2. Use QueryService to get AFK-filtered events from window buckets
-3. Filter by duration and system apps
-4. Group by application name
-5. Normalize app names
-6. Calculate totals and percentages
-7. Sort and limit to top N
-8. Format response
-
-**Key Code**: `src/services/window-activity.ts`, `src/services/query.ts`
-
----
-
-### 3. aw_get_web_activity
-
-**Purpose**: Browser/website activity analysis
+**Purpose**: Unified activity analysis across windows, browser tabs, and editors with enrichment.
 
 **Implementation**:
 1. Parse time period to exact timestamps
-2. Use QueryService to get AFK-filtered events from browser buckets
-3. Extract and normalize domains
-4. Filter excluded domains (localhost, etc.)
-5. Group by domain/url/title
-6. Calculate totals and percentages
+2. Use UnifiedActivityService to build canonical events from window focus data
+3. Merge browser/editor metadata only while those windows are active
+4. Overlay calendar events with precedence to avoid double-counting
+5. Filter by duration and system apps
+6. Group by the requested dimension and calculate totals/percentages
 7. Sort and limit to top N
 8. Format response
 
-**Key Code**: `src/services/web-activity.ts`, `src/services/query.ts`
+**Key Code**: `src/services/unified-activity.ts`, `src/services/query.ts`
 
 ---
 
-### 4. aw_get_editor_activity
-
-**Purpose**: IDE/editor activity analysis
-
-**Implementation**:
-1. Parse time period to exact timestamps
-2. Use QueryService to get AFK-filtered events from editor buckets
-3. Filter by duration
-4. Group by project/file/language/editor
-5. Extract git metadata (if requested)
-6. Calculate totals and percentages
-7. Sort and limit to top N
-8. Format response
-
-**Key Code**: `src/services/editor-activity.ts`, `src/services/query.ts`
-
----
-
-### 5. aw_get_period_summary
+### 3. aw_get_period_summary
 
 **Purpose**: Comprehensive summaries for daily and multi-day periods with flexible breakdowns
 
@@ -214,7 +172,7 @@ AFK filtering is implemented across all activity tools using ActivityWatch's que
 
 ---
 
-### 6. aw_get_raw_events
+### 4. aw_get_raw_events
 
 **Purpose**: Low-level access to raw events
 
@@ -228,7 +186,7 @@ AFK filtering is implemented across all activity tools using ActivityWatch's que
 
 ---
 
-### 7. aw_query_events
+### 5. aw_query_events
 
 **Purpose**: Advanced custom queries with flexible filtering and aggregation
 

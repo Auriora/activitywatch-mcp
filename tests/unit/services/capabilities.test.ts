@@ -133,9 +133,9 @@ describe('CapabilitiesService capability detection', () => {
     expect(tools).toEqual([
       'aw_get_capabilities',
       'aw_get_raw_events',
-      'aw_get_window_activity',
-      'aw_get_calendar_events',
+      'aw_get_activity',
       'aw_get_period_summary',
+      'aw_get_calendar_events',
     ]);
   });
 

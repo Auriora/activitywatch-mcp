@@ -225,12 +225,11 @@ All notable changes to the ActivityWatch MCP Server project.
 ### Initial Release
 
 #### Core Features
-- **5 MCP Tools**
+- **4 MCP Tools**
   1. `aw_get_capabilities` - Discover available data sources
-  2. `aw_get_window_activity` - Application/window activity analysis
-  3. `aw_get_web_activity` - Browser/website activity analysis
-  4. `aw_get_daily_summary` - Comprehensive daily overview
-  5. `aw_get_raw_events` - Low-level event access
+  2. Activity analysis tools for applications and websites (later consolidated into `aw_get_activity`)
+  3. Daily summary tool (later replaced by `aw_get_period_summary`)
+  4. `aw_get_raw_events` - Low-level event access
 
 #### Smart Features
 - Automatic bucket discovery

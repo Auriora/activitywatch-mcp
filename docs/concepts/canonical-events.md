@@ -1,6 +1,6 @@
 # Canonical Events - Unified Activity Data
 
-**Last updated:** October 11, 2025
+**Last updated:** December 22, 2025
 
 ## Overview
 
@@ -197,7 +197,7 @@ const grouped = groupEventsByApp(enrichedEvents);
 
 The canonical events approach is accessed through the `aw_get_activity` tool:
 
-### Recommended Usage
+### Focused Analysis
 
 ```json
 {
@@ -208,15 +208,9 @@ The canonical events approach is accessed through the `aw_get_activity` tool:
 }
 ```
 
-### Legacy Tool Compatibility
+### Recommended Usage
 
-Existing tools (`aw_get_window_activity`, `aw_get_web_activity`, `aw_get_editor_activity`) remain available:
-
-- **For focused analysis** - When you only want window or web data
-- **Backward compatibility** - Existing integrations continue working
-- **Performance** - Slightly faster for single-domain queries
-
-**Recommendation:** Use `aw_get_activity` for general analysis; use specific tools for focused queries.
+Use `aw_get_activity` for unified analysis and adjust `group_by` when you need a focused lens (apps, domains, projects, or categories).
 
 ## Benefits Summary
 
@@ -261,13 +255,6 @@ Existing tools (`aw_get_window_activity`, `aw_get_web_activity`, `aw_get_editor_
    - Browser data only appears for browser applications
    - Editor data only appears for editor applications  
    - Total time matches window activity (no inflation)
-
-### Compare with Legacy Tools
-
-Compare `aw_get_activity` results with separate `aw_get_window_activity` and `aw_get_web_activity` calls to verify:
-- No double-counting of time periods
-- Browser enrichment matches filtered web activity
-- Total active time is consistent
 
 ## References
 

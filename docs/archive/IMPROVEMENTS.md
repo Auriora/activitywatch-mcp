@@ -130,7 +130,7 @@ LOG_LEVEL=ERROR node dist/index.js
 [2025-01-14T10:30:00.456Z] [INFO] Found 3 buckets
 [2025-01-14T10:30:00.567Z] [INFO] Health check complete {"healthy":true,"bucketsAvailable":3,"hasWindowTracking":true,"hasBrowserTracking":true,"hasAfkTracking":true}
 [2025-01-14T10:30:00.678Z] [INFO] ActivityWatch MCP server running on stdio
-[2025-01-14T10:30:15.123Z] [INFO] Tool called: aw_get_window_activity {"args":{"time_period":"today"}}
+[2025-01-14T10:30:15.123Z] [INFO] Tool called: legacy window activity tool {"args":{"time_period":"today"}}
 [2025-01-14T10:30:15.234Z] [DEBUG] Getting window activity {"params":{"time_period":"today"}}
 [2025-01-14T10:30:15.345Z] [DEBUG] Time range calculated {"start":"2025-01-14T00:00:00.000Z","end":"2025-01-14T10:30:15.345Z"}
 [2025-01-14T10:30:15.456Z] [INFO] Found 1 window tracking buckets

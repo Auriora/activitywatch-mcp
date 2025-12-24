@@ -7,9 +7,9 @@ The ActivityWatch MCP server now implements **canonical events** - a unified app
 ## The Problem We Solved
 
 ### Before (Separate Tools)
-- `aw_get_window_activity` - Showed app usage
-- `aw_get_web_activity` - Showed browsing
-- `aw_get_editor_activity` - Showed coding
+- `legacy window activity tool` - Showed app usage
+- `legacy web activity tool` - Showed browsing
+- `legacy editor activity tool` - Showed coding
 
 **Issues:**
 1. **Inaccurate data**: Browser/editor activity counted even when windows weren't active
@@ -215,9 +215,9 @@ events = filter_period_intersect(browser_events, browser_windows);
 
 **Old way (3 separate tools):**
 ```
-1. Call aw_get_window_activity → See apps
-2. Call aw_get_web_activity → See websites
-3. Call aw_get_editor_activity → See coding
+1. Call legacy window activity tool → See apps
+2. Call legacy web activity tool → See websites
+3. Call legacy editor activity tool → See coding
 4. Manually correlate the data
 ```
 
@@ -319,7 +319,7 @@ See `config/README.md` for detailed instructions on customizing app names.
 
 Potential improvements:
 
-1. **Deprecate old tools** - Remove `aw_get_window_activity`, `aw_get_web_activity`, `aw_get_editor_activity`
+1. **Deprecate old tools** - Remove `legacy window activity tool`, `legacy web activity tool`, `legacy editor activity tool`
 2. **Add filtering** - Filter by category, app type, etc.
 3. **Add aggregation** - Daily/weekly/monthly summaries
 4. **Add insights** - Automatic pattern detection
