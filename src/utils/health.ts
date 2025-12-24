@@ -4,6 +4,7 @@
 
 import { IActivityWatchClient } from '../client/activitywatch.js';
 import { logger } from './logger.js';
+import { getRuntimeConfig } from '../config/runtime.js';
 
 export interface HealthCheckResult {
   healthy: boolean;
@@ -158,11 +159,13 @@ export function formatHealthCheckResult(result: HealthCheckResult): string {
  * Log startup diagnostics
  */
 export function logStartupDiagnostics(awUrl: string): void {
+  const { awTimeoutMs, awQueryChunkDays } = getRuntimeConfig();
   logger.info('ActivityWatch MCP Server starting...', {
     awUrl,
     nodeVersion: process.version,
     platform: process.platform,
     logLevel: process.env.LOG_LEVEL || 'INFO',
+    awTimeoutMs,
+    awQueryChunkDays,
   });
 }
-

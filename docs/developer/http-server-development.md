@@ -1,6 +1,6 @@
 # HTTP Server Development Mode
 
-Last updated: October 15, 2025
+Last updated: December 23, 2025
 
 ## Overview
 
@@ -80,13 +80,15 @@ After changing the config, restart Claude Desktop to connect to the HTTP server.
 
 - `MCP_PORT` - HTTP server port (default: 3000)
 - `AW_URL` - ActivityWatch server URL (default: http://localhost:5600)
+- `AW_TIMEOUT_MS` - ActivityWatch API timeout in milliseconds (default: 30000)
+- `AW_QUERY_CHUNK_DAYS` - Chunk size in days for canonical queries; set to `0` to disable chunking (default: 7)
 - `LOG_LEVEL` - Logging level: DEBUG, INFO, WARN, ERROR (default: INFO)
 - `MCP_SSE_HEARTBEAT_INTERVAL` - Interval (ms) for server-sent event keep-alives. Defaults to 15000; set to `0` to disable. Helps reverse proxies keep the stream open.
 
 Example:
 
 ```bash
-MCP_PORT=3001 AW_URL=http://localhost:5600 LOG_LEVEL=DEBUG npm run start:http
+MCP_PORT=3001 AW_URL=http://localhost:5600 AW_TIMEOUT_MS=45000 AW_QUERY_CHUNK_DAYS=7 LOG_LEVEL=DEBUG npm run start:http
 ```
 
 ### Helper Commands

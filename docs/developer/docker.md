@@ -1,6 +1,6 @@
 # Docker Support
 
-_Last updated: 2025-10-12_
+_Last updated: 2025-12-23_
 
 ## Overview
 
@@ -42,6 +42,8 @@ This prints the MCP handshake over stdio, making it suitable for clients such as
 
 - `MCP_PORT` — Port for the HTTP/SSE server (default `3000`).
 - `AW_URL` — ActivityWatch base URL (default `http://host.docker.internal:5600`). Linux users can map the host via `--add-host=host.docker.internal:host-gateway` or set `AW_URL` to the host IP.
+- `AW_TIMEOUT_MS` — ActivityWatch API timeout in milliseconds (default `30000`).
+- `AW_QUERY_CHUNK_DAYS` — Chunk size in days for canonical queries (default `7`, set to `0` to disable).
 - `LOG_LEVEL` — Logging verbosity (`DEBUG`, `INFO`, `WARN`, `ERROR`; default `INFO`).
 
 You can pass these through `docker run -e` flags or the `.env` file that Compose automatically reads. Copy `.env.example` to `.env` to start with sensible defaults.

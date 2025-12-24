@@ -118,6 +118,56 @@ describe('QueryService helper methods', () => {
     expect(queryLines.join('\n')).toContain('RETURN = {');
   });
 
+  it('chunks canonical queries when the range exceeds configured chunk size', async () => {
+    const queryMock = vi.fn()
+      .mockResolvedValueOnce([{
+        window_events: [event(60)],
+        browser_events: [],
+        editor_events: [],
+      }])
+      .mockResolvedValueOnce([{
+        window_events: [event(120)],
+        browser_events: [],
+        editor_events: [],
+      }])
+      .mockResolvedValueOnce([{
+        window_events: [event(180)],
+        browser_events: [],
+        editor_events: [],
+      }])
+      .mockResolvedValueOnce([{
+        window_events: [event(240)],
+        browser_events: [],
+        editor_events: [],
+      }]);
+
+    const client = { query: queryMock } as any;
+    const capabilities = createCapabilities({
+      findWindowBuckets: vi.fn().mockResolvedValue([bucket('aw-watcher-window_main', 'currentwindow')]),
+      findBrowserBuckets: vi.fn().mockResolvedValue([bucket('aw-watcher-web-chrome_main', 'web.tab.current')]),
+      findEditorBuckets: vi.fn().mockResolvedValue([bucket('aw-watcher-editor-code_main', 'app.editor.activity')]),
+      findAfkBuckets: vi.fn().mockResolvedValue([bucket('aw-watcher-afk_main', 'afkstatus')]),
+    });
+
+    const service = new QueryService(client, capabilities, { canonicalQueryChunkDays: 0.25 });
+    const start = new Date('2025-01-01T00:00:00.000Z');
+    const end = new Date('2025-01-02T00:00:00.000Z');
+
+    const result = await service.getCanonicalEvents(start, end);
+
+    expect(queryMock).toHaveBeenCalledTimes(4);
+    expect(result.window_events).toHaveLength(4);
+    expect(result.total_duration_seconds).toBe(600);
+
+    const timeperiods = queryMock.mock.calls.map(call => call[0][0]);
+    expect(timeperiods).toEqual([
+      '2025-01-01T00:00:00.000Z/2025-01-01T06:00:00.000Z',
+      '2025-01-01T06:00:00.000Z/2025-01-01T12:00:00.000Z',
+      '2025-01-01T12:00:00.000Z/2025-01-01T18:00:00.000Z',
+      '2025-01-01T18:00:00.000Z/2025-01-02T00:00:00.000Z',
+    ]);
+  });
+
   it('combines window and editor event results for categorisation', async () => {
     const client = createClient([]);
     client.query

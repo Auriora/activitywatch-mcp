@@ -1,6 +1,6 @@
 # Logging & Health Monitoring
 
-**Last updated:** October 11, 2025
+**Last updated:** December 23, 2025
 
 ## Overview
 
@@ -196,6 +196,14 @@ Track data processing pipeline:
 - Default: `http://localhost:5600`
 - Used in health checks and API calls
 
+**`AW_TIMEOUT_MS`** - ActivityWatch API timeout in milliseconds
+- Default: `30000`
+- Applied to all ActivityWatch API requests
+
+**`AW_QUERY_CHUNK_DAYS`** - Chunk size in days for canonical queries
+- Default: `7`
+- Set to `0` to disable chunking
+
 ### Claude Desktop Configuration
 
 ```json
@@ -206,7 +214,9 @@ Track data processing pipeline:
       "args": ["/path/to/dist/index.js"],
       "env": {
         "LOG_LEVEL": "INFO",
-        "AW_URL": "http://localhost:5600"
+        "AW_URL": "http://localhost:5600",
+        "AW_TIMEOUT_MS": "30000",
+        "AW_QUERY_CHUNK_DAYS": "7"
       }
     }
   }

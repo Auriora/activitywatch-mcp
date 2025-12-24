@@ -33,6 +33,7 @@ const createDeps = () => {
     }),
     getSuggestedTools: vi.fn().mockResolvedValue(['aw_get_activity']),
     setCategoriesConfigured: vi.fn(),
+    clearCache: vi.fn(),
   };
 
   const categoryService = {

@@ -54,6 +54,7 @@ import { performHealthCheck, formatHealthCheckResult } from './utils/health.js';
 import { formatDuration } from './utils/time.js';
 import { getPackageVersion } from './utils/version.js';
 import { ToolRegistry, buildToolAvailability } from './tools/registry.js';
+import { getRuntimeConfig } from './config/runtime.js';
 
 const SERVER_TITLE = 'ActivityWatch MCP Server';
 const SERVER_INSTRUCTIONS = `ActivityWatch tracks activities including foreground usage, time-on-task, and scheduled meetings; it cannot observe background apps, gauge productivity quality, or perform system configuration. Use this MCP server when you need quantified timelines or evidence from ActivityWatch; skip it for speculative reasoning or data outside the user's tracked devices. Always begin by calling aw_get_capabilities so you understand which ActivityWatch buckets and data types (window focus, browser tabs, editor sessions, AFK spans, calendar imports) are present.`;
@@ -802,10 +803,13 @@ export async function createServerWithDependencies(
  * Creates a configured MCP server instance
  */
 export async function createMCPServer(awUrl: string): Promise<Server> {
-  const client = new ActivityWatchClient(awUrl);
+  const { awTimeoutMs, awQueryChunkDays } = getRuntimeConfig();
+  const client = new ActivityWatchClient(awUrl, awTimeoutMs);
   const capabilitiesService = new CapabilitiesService(client);
   const categoryService = new CategoryService(client);
-  const queryService = new QueryService(client, capabilitiesService);
+  const queryService = new QueryService(client, capabilitiesService, {
+    canonicalQueryChunkDays: awQueryChunkDays,
+  });
   const queryBuilderService = new QueryBuilderService(client, capabilitiesService);
   const calendarService = new CalendarService(client, capabilitiesService);
   const afkService = new AfkActivityService(client, capabilitiesService);

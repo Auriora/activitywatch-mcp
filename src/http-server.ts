@@ -16,6 +16,7 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 
 import { createMCPServer } from './server-factory.js';
+import { getRuntimeConfig } from './config/runtime.js';
 import { logger } from './utils/logger.js';
 import { logStartupDiagnostics, performHealthCheck } from './utils/health.js';
 
@@ -156,7 +157,8 @@ export function createHttpServer(options: HttpServerOptions = {}): HttpServerIns
   app.get('/health', async (_req, res) => {
     try {
       const { ActivityWatchClient } = await import('./client/activitywatch.js');
-      const client = new ActivityWatchClient(state.awUrl);
+      const { awTimeoutMs } = getRuntimeConfig();
+      const client = new ActivityWatchClient(state.awUrl, awTimeoutMs);
       const result = await performHealthCheck(client);
       const status = result.healthy ? 200 : 503;
       res.status(status).json({

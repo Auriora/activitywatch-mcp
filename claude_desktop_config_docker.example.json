@@ -9,6 +9,10 @@
         "--pull=always",
         "-e",
         "AW_URL=http://host.docker.internal:5600",
+        "-e",
+        "AW_TIMEOUT_MS=30000",
+        "-e",
+        "AW_QUERY_CHUNK_DAYS=7",
         "ghcr.io/auriora/activitywatch-mcp:latest",
         "stdio"
       ],
