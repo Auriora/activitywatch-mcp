@@ -130,9 +130,13 @@ describe('UnifiedActivityService calendar overlay', () => {
   });
 
   it('respects system app filtering and multi-level grouping', async () => {
-    const focusWindow = makeAwEvent('2025-01-01T09:00:00.000Z', 1200, {
-      app: 'FocusApp',
-      title: 'Feature Work',
+    const browserWindow = makeAwEvent('2025-01-01T09:00:00.000Z', 1200, {
+      app: 'Google-chrome',
+      title: 'Docs - Example',
+    });
+    const editorWindow = makeAwEvent('2025-01-01T09:00:00.000Z', 1200, {
+      app: 'jetbrains-webstorm',
+      title: 'ProjectX',
     });
     const finderWindow = makeAwEvent('2025-01-01T09:05:00.000Z', 300, {
       app: 'Finder',
@@ -140,7 +144,7 @@ describe('UnifiedActivityService calendar overlay', () => {
     });
 
     queryService.getCanonicalEvents.mockResolvedValue({
-      window_events: [focusWindow, finderWindow],
+      window_events: [browserWindow, editorWindow, finderWindow],
       browser_events: [
         makeAwEvent('2025-01-01T09:10:00.000Z', 600, {
           url: 'https://example.com/docs',
@@ -154,14 +158,14 @@ describe('UnifiedActivityService calendar overlay', () => {
           language: 'TypeScript',
         }),
       ],
-      total_duration_seconds: 1500,
+      total_duration_seconds: 2700,
     });
 
     categoryService.getCategories.mockReturnValue([
       {
         id: 1,
         name: ['Work', 'Coding'],
-        rule: { type: 'regex', regex: 'Focus' },
+        rule: { type: 'regex', regex: 'chrome|webstorm' },
       },
     ]);
 
@@ -178,12 +182,19 @@ describe('UnifiedActivityService calendar overlay', () => {
     const result: UnifiedActivityResult = await service.getActivity(params);
 
     expect(result.activities.some(a => a.app.includes('Finder'))).toBe(false);
-    const activity = result.activities.find(a => a.app.includes('FocusApp'));
-    expect(activity).toBeDefined();
-    if (!activity) return;
-    expect(activity.browser?.domain).toBe('example.com');
-    expect(activity.editor?.project).toBe('ProjectX');
-    expect(activity.category).toBe('Work > Coding');
+    const browserActivity = result.activities.find(a => a.app.includes('Google-chrome'));
+    expect(browserActivity).toBeDefined();
+    if (!browserActivity) return;
+    expect(browserActivity.browser?.domain).toBe('example.com');
+    expect(browserActivity.editor).toBeUndefined();
+    expect(browserActivity.category).toBe('Work > Coding');
+
+    const editorActivity = result.activities.find(a => a.app.includes('jetbrains-webstorm'));
+    expect(editorActivity).toBeDefined();
+    if (!editorActivity) return;
+    expect(editorActivity.editor?.project).toBe('ProjectX');
+    expect(editorActivity.browser).toBeUndefined();
+    expect(editorActivity.category).toBe('Work > Coding');
     expect(categoryService.getCategories).toHaveBeenCalled();
   });
 

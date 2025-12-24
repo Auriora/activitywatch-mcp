@@ -35,7 +35,7 @@ import {
   setTitleParsingConfig,
   hasParsingRules
 } from '../utils/configurable-title-parser.js';
-import { getTitleParsingConfig } from '../config/app-names.js';
+import { getAllBrowserAppNames, getAllEditorAppNames, getTitleParsingConfig } from '../config/app-names.js';
 import { mergeIntervals, calculateOverlap, intersectIntervals, Interval } from '../utils/intervals.js';
 import { AWError } from '../types.js';
 
@@ -65,6 +65,21 @@ interface CalendarOverlayStats {
   meetingCount: number;
 }
 
+interface TimedEvent {
+  event: AWEvent;
+  startMs: number;
+  endMs: number;
+}
+
+interface WindowInterval {
+  event: AWEvent;
+  index: number;
+  app: string;
+  title: string;
+  startMs: number;
+  endMs: number;
+}
+
 export class UnifiedActivityService {
   private static readonly VIDEO_APP_KEYWORDS = [
     'teams',
@@ -91,6 +106,9 @@ export class UnifiedActivityService {
     'hangouts.google.com'
   ];
 
+  private readonly browserApps: Set<string>;
+  private readonly editorApps: Set<string>;
+
   constructor(
     private queryService: QueryService,
     private categoryService: CategoryService,
@@ -99,12 +117,27 @@ export class UnifiedActivityService {
     // Initialize title parser with config
     const titleParsingConfig = getTitleParsingConfig();
     setTitleParsingConfig(titleParsingConfig);
+    this.browserApps = new Set(getAllBrowserAppNames().map(name => name.toLowerCase()));
+    this.editorApps = new Set(getAllEditorAppNames().map(name => name.toLowerCase()));
   }
 
   /**
    * Get unified activity data with browser/editor enrichment
    */
   async getActivity(params: UnifiedActivityParams): Promise<UnifiedActivityResult> {
+    const overallStart = Date.now();
+    const timingStarts: Record<string, number> = {};
+    const timingDurations: Record<string, number> = {};
+    const startStage = (name: string): void => {
+      timingStarts[name] = Date.now();
+    };
+    const endStage = (name: string): void => {
+      const started = timingStarts[name];
+      if (started !== undefined) {
+        timingDurations[`${name}_ms`] = Date.now() - started;
+      }
+    };
+
     // Parse time range
     const timeRange = getTimeRange(
       params.time_period,
@@ -119,10 +152,12 @@ export class UnifiedActivityService {
     });
 
     // Get canonical events (window + browser + editor)
+    startStage('canonical_events');
     const canonical = await this.queryService.getCanonicalEvents(
       timeRange.start,
       timeRange.end
     );
+    endStage('canonical_events');
 
     logger.debug('Canonical events retrieved', {
       window_events: canonical.window_events.length,
@@ -133,6 +168,7 @@ export class UnifiedActivityService {
     // Fetch calendar events if service is available
     let calendarEvents: CalendarEvent[] = [];
     if (this.calendarService) {
+      startStage('calendar_events');
       try {
         const calendarResult = await this.calendarService.getEvents({
           time_period: 'custom',
@@ -147,23 +183,31 @@ export class UnifiedActivityService {
         });
       } catch (error) {
         logger.debug('Calendar overlay unavailable', error);
+      } finally {
+        endStage('calendar_events');
       }
     }
 
     // Merge browser and editor data into window events
+    startStage('enrich_events');
     const enrichedEvents = this.enrichWindowEvents(
       canonical.window_events,
       canonical.browser_events,
       canonical.editor_events
     );
+    endStage('enrich_events');
 
+    startStage('calendar_overlay');
     const overlay = this.applyCalendarOverlay(enrichedEvents, calendarEvents);
+    endStage('calendar_overlay');
     const adjustedEvents = overlay.events;
 
     // Filter by minimum duration (meeting events are always retained)
+    startStage('filter_events');
     const minDuration = params.min_duration_seconds ?? 5;
     const filteredWindowEvents = adjustedEvents.filter(e => e.duration >= minDuration);
     const combinedEvents = [...filteredWindowEvents, ...overlay.meetingEvents];
+    endStage('filter_events');
 
     logger.debug('Calendar overlay statistics', {
       min_duration: minDuration,
@@ -180,19 +224,25 @@ export class UnifiedActivityService {
     }
 
     // Always apply categorization
+    startStage('categorize_events');
     const categorizedEvents = this.applyCategoriestoEvents(eventsToGroup);
+    endStage('categorize_events');
 
     // Group and aggregate (handle both single and multi-level grouping)
+    startStage('group_events');
     const groupBy = params.group_by ?? 'application';
     const activities = Array.isArray(groupBy)
       ? this.groupEventsMultiLevel(categorizedEvents, groupBy)
       : this.groupEvents(categorizedEvents, groupBy);
+    endStage('group_events');
 
     // Sort by duration and limit
+    startStage('sort_limit');
     const topN = params.top_n ?? 10;
     const sorted = activities
       .sort((a, b) => b.duration_seconds - a.duration_seconds)
       .slice(0, topN);
+    endStage('sort_limit');
 
     const focusSeconds = adjustedEvents.reduce((sum, event) => sum + event.duration, 0);
     const calendarSummary = this.buildCalendarSummary(focusSeconds, overlay.stats);
@@ -212,6 +262,9 @@ export class UnifiedActivityService {
       union_seconds: calendarSummary.union_seconds,
       meeting_count: calendarSummary.meeting_count,
     });
+
+    timingDurations.total_ms = Date.now() - overallStart;
+    logger.debug('Unified activity timing', timingDurations);
 
     return {
       total_time_seconds: totalTime,
@@ -468,91 +521,150 @@ export class UnifiedActivityService {
     browserEvents: readonly AWEvent[],
     editorEvents: readonly AWEvent[]
   ): EnrichedEvent[] {
-    const enriched: EnrichedEvent[] = [];
+    const browserTimed = this.buildTimedEvents(browserEvents)
+      .sort((a, b) => a.startMs - b.startMs);
+    const editorTimed = this.buildTimedEvents(editorEvents)
+      .sort((a, b) => a.startMs - b.startMs);
 
-    // Enrich each window event
-    for (const windowEvent of windowEvents) {
+    const windowIntervals: WindowInterval[] = windowEvents.map((windowEvent, index) => {
       const app = windowEvent.data.app as string || 'Unknown';
       const title = windowEvent.data.title as string || '';
+      const startMs = new Date(windowEvent.timestamp).getTime();
+      const endMs = startMs + (windowEvent.duration * 1000);
 
-      const windowStart = new Date(windowEvent.timestamp).getTime();
-      const windowEnd = windowStart + (windowEvent.duration * 1000);
-
-      // Find overlapping browser events (always collect, display controlled by response_format)
-      let browserEnrichment: BrowserEnrichment | undefined;
-      for (const browserEvent of browserEvents) {
-        const browserStart = new Date(browserEvent.timestamp).getTime();
-        const browserEnd = browserStart + (browserEvent.duration * 1000);
-
-        // Check if events overlap
-        if (this.eventsOverlap(windowStart, windowEnd, browserStart, browserEnd)) {
-          browserEnrichment = this.extractBrowserData(browserEvent);
-          break; // Use first matching browser event
-        }
-      }
-
-      // Find overlapping editor events (always collect, display controlled by response_format)
-      let editorEnrichment: EditorEnrichment | undefined;
-      for (const editorEvent of editorEvents) {
-        const editorStart = new Date(editorEvent.timestamp).getTime();
-        const editorEnd = editorStart + (editorEvent.duration * 1000);
-
-        // Check if events overlap
-        if (this.eventsOverlap(windowStart, windowEnd, editorStart, editorEnd)) {
-          editorEnrichment = this.extractEditorData(editorEvent);
-          break; // Use first matching editor event
-        }
-      }
-
-      // Parse title using configurable rules
-      // Only parse if there are rules defined for this app
-      let terminalInfo: Record<string, any> | undefined;
-      let ideInfo: Record<string, any> | undefined;
-      let customInfo: Record<string, any> | undefined;
-
-      if (hasParsingRules(app)) {
-        const parsed = parseTitle(app, title);
-
-        if (parsed) {
-          // Only parse IDE titles if editor enrichment is not available
-          // (editor bucket provides better data)
-          if (parsed.enrichmentType === 'terminal') {
-            terminalInfo = parsed.data;
-          } else if (parsed.enrichmentType === 'ide' && !editorEnrichment) {
-            ideInfo = parsed.data;
-          } else if (parsed.enrichmentType === 'custom') {
-            customInfo = parsed.data;
-          }
-        }
-      }
-
-      enriched.push({
+      return {
+        event: windowEvent,
+        index,
         app,
         title,
-        duration: windowEvent.duration,
-        timestamp: windowEvent.timestamp,
-        browser: browserEnrichment,
-        editor: editorEnrichment,
-        terminal: terminalInfo,
-        ide: ideInfo,
-        custom: customInfo,
-      });
+        startMs,
+        endMs,
+      };
+    });
+
+    const validWindows = windowIntervals
+      .filter(interval => Number.isFinite(interval.startMs)
+        && Number.isFinite(interval.endMs)
+        && interval.endMs > interval.startMs)
+      .sort((a, b) => a.startMs - b.startMs);
+
+    const browserCursor = { value: 0 };
+    const editorCursor = { value: 0 };
+    const enriched: EnrichedEvent[] = new Array(windowEvents.length);
+
+    for (const interval of validWindows) {
+      const browserEvent = this.isBrowserApp(interval.app)
+        ? this.findOverlapEvent(interval.startMs, interval.endMs, browserTimed, browserCursor)
+        : undefined;
+      const editorEvent = this.isEditorApp(interval.app)
+        ? this.findOverlapEvent(interval.startMs, interval.endMs, editorTimed, editorCursor)
+        : undefined;
+
+      enriched[interval.index] = this.buildEnrichedEvent(
+        interval.event,
+        interval.app,
+        interval.title,
+        browserEvent,
+        editorEvent
+      );
+    }
+
+    for (const interval of windowIntervals) {
+      if (!enriched[interval.index]) {
+        enriched[interval.index] = this.buildEnrichedEvent(
+          interval.event,
+          interval.app,
+          interval.title
+        );
+      }
     }
 
     return enriched;
   }
 
-  /**
-   * Check if two time periods overlap
-   */
-  private eventsOverlap(
-    start1: number,
-    end1: number,
-    start2: number,
-    end2: number
-  ): boolean {
-    // Events overlap if one starts before the other ends
-    return start1 < end2 && start2 < end1;
+  private buildTimedEvents(events: readonly AWEvent[]): TimedEvent[] {
+    return events.map(event => {
+      const startMs = new Date(event.timestamp).getTime();
+      const endMs = startMs + (event.duration * 1000);
+      return {
+        event,
+        startMs,
+        endMs,
+      };
+    }).filter(interval => Number.isFinite(interval.startMs)
+      && Number.isFinite(interval.endMs)
+      && interval.endMs > interval.startMs);
+  }
+
+  private findOverlapEvent(
+    windowStart: number,
+    windowEnd: number,
+    timedEvents: TimedEvent[],
+    cursor: { value: number }
+  ): AWEvent | undefined {
+    while (cursor.value < timedEvents.length && timedEvents[cursor.value].endMs <= windowStart) {
+      cursor.value += 1;
+    }
+
+    const candidate = timedEvents[cursor.value];
+    if (candidate && candidate.startMs < windowEnd) {
+      return candidate.event;
+    }
+
+    return undefined;
+  }
+
+  private buildEnrichedEvent(
+    windowEvent: AWEvent,
+    app: string,
+    title: string,
+    browserEvent?: AWEvent,
+    editorEvent?: AWEvent
+  ): EnrichedEvent {
+    const browserEnrichment = browserEvent ? this.extractBrowserData(browserEvent) : undefined;
+    const editorEnrichment = editorEvent ? this.extractEditorData(editorEvent) : undefined;
+
+    // Parse title using configurable rules
+    // Only parse if there are rules defined for this app
+    let terminalInfo: Record<string, any> | undefined;
+    let ideInfo: Record<string, any> | undefined;
+    let customInfo: Record<string, any> | undefined;
+
+    if (hasParsingRules(app)) {
+      const parsed = parseTitle(app, title);
+
+      if (parsed) {
+        // Only parse IDE titles if editor enrichment is not available
+        // (editor bucket provides better data)
+        if (parsed.enrichmentType === 'terminal') {
+          terminalInfo = parsed.data;
+        } else if (parsed.enrichmentType === 'ide' && !editorEnrichment) {
+          ideInfo = parsed.data;
+        } else if (parsed.enrichmentType === 'custom') {
+          customInfo = parsed.data;
+        }
+      }
+    }
+
+    return {
+      app,
+      title,
+      duration: windowEvent.duration,
+      timestamp: windowEvent.timestamp,
+      browser: browserEnrichment,
+      editor: editorEnrichment,
+      terminal: terminalInfo,
+      ide: ideInfo,
+      custom: customInfo,
+    };
+  }
+
+  private isBrowserApp(app: string): boolean {
+    return this.browserApps.has(app.toLowerCase());
+  }
+
+  private isEditorApp(app: string): boolean {
+    return this.editorApps.has(app.toLowerCase());
   }
 
   /**
