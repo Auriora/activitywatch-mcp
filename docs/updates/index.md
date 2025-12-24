@@ -6,6 +6,10 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2025-12-23 15:30 — [Add configurable ActivityWatch timeout and canonical query chunking](./2025-12-23-1530-aw-timeout-and-chunking.md)
+- 2025-12-22 21:15 — [Optimize unified activity enrichment](./2025-12-22-2115-optimize-activity-enrichment.md)
+- 2025-12-22 18:30 — [Add live activity test coverage and timing logs](./2025-12-22-1830-live-activity-tests-and-timing.md)
+- 2025-12-22 17:00 — [Remove legacy tool references](./2025-12-22-1700-remove-legacy-tool-references.md)
 - 2025-10-15 17:16 — [Stabilize HTTP SSE transport with heartbeats](./2025-10-15-1716-sse-heartbeat-stabilization.md)
 - 2025-10-13 15:35 — [Rename project to activitywatch-mcp](./2025-10-13-1535-repo-rename.md)
 - 2025-10-13 12:41 — [Document transport concurrency and session isolation](./2025-10-13-1241-transport-concurrency.md)
