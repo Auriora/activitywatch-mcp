@@ -104,7 +104,7 @@ async function main() {
   }
 }
 
-main().catch((err) => {z
+main().catch((err) => {
   console.error('Link check failed with error:', err);
   process.exit(2);
 });
