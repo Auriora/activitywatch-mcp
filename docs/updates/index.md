@@ -6,6 +6,9 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2026-03-17 14:40 — [Align tool docs and schemas with timezone semantics](./2026-03-17-1440-timezone-docs-and-schema-alignment.md)
+- 2026-03-17 14:30 — [Fix custom date parsing and DST-sensitive timezone offsets](./2026-03-17-1430-timezone-followups-fix.md)
+- 2026-03-17 14:20 — [Stabilize time utility tests across local timezones](./2026-03-17-1420-timezone-stable-time-tests.md)
 - 2025-12-24 16:05 — [Mock health check in HTTP integration tests](./2025-12-24-1605-mock-health-check-test.md)
 - 2025-12-23 15:30 — [Add configurable ActivityWatch timeout and canonical query chunking](./2025-12-23-1530-aw-timeout-and-chunking.md)
 - 2025-12-22 21:15 — [Optimize unified activity enrichment](./2025-12-22-2115-optimize-activity-enrichment.md)

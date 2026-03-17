@@ -125,15 +125,15 @@ The default response is a human-readable summary. Use response_format='detailed'
           type: 'string',
           enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
           default: 'today',
-          description: 'Time period to analyze. Options: "today" (since midnight), "yesterday" (previous day), "this_week" (Monday to now), "last_week" (previous Monday-Sunday), "last_7_days" (rolling 7 days), "last_30_days" (rolling 30 days), "custom" (requires custom_start and custom_end). Use natural periods unless user specifies exact dates.',
+          description: 'Time period to analyze. Options: "today" (since local midnight), "yesterday" (previous local calendar day), "this_week" (Monday to now), "last_week" (previous Monday-Sunday), "last_7_days" (rolling 7 days), "last_30_days" (rolling 30 days), "custom" (requires custom_start and custom_end). Use natural periods unless user specifies exact dates.',
         },
         custom_start: {
           type: 'string',
-          description: 'Start date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T09:00:00Z") or simple date ("2025-01-14" assumes 00:00:00). Examples: "2025-01-14", "2025-01-14T14:30:00Z"',
+          description: 'Start date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T09:00:00Z") or simple date ("2025-01-14" means local midnight at the start of that date). Examples: "2025-01-14", "2025-01-14T14:30:00Z"',
         },
         custom_end: {
           type: 'string',
-          description: 'End date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T17:00:00Z") or simple date ("2025-01-14" assumes 23:59:59). Must be after custom_start. Examples: "2025-01-14", "2025-01-14T17:00:00Z"',
+          description: 'End date/time for custom period. Required only when time_period="custom". Formats: ISO 8601 ("2025-01-14T17:00:00Z") or simple date ("2025-01-14" means local midnight at the start of that date). Must be after custom_start. Use an explicit ISO timestamp if you need an inclusive end-of-day range. Examples: "2025-01-15T00:00:00Z", "2025-01-14T17:00:00Z"',
         },
         top_n: {
           type: 'number',
@@ -250,11 +250,11 @@ Always returns human-readable formatted summary optimized for user presentation.
         period_type: {
           type: 'string',
           enum: ['daily', 'weekly', 'monthly', 'last_24_hours', 'last_7_days', 'last_30_days'],
-          description: 'Type of period to summarize. "daily": Single day. "weekly": Week (Mon-Sun). "monthly": Calendar month. "last_24_hours": Rolling 24 hours. "last_7_days": Rolling 7 days. "last_30_days": Rolling 30 days.',
+          description: 'Type of period to summarize. "daily": Single local calendar day in the resolved timezone. "weekly": Week (Mon-Sun) in the resolved timezone. "monthly": Calendar month in the resolved timezone. "last_24_hours": Rolling 24 hours. "last_7_days": Rolling 7 days. "last_30_days": Rolling 30 days.',
         },
         date: {
           type: 'string',
-          description: 'Reference date in YYYY-MM-DD format. For daily/weekly/monthly: the date within the period. For rolling periods: ignored (uses current time). Defaults to today. Examples: "2025-01-14", "2024-12-25".',
+          description: 'Reference date in YYYY-MM-DD format. For daily/weekly/monthly: the date within the period in the resolved timezone. For rolling periods: ignored (uses current time). Defaults to today. Examples: "2025-01-14", "2024-12-25".',
         },
         detail_level: {
           type: 'string',
@@ -263,7 +263,7 @@ Always returns human-readable formatted summary optimized for user presentation.
         },
         timezone: {
           type: 'string',
-          description: 'Timezone for period boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone.',
+          description: 'Timezone for period boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone. IANA zones are resolved for the requested period date so DST-sensitive dates use the correct offset.',
         },
       },
       required: ['period_type'],
@@ -304,15 +304,15 @@ LIMITATIONS:
         time_period: {
           type: 'string',
           enum: ['today', 'yesterday', 'this_week', 'last_week', 'last_7_days', 'last_30_days', 'custom'],
-          description: 'Time window to inspect. Defaults to "today". Use "custom" with custom_start/custom_end for specific ranges.',
+          description: 'Time window to inspect. Defaults to "today". Preset ranges use local calendar boundaries. Use "custom" with custom_start/custom_end for specific ranges.',
         },
         custom_start: {
           type: 'string',
-          description: 'Custom range start (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Example: "2025-01-14T09:00:00Z".',
+          description: 'Custom range start (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Bare YYYY-MM-DD values mean local midnight at the start of that date. Example: "2025-01-14T09:00:00Z".',
         },
         custom_end: {
           type: 'string',
-          description: 'Custom range end (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Example: "2025-01-14T17:00:00Z".',
+          description: 'Custom range end (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Bare YYYY-MM-DD values mean local midnight at the start of that date, so use an explicit ISO timestamp if you want an inclusive end-of-day range. Example: "2025-01-14T17:00:00Z".',
         },
         include_all_day: {
           type: 'boolean',
