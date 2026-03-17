@@ -66,6 +66,26 @@ describe('GetCalendarEventsSchema', () => {
     expect(parsed.custom_start).toBe('2025-01-01');
     expect(parsed.custom_end).toBe('2025-01-02');
   });
+
+  it('attributes parse failures to the correct custom date field', () => {
+    const result = GetCalendarEventsSchema.safeParse({
+      time_period: 'custom',
+      custom_start: '2025-01-01',
+      custom_end: 'not-a-date',
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected schema validation to fail');
+    }
+
+    expect(result.error.issues).toContainEqual(
+      expect.objectContaining({
+        path: ['custom_end'],
+        message: 'custom_end must be a valid date string',
+      })
+    );
+  });
 });
 
 describe('QueryEventsSchema', () => {

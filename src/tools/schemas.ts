@@ -5,6 +5,17 @@
 import { z } from 'zod';
 import { parseDate } from '../utils/time.js';
 
+function addCustomDateParseIssue(
+  ctx: z.RefinementCtx,
+  field: 'custom_start' | 'custom_end'
+): void {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [field],
+    message: `${field} must be a valid date string`,
+  });
+}
+
 /**
  * Common schemas
  */
@@ -92,21 +103,26 @@ export const GetCalendarEventsSchema = z.object({
     }
 
     if (data.custom_start && data.custom_end) {
+      let start: number | null = null;
+      let end: number | null = null;
+
       try {
-        const start = parseDate(data.custom_start).getTime();
-        const end = parseDate(data.custom_end).getTime();
-        if (start > end) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['custom_start'],
-            message: 'custom_start must be before or equal to custom_end',
-          });
-        }
+        start = parseDate(data.custom_start).getTime();
       } catch {
+        addCustomDateParseIssue(ctx, 'custom_start');
+      }
+
+      try {
+        end = parseDate(data.custom_end).getTime();
+      } catch {
+        addCustomDateParseIssue(ctx, 'custom_end');
+      }
+
+      if (start !== null && end !== null && start > end) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['custom_start'],
-          message: 'custom_start and custom_end must be valid date strings',
+          message: 'custom_start must be before or equal to custom_end',
         });
       }
     }
@@ -228,9 +244,22 @@ export const GetMeetingContextSchema = z.object({
     }
 
     if (data.custom_start && data.custom_end) {
-      const start = new Date(data.custom_start).getTime();
-      const end = new Date(data.custom_end).getTime();
-      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+      let start: number | null = null;
+      let end: number | null = null;
+
+      try {
+        start = parseDate(data.custom_start).getTime();
+      } catch {
+        addCustomDateParseIssue(ctx, 'custom_start');
+      }
+
+      try {
+        end = parseDate(data.custom_end).getTime();
+      } catch {
+        addCustomDateParseIssue(ctx, 'custom_end');
+      }
+
+      if (start !== null && end !== null && start >= end) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['custom_start'],

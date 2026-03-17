@@ -157,12 +157,7 @@ export class CapabilitiesService {
     const capabilities = await this.detectCapabilities();
     const tools: string[] = ['aw_get_capabilities', 'aw_get_raw_events'];
 
-    const hasActivityData =
-      capabilities.has_window_tracking ||
-      capabilities.has_browser_tracking ||
-      capabilities.has_editor_tracking;
-
-    if (hasActivityData) {
+    if (capabilities.has_window_tracking) {
       tools.push('aw_get_activity', 'aw_get_period_summary');
     }
 
