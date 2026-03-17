@@ -1,6 +1,6 @@
 # Query Events Tool - Custom Event Filtering
 
-**Last updated:** October 11, 2025
+**Last updated:** December 22, 2025
 
 ## Overview
 
@@ -19,7 +19,7 @@ The `aw_query_events` tool provides a flexible query builder that allows you to 
 
 ### ❌ Don't Use This Tool When:
 
-- For general activity overview → use `aw_get_activity`, `aw_get_window_activity`, or `aw_get_web_activity`
+- For general activity overview → use `aw_get_activity`
 - For daily or multi-day summaries → use `aw_get_period_summary`
 - When you need aggregated statistics → high-level tools are more efficient
 - For simple queries → standard tools are easier to use
@@ -321,6 +321,5 @@ For custom queries, you can use the full ActivityWatch query language:
 
 - [aw_get_raw_events](./tools.md#aw_get_raw_events) - Simple raw event retrieval
 - [aw_get_activity](./tools.md#aw_get_activity) - High-level unified activity analysis
-- [aw_get_window_activity](./tools.md#aw_get_window_activity) - Application usage analysis
-- [aw_get_web_activity](./tools.md#aw_get_web_activity) - Web browsing analysis
+- [aw_get_period_summary](./tools.md#aw_get_period_summary) - Period summaries and trends
 - [ActivityWatch Query Language](https://docs.activitywatch.net/en/latest/examples/working-with-data.html) - Official documentation

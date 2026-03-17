@@ -114,8 +114,7 @@ describe.skipIf(SKIP_E2E)('MCP Server E2E', () => {
       const toolNames = response.result.tools.map((t: any) => t.name);
       expect(toolNames).toContain('aw_get_capabilities');
       expect(toolNames).toContain('aw_get_activity');
-      expect(toolNames).toContain('aw_get_window_activity');
-      expect(toolNames).toContain('aw_get_web_activity');
+      expect(toolNames).toContain('aw_get_period_summary');
     });
   });
 
@@ -257,4 +256,3 @@ async function sendRequest(server: ChildProcess, request: any): Promise<any> {
     server.stdin?.write(JSON.stringify(request) + '\n');
   });
 }
-

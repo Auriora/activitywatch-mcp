@@ -133,8 +133,22 @@ describe('CapabilitiesService capability detection', () => {
     expect(tools).toEqual([
       'aw_get_capabilities',
       'aw_get_raw_events',
-      'aw_get_window_activity',
+      'aw_get_activity',
+      'aw_get_period_summary',
       'aw_get_calendar_events',
+    ]);
+  });
+
+  it('does not suggest aw_get_activity without window tracking', async () => {
+    client.setBuckets([
+      createMockBucket('aw-watcher-web_test', 'web.tab.current'),
+      createMockBucket('aw-watcher-editor_test', 'app.editor.activity'),
+    ]);
+
+    const tools = await service.getSuggestedTools();
+    expect(tools).toEqual([
+      'aw_get_capabilities',
+      'aw_get_raw_events',
       'aw_get_period_summary',
     ]);
   });

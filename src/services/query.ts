@@ -9,6 +9,7 @@
 import { IActivityWatchClient } from '../client/activitywatch.js';
 import { CapabilitiesService } from './capabilities.js';
 import { AWEvent, CanonicalQueryResult } from '../types.js';
+import { getRuntimeConfig } from '../config/runtime.js';
 import { formatDateForAPI } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -23,16 +24,29 @@ export interface QueryResult {
   readonly total_duration_seconds: number;
 }
 
+export interface QueryServiceOptions {
+  canonicalQueryChunkDays?: number;
+}
 
 
 /**
  * Service for executing AFK-filtered queries
  */
 export class QueryService {
+  private readonly canonicalQueryChunkDays: number;
+  private readonly canonicalQueryChunkMs: number | null;
+
   constructor(
     private client: IActivityWatchClient,
-    private capabilities: CapabilitiesService
-  ) {}
+    private capabilities: CapabilitiesService,
+    options: QueryServiceOptions = {}
+  ) {
+    const { awQueryChunkDays } = getRuntimeConfig();
+    const configuredDays = options.canonicalQueryChunkDays ?? awQueryChunkDays;
+    const normalizedDays = Number.isFinite(configuredDays) ? Math.max(0, configuredDays) : 0;
+    this.canonicalQueryChunkDays = normalizedDays;
+    this.canonicalQueryChunkMs = normalizedDays > 0 ? normalizedDays * 24 * 60 * 60 * 1000 : null;
+  }
 
   /**
    * Get window events filtered by AFK status
@@ -234,16 +248,67 @@ export class QueryService {
       afkBucketId
     );
 
-    const timeperiods = [
-      `${formatDateForAPI(startTime)}/${formatDateForAPI(endTime)}`
-    ];
+    const ranges = this.buildCanonicalQueryRanges(startTime, endTime);
 
     logger.debug('Executing canonical merged query', {
       windowBucketCount: windowBucketIds.length,
       browserBucketCount: browserConfigs.length,
       editorBucketCount: editorConfigs.length,
       afkBucketId,
+      chunkDays: this.canonicalQueryChunkDays || undefined,
+      chunkCount: ranges.length,
     });
+
+    if (ranges.length === 1) {
+      return this.executeCanonicalMergedQueryRange(query, ranges[0].start, ranges[0].end);
+    }
+
+    logger.info('Chunking canonical query to avoid timeouts', {
+      chunkDays: this.canonicalQueryChunkDays,
+      chunkCount: ranges.length,
+      start: startTime.toISOString(),
+      end: endTime.toISOString(),
+    });
+
+    const windowEvents: AWEvent[] = [];
+    const browserEvents: AWEvent[] = [];
+    const editorEvents: AWEvent[] = [];
+
+    for (const [index, range] of ranges.entries()) {
+      const chunkResult = await this.executeCanonicalMergedQueryRange(query, range.start, range.end);
+      windowEvents.push(...chunkResult.window_events);
+      browserEvents.push(...chunkResult.browser_events);
+      editorEvents.push(...chunkResult.editor_events);
+
+      logger.debug('Canonical query chunk complete', {
+        chunkIndex: index + 1,
+        chunkCount: ranges.length,
+        start: range.start.toISOString(),
+        end: range.end.toISOString(),
+        windowEvents: chunkResult.window_events.length,
+        browserEvents: chunkResult.browser_events.length,
+        editorEvents: chunkResult.editor_events.length,
+      });
+    }
+
+    const totalDuration = windowEvents.reduce((sum, event) => sum + event.duration, 0);
+
+    return {
+      window_events: windowEvents,
+      browser_events: browserEvents,
+      editor_events: editorEvents,
+      total_duration_seconds: totalDuration,
+    };
+  }
+
+  private async executeCanonicalMergedQueryRange(
+    query: string[],
+    startTime: Date,
+    endTime: Date
+  ): Promise<CanonicalQueryResult> {
+    const timeperiods = [
+      `${formatDateForAPI(startTime)}/${formatDateForAPI(endTime)}`
+    ];
 
     try {
       const results = await this.client.query(timeperiods, query);
@@ -278,6 +343,38 @@ export class QueryService {
       logger.error('Canonical merged query execution failed', error);
       throw error;
     }
+  }
+
+  private buildCanonicalQueryRanges(
+    startTime: Date,
+    endTime: Date
+  ): Array<{ start: Date; end: Date }> {
+    const chunkMs = this.canonicalQueryChunkMs;
+    if (!chunkMs) {
+      return [{ start: startTime, end: endTime }];
+    }
+
+    const startMs = startTime.getTime();
+    const endMs = endTime.getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+      return [{ start: startTime, end: endTime }];
+    }
+
+    const totalMs = endMs - startMs;
+    if (totalMs <= chunkMs) {
+      return [{ start: startTime, end: endTime }];
+    }
+
+    const ranges: Array<{ start: Date; end: Date }> = [];
+    let cursor = startMs;
+
+    while (cursor < endMs) {
+      const next = Math.min(cursor + chunkMs, endMs);
+      ranges.push({ start: new Date(cursor), end: new Date(next) });
+      cursor = next;
+    }
+
+    return ranges;
   }
 
   private buildCanonicalMergedQuery(

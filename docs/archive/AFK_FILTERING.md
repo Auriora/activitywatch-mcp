@@ -116,7 +116,7 @@ Total active time: 5.5 hours
 
 All tool descriptions now clearly indicate AFK filtering:
 
-### aw_get_window_activity
+### legacy window activity tool
 ```
 CAPABILITIES:
 - **AFK FILTERING**: Automatically filters events to only include active periods
@@ -130,7 +130,7 @@ RETURNS:
 - total_time_seconds: Total active time in the period (AFK-filtered)
 ```
 
-### aw_get_web_activity
+### legacy web activity tool
 ```
 CAPABILITIES:
 - **AFK FILTERING**: Automatically filters events to only include active periods
@@ -144,7 +144,7 @@ RETURNS:
 - total_time_seconds: Total browsing time in the period (AFK-filtered)
 ```
 
-### aw_get_editor_activity
+### legacy editor activity tool
 ```
 CAPABILITIES:
 - **AFK FILTERING**: Automatically filters events to only include active periods

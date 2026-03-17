@@ -158,23 +158,20 @@ export class CapabilitiesService {
     const tools: string[] = ['aw_get_capabilities', 'aw_get_raw_events'];
 
     if (capabilities.has_window_tracking) {
-      tools.push('aw_get_window_activity');
+      tools.push('aw_get_activity');
     }
 
-    if (capabilities.has_browser_tracking) {
-      tools.push('aw_get_web_activity');
-    }
+    const hasSummaryData =
+      capabilities.has_window_tracking ||
+      capabilities.has_browser_tracking ||
+      capabilities.has_editor_tracking;
 
-    if (capabilities.has_editor_tracking) {
-      tools.push('aw_get_editor_activity');
+    if (hasSummaryData) {
+      tools.push('aw_get_period_summary');
     }
 
     if (capabilities.has_calendar_events) {
       tools.push('aw_get_calendar_events');
-    }
-
-    if (capabilities.has_window_tracking || capabilities.has_browser_tracking || capabilities.has_editor_tracking) {
-      tools.push('aw_get_period_summary');
     }
 
     return tools;

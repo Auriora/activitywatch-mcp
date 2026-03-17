@@ -1,6 +1,6 @@
 # Tools Reference
 
-**Last updated:** October 15, 2025
+**Last updated:** December 22, 2025
 
 Complete reference for all ActivityWatch MCP tools with parameters, return values, and usage examples.
 
@@ -792,9 +792,7 @@ Behind the scenes it assembles a cohesive view by layering multiple sources:
 ### Focused Analysis
 ```
 1. aw_get_capabilities          → Confirm data availability
-2. aw_get_window_activity       → App-focused analysis
-   OR aw_get_web_activity       → Web-focused analysis  
-   OR aw_get_editor_activity    → Coding-focused analysis
+2. aw_get_activity              → Use group_by for focused analysis
 ```
 
 ### Category Management

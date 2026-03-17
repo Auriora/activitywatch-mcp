@@ -6,7 +6,9 @@
         "/absolute/path/to/activitywatch-mcp/dist/index.js"
       ],
       "env": {
-        "AW_URL": "http://localhost:5600"
+        "AW_URL": "http://localhost:5600",
+        "AW_TIMEOUT_MS": "30000",
+        "AW_QUERY_CHUNK_DAYS": "7"
       }
     }
   }

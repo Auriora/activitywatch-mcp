@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-The current implementation has three separate tools (`aw_get_window_activity`, `aw_get_web_activity`, `aw_get_editor_activity`) that:
+The current implementation has three separate tools (`legacy window activity tool`, `legacy web activity tool`, `legacy editor activity tool`) that:
 
 1. **Don't properly correlate data**: Browser/editor activity is counted even when those windows aren't active
 2. **Create confusion**: Users don't know which tool to use
@@ -269,7 +269,7 @@ const groups = new Map<string, ActivityEvent[]>();
 ## Migration Path
 
 ### Option 1: Replace Existing Tools
-- Remove `aw_get_window_activity`, `aw_get_web_activity`, `aw_get_editor_activity`
+- Remove `legacy window activity tool`, `legacy web activity tool`, `legacy editor activity tool`
 - Add new `aw_get_activity` with unified data
 - **Breaking change** but cleaner API
 

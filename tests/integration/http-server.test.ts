@@ -1,7 +1,31 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { AddressInfo } from 'node:net';
 
+vi.mock('../../src/utils/health.js', async () => {
+  const actual = await vi.importActual<typeof import('../../src/utils/health.js')>(
+    '../../src/utils/health.js'
+  );
+  return {
+    ...actual,
+    performHealthCheck: vi.fn(),
+    logStartupDiagnostics: vi.fn(),
+  };
+});
+
 import { createHttpServer, type SessionData } from '../../src/http-server.js';
+import { performHealthCheck } from '../../src/utils/health.js';
+
+const healthCheckResult = {
+  healthy: true,
+  serverReachable: true,
+  serverVersion: '1.0.0',
+  bucketsAvailable: 1,
+  hasWindowTracking: true,
+  hasBrowserTracking: false,
+  hasAfkTracking: false,
+  errors: [],
+  warnings: [],
+};
 
 const createStubServer = () => ({
   connect: vi.fn().mockResolvedValue(undefined),
@@ -18,6 +42,10 @@ const startServer = async (instance: ReturnType<typeof createHttpServer>) => {
 };
 
 describe('HTTP transport lifecycle', () => {
+  beforeEach(() => {
+    vi.mocked(performHealthCheck).mockResolvedValue(healthCheckResult);
+  });
+
   it('exposes health endpoint with configured ActivityWatch URL', async () => {
     const serverFactory = vi.fn().mockResolvedValue(createStubServer() as any);
     const instance = createHttpServer({

@@ -52,10 +52,24 @@ export function getBrowserAppNames(browserType: string): string[] {
 }
 
 /**
+ * Get all configured browser app names
+ */
+export function getAllBrowserAppNames(): string[] {
+  return Object.values(config.browsers).flat();
+}
+
+/**
  * Get editor app names for a specific editor type
  */
 export function getEditorAppNames(editorType: string): string[] {
   return config.editors[editorType.toLowerCase()] || [];
+}
+
+/**
+ * Get all configured editor app names
+ */
+export function getAllEditorAppNames(): string[] {
+  return Object.values(config.editors).flat();
 }
 
 /**
@@ -108,4 +122,3 @@ export function getTitleParsingConfig() {
     rules: []
   };
 }
-
