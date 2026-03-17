@@ -103,10 +103,13 @@ export function loadUserPreferences(): UserPreferences {
  * Get timezone offset for a specific timezone string
  * Falls back to user preferences if timezone is not provided
  */
-export function getTimezoneOffset(timezone?: string): { timezone: string; offsetMinutes: number } {
+export function getTimezoneOffset(
+  timezone?: string,
+  referenceDate?: Date
+): { timezone: string; offsetMinutes: number } {
   if (timezone) {
     try {
-      const offsetMinutes = parseTimezoneOffset(timezone);
+      const offsetMinutes = parseTimezoneOffset(timezone, referenceDate);
       return { timezone, offsetMinutes };
     } catch (error) {
       console.warn(`[UserPreferences] Invalid timezone "${timezone}", falling back to user preferences`);
@@ -127,4 +130,3 @@ export function reloadUserPreferences(): UserPreferences {
   cachedPreferences = null;
   return loadUserPreferences();
 }
-

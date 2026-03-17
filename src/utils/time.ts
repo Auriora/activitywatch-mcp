@@ -34,10 +34,12 @@ const TIMEZONE_OFFSETS: Record<string, number> = {
  * Parse timezone string to offset in minutes
  * Supports: "UTC", "GMT", timezone abbreviations, "UTC+1", "UTC-5", IANA timezone names
  */
-export function parseTimezoneOffset(timezone: string): number {
+export function parseTimezoneOffset(timezone: string, referenceDate: Date = new Date()): number {
+  const normalizedTimezone = timezone.toUpperCase();
+
   // Check if it's a known abbreviation
-  if (TIMEZONE_OFFSETS[timezone.toUpperCase()]) {
-    return TIMEZONE_OFFSETS[timezone.toUpperCase()];
+  if (normalizedTimezone in TIMEZONE_OFFSETS) {
+    return TIMEZONE_OFFSETS[normalizedTimezone];
   }
 
   // Check for UTC+X or UTC-X format
@@ -55,10 +57,32 @@ export function parseTimezoneOffset(timezone: string): number {
   // For IANA timezone names (e.g., "Europe/Dublin"), we need to calculate offset
   // This is a simplified approach - for production, consider using a library like date-fns-tz
   try {
-    const now = new Date();
-    const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
-    const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-    return Math.round((tzDate.getTime() - utcDate.getTime()) / (1000 * 60));
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      hourCycle: 'h23',
+    });
+    const parts = formatter.formatToParts(referenceDate);
+    const values = Object.fromEntries(
+      parts
+        .filter(part => part.type !== 'literal')
+        .map(part => [part.type, part.value])
+    );
+    const timezoneTime = Date.UTC(
+      parseInt(values.year, 10),
+      parseInt(values.month, 10) - 1,
+      parseInt(values.day, 10),
+      parseInt(values.hour, 10),
+      parseInt(values.minute, 10),
+      parseInt(values.second, 10)
+    );
+    return Math.round((timezoneTime - referenceDate.getTime()) / (1000 * 60));
   } catch (error) {
     throw new AWError(
       `Invalid timezone: ${timezone}. Use UTC, timezone abbreviations (IST, EST, etc.), UTC+X format, or IANA timezone names (Europe/Dublin)`,
@@ -253,17 +277,17 @@ export function getTimeRange(
  * Parse a date string (supports YYYY-MM-DD and ISO 8601)
  */
 export function parseDate(dateStr: string): Date {
-  // Try ISO 8601 first
-  const isoDate = new Date(dateStr);
-  if (!isNaN(isoDate.getTime())) {
-    return isoDate;
-  }
-
   // Try YYYY-MM-DD format
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (match) {
     const [, year, month, day] = match;
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+  }
+
+  // Try ISO 8601 and other native Date formats
+  const isoDate = new Date(dateStr);
+  if (!isNaN(isoDate.getTime())) {
+    return isoDate;
   }
 
   throw new AWError(

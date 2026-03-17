@@ -106,9 +106,9 @@ Behind the scenes it assembles a cohesive view by layering multiple sources:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `time_period` | enum | `"today"` | Time period: `"today"`, `"yesterday"`, `"this_week"`, `"last_week"`, `"last_7_days"`, `"last_30_days"`, `"custom"` |
-| `custom_start` | string | - | Start time for custom period (ISO 8601). Required when `time_period="custom"` |
-| `custom_end` | string | - | End time for custom period (ISO 8601). Required when `time_period="custom"` |
+| `time_period` | enum | `"today"` | Time period: `"today"`, `"yesterday"`, `"this_week"`, `"last_week"`, `"last_7_days"`, `"last_30_days"`, `"custom"`. Preset ranges use local calendar boundaries. |
+| `custom_start` | string | - | Start time for custom period (`ISO 8601` or `YYYY-MM-DD`). Bare dates mean local midnight at the start of that date. Required when `time_period="custom"` |
+| `custom_end` | string | - | End time for custom period (`ISO 8601` or `YYYY-MM-DD`). Bare dates mean local midnight at the start of that date, so use explicit ISO timestamps for inclusive end-of-day ranges. Required when `time_period="custom"` |
 | `top_n` | number | `10` | Number of top activities to return (1-100) |
 | `group_by` | enum | `"application"` | Grouping: `"application"`, `"title"`, `"category"` (events can appear in multiple categories) |
 | `exclude_system_apps` | boolean | `true` | Filter out system apps (Finder, Dock, etc.) |
@@ -220,9 +220,9 @@ Behind the scenes it assembles a cohesive view by layering multiple sources:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `time_period` | enum | `today` | `"today"`, `"yesterday"`, `"this_week"`, `"last_week"`, `"last_7_days"`, `"last_30_days"`, `"custom"` |
-| `custom_start` | string | — | ISO 8601 or `YYYY-MM-DD`. Required when `time_period="custom"` |
-| `custom_end` | string | — | ISO 8601 or `YYYY-MM-DD`. Required when `time_period="custom"` |
+| `time_period` | enum | `today` | `"today"`, `"yesterday"`, `"this_week"`, `"last_week"`, `"last_7_days"`, `"last_30_days"`, `"custom"`. Preset ranges use local calendar boundaries. |
+| `custom_start` | string | — | `ISO 8601` or `YYYY-MM-DD`. Bare dates mean local midnight at the start of that date. Required when `time_period="custom"` |
+| `custom_end` | string | — | `ISO 8601` or `YYYY-MM-DD`. Bare dates mean local midnight at the start of that date, so use explicit ISO timestamps for inclusive end-of-day ranges. Required when `time_period="custom"` |
 | `include_all_day` | boolean | `true` | Include all-day blocks. Set `false` to focus on timed meetings |
 | `include_cancelled` | boolean | `false` | Include events whose status is `cancelled` |
 | `summary_query` | string | — | Case-insensitive substring filter against summary, location, description, or calendar name |
@@ -402,9 +402,9 @@ Behind the scenes it assembles a cohesive view by layering multiple sources:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `period_type` | enum | **required** | `"daily"`, `"weekly"`, `"monthly"`, `"last_24_hours"`, `"last_7_days"`, `"last_30_days"` |
-| `date` | string | today | Reference date within the period (YYYY-MM-DD). Ignored for rolling periods. |
+| `date` | string | today | Reference date within the period (`YYYY-MM-DD`) in the resolved timezone. Ignored for rolling periods. |
 | `detail_level` | enum | auto | `"hourly"`, `"daily"`, `"weekly"`, or `"none"`. Auto-selected when omitted. |
-| `timezone` | string | user preference | Timezone for period boundaries. Supports IANA names and offsets. |
+| `timezone` | string | user preference | Timezone for period boundaries. Supports IANA names and offsets. IANA zones are resolved for the requested period date, so DST-sensitive dates use the correct offset. |
 
 ### Returns
 ```typescript
@@ -744,9 +744,9 @@ Behind the scenes it assembles a cohesive view by layering multiple sources:
 
 | Value | Description | Example Range |
 |-------|-------------|---------------|
-| `"today"` | Since midnight today | 2025-10-11 00:00 to now |
-| `"yesterday"` | Previous day | 2025-10-10 00:00 to 23:59 |
-| `"this_week"` | Monday to now | 2025-10-07 00:00 to now |
+| `"today"` | Since local midnight today | 2025-10-11 00:00 to now |
+| `"yesterday"` | Previous local calendar day | 2025-10-10 00:00 to 23:59 |
+| `"this_week"` | Monday to now in local calendar time | 2025-10-07 00:00 to now |
 | `"last_week"` | Previous Monday-Sunday | 2025-09-30 to 2025-10-06 |
 | `"last_7_days"` | Rolling 7 days | 2025-10-04 to now |
 | `"last_30_days"` | Rolling 30 days | 2025-09-11 to now |

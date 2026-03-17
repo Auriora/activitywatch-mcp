@@ -6,6 +6,7 @@ import {
   convertFromTimezone,
   getStartOfDayInTimezone,
   getEndOfDayInTimezone,
+  parseDate,
 } from '../../../src/utils/time.js';
 
 describe('Timezone Utilities', () => {
@@ -36,6 +37,14 @@ describe('Timezone Utilities', () => {
       expect(parseTimezoneOffset('utc')).toBe(0);
       expect(parseTimezoneOffset('ist')).toBe(60);
       expect(parseTimezoneOffset('utc+1')).toBe(60);
+    });
+
+    it('should resolve IANA timezone offsets for the provided reference date', () => {
+      const winterDate = new Date('2025-01-15T12:00:00Z');
+      const summerDate = new Date('2025-07-15T12:00:00Z');
+
+      expect(parseTimezoneOffset('Europe/Dublin', winterDate)).toBe(0);
+      expect(parseTimezoneOffset('Europe/Dublin', summerDate)).toBe(60);
     });
   });
 
@@ -152,5 +161,18 @@ describe('Timezone Utilities', () => {
       expect(istStart.toISOString()).toBe('2025-10-10T23:00:00.000Z');
     });
   });
-});
 
+  describe('parseDate', () => {
+    it('parses bare YYYY-MM-DD values as local midnight', () => {
+      const parsed = parseDate('2025-01-01');
+
+      expect(parsed.getFullYear()).toBe(2025);
+      expect(parsed.getMonth()).toBe(0);
+      expect(parsed.getDate()).toBe(1);
+      expect(parsed.getHours()).toBe(0);
+      expect(parsed.getMinutes()).toBe(0);
+      expect(parsed.getSeconds()).toBe(0);
+      expect(parsed.getMilliseconds()).toBe(0);
+    });
+  });
+});

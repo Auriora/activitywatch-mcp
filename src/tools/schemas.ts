@@ -3,6 +3,18 @@
  */
 
 import { z } from 'zod';
+import { parseDate } from '../utils/time.js';
+
+function addCustomDateParseIssue(
+  ctx: z.RefinementCtx,
+  field: 'custom_start' | 'custom_end'
+): void {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [field],
+    message: `${field} must be a valid date string`,
+  });
+}
 
 /**
  * Common schemas
@@ -35,28 +47,28 @@ export const GetPeriodSummarySchema = z.object({
     'last_7_days',
     'last_30_days',
   ]).describe(
-    'Type of period to summarize. "daily": Single day (00:00-23:59). "weekly": Week (Monday-Sunday). "monthly": Calendar month. "last_24_hours": Rolling 24 hours from now. "last_7_days": Rolling 7 days from now. "last_30_days": Rolling 30 days from now.'
+    'Type of period to summarize. "daily": Single local calendar day in the resolved timezone (00:00-23:59:59.999). "weekly": Week (Monday-Sunday) in the resolved timezone. "monthly": Calendar month in the resolved timezone. "last_24_hours": Rolling 24 hours from now. "last_7_days": Rolling 7 days from now. "last_30_days": Rolling 30 days from now.'
   ),
   date: z.string().optional().describe(
-    'Reference date (YYYY-MM-DD format). For daily/weekly/monthly: the date within the period. For rolling periods (last_24_hours, last_7_days, last_30_days): ignored, uses current time. Defaults to today.'
+    'Reference date (YYYY-MM-DD format). For daily/weekly/monthly: the date within the period in the resolved timezone. For rolling periods (last_24_hours, last_7_days, last_30_days): ignored, uses current time. Defaults to today.'
   ),
   detail_level: z.enum(['hourly', 'daily', 'weekly', 'none']).optional().describe(
     'Level of detail for breakdown. "hourly": Hour-by-hour (best for daily/24hr). "daily": Day-by-day (best for weekly/7-day/30-day). "weekly": Week-by-week (best for monthly). "none": No breakdown, totals only. Defaults to appropriate level for period_type.'
   ),
   timezone: z.string().optional().describe(
-    'Timezone for period boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone.'
+    'Timezone for period boundaries and display. Supports: IANA names (Europe/Dublin), abbreviations (IST, EST), or UTC offsets (UTC+1, UTC-5). Defaults to user preference or system timezone. IANA offsets are resolved for the requested period date, so DST-sensitive zones use the correct historical/seasonal offset.'
   ),
 });
 
 export const GetCalendarEventsSchema = z.object({
   time_period: TimePeriodSchema.default('today').describe(
-    'Time window to inspect. Defaults to "today". Use "custom" with custom_start/custom_end for specific ranges.'
+    'Time window to inspect. Defaults to "today". Preset ranges use local calendar boundaries in the resolved timezone. Use "custom" with custom_start/custom_end for specific ranges.'
   ),
   custom_start: z.string().optional().describe(
-    'Custom range start (ISO 8601 or YYYY-MM-DD). Required when time_period="custom".'
+    'Custom range start (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Bare YYYY-MM-DD values mean local midnight at the start of that date.'
   ),
   custom_end: z.string().optional().describe(
-    'Custom range end (ISO 8601 or YYYY-MM-DD). Required when time_period="custom".'
+    'Custom range end (ISO 8601 or YYYY-MM-DD). Required when time_period="custom". Bare YYYY-MM-DD values mean local midnight at the start of that date, so use an explicit ISO timestamp when you want the end of a day to be inclusive.'
   ),
   include_all_day: z.boolean().default(true).describe(
     'Include all-day events (true by default). Set false to focus on timed meetings.'
@@ -91,15 +103,22 @@ export const GetCalendarEventsSchema = z.object({
     }
 
     if (data.custom_start && data.custom_end) {
-      const start = new Date(data.custom_start).getTime();
-      const end = new Date(data.custom_end).getTime();
-      if (!Number.isFinite(start) || !Number.isFinite(end)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['custom_start'],
-          message: 'custom_start and custom_end must be valid date strings',
-        });
-      } else if (start > end) {
+      let start: number | null = null;
+      let end: number | null = null;
+
+      try {
+        start = parseDate(data.custom_start).getTime();
+      } catch {
+        addCustomDateParseIssue(ctx, 'custom_start');
+      }
+
+      try {
+        end = parseDate(data.custom_end).getTime();
+      } catch {
+        addCustomDateParseIssue(ctx, 'custom_end');
+      }
+
+      if (start !== null && end !== null && start > end) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['custom_start'],
@@ -186,7 +205,7 @@ export const GetMeetingContextSchema = z.object({
     'Composite meeting identifier (e.g., "aw-import-ical_primary:<uid>"). When provided, takes precedence over other parameters.'
   ),
   time_period: TimePeriodSchema.default('today').describe(
-    'Time window to inspect when meeting_id is not supplied. Defaults to "today". Use "custom" with custom_start/custom_end for specific ranges.'
+    'Time window to inspect when meeting_id is not supplied. Defaults to "today". Preset ranges use local calendar boundaries in the resolved timezone. Use "custom" with custom_start/custom_end for specific ranges.'
   ),
   custom_start: z.string().optional().describe(
     'Custom range start (ISO 8601). Required with custom_end when time_period="custom" and meeting_id is not provided.'
@@ -225,9 +244,22 @@ export const GetMeetingContextSchema = z.object({
     }
 
     if (data.custom_start && data.custom_end) {
-      const start = new Date(data.custom_start).getTime();
-      const end = new Date(data.custom_end).getTime();
-      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+      let start: number | null = null;
+      let end: number | null = null;
+
+      try {
+        start = parseDate(data.custom_start).getTime();
+      } catch {
+        addCustomDateParseIssue(ctx, 'custom_start');
+      }
+
+      try {
+        end = parseDate(data.custom_end).getTime();
+      } catch {
+        addCustomDateParseIssue(ctx, 'custom_end');
+      }
+
+      if (start !== null && end !== null && start >= end) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['custom_start'],

@@ -17,6 +17,36 @@ import {
 } from '../../../src/utils/time.js';
 import { AWError } from '../../../src/types.js';
 
+function expectDateParts(
+  date: Date,
+  expected: {
+    year: number;
+    month: number;
+    day: number;
+    hours?: number;
+    minutes?: number;
+    seconds?: number;
+    milliseconds?: number;
+  }
+): void {
+  expect(date.getFullYear()).toBe(expected.year);
+  expect(date.getMonth()).toBe(expected.month);
+  expect(date.getDate()).toBe(expected.day);
+
+  if (expected.hours !== undefined) {
+    expect(date.getHours()).toBe(expected.hours);
+  }
+  if (expected.minutes !== undefined) {
+    expect(date.getMinutes()).toBe(expected.minutes);
+  }
+  if (expected.seconds !== undefined) {
+    expect(date.getSeconds()).toBe(expected.seconds);
+  }
+  if (expected.milliseconds !== undefined) {
+    expect(date.getMilliseconds()).toBe(expected.milliseconds);
+  }
+}
+
 describe('Time Utilities', () => {
   beforeEach(() => {
     // Set a fixed date for consistent testing
@@ -32,8 +62,16 @@ describe('Time Utilities', () => {
     describe('today', () => {
       it('should return range from start of today to now', () => {
         const range = getTimeRange('today');
-        
-        expect(range.start.toISOString()).toBe('2025-01-15T00:00:00.000Z');
+
+        expectDateParts(range.start, {
+          year: 2025,
+          month: 0,
+          day: 15,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
         expect(range.end.toISOString()).toBe('2025-01-15T14:30:00.000Z');
       });
     });
@@ -41,27 +79,57 @@ describe('Time Utilities', () => {
     describe('yesterday', () => {
       it('should return full day range for yesterday', () => {
         const range = getTimeRange('yesterday');
-        
-        expect(range.start.toISOString()).toBe('2025-01-14T00:00:00.000Z');
-        expect(range.end.toISOString()).toBe('2025-01-14T23:59:59.999Z');
+
+        expectDateParts(range.start, {
+          year: 2025,
+          month: 0,
+          day: 14,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
+        expectDateParts(range.end, {
+          year: 2025,
+          month: 0,
+          day: 14,
+          hours: 23,
+          minutes: 59,
+          seconds: 59,
+          milliseconds: 999,
+        });
       });
     });
 
     describe('this_week', () => {
       it('should return range from Monday to now', () => {
         const range = getTimeRange('this_week');
-        
-        // Monday of current week
-        expect(range.start.toISOString()).toBe('2025-01-13T00:00:00.000Z');
+
+        expectDateParts(range.start, {
+          year: 2025,
+          month: 0,
+          day: 13,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
         expect(range.end.toISOString()).toBe('2025-01-15T14:30:00.000Z');
       });
 
       it('should handle Sunday correctly', () => {
         vi.setSystemTime(new Date('2025-01-19T14:30:00Z')); // Sunday
         const range = getTimeRange('this_week');
-        
-        // Should still be Monday of that week
-        expect(range.start.toISOString()).toBe('2025-01-13T00:00:00.000Z');
+
+        expectDateParts(range.start, {
+          year: 2025,
+          month: 0,
+          day: 13,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
       });
     });
 
@@ -69,18 +137,39 @@ describe('Time Utilities', () => {
       it('should return full week range for last week', () => {
         const range = getTimeRange('last_week');
 
-        // Previous Monday to Sunday
-        expect(range.start.toISOString()).toBe('2025-01-06T00:00:00.000Z');
-        // The implementation uses setSeconds(-1) which results in .000Z not .999Z
-        expect(range.end.toISOString()).toContain('2025-01-12T23:59:59');
+        expectDateParts(range.start, {
+          year: 2025,
+          month: 0,
+          day: 6,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
+        expectDateParts(range.end, {
+          year: 2025,
+          month: 0,
+          day: 12,
+          hours: 23,
+          minutes: 59,
+          seconds: 59,
+        });
       });
     });
 
     describe('last_7_days', () => {
       it('should return rolling 7 days', () => {
         const range = getTimeRange('last_7_days');
-        
-        expect(range.start.toISOString()).toBe('2025-01-08T00:00:00.000Z');
+
+        expectDateParts(range.start, {
+          year: 2025,
+          month: 0,
+          day: 8,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
         expect(range.end.toISOString()).toBe('2025-01-15T14:30:00.000Z');
       });
     });
@@ -88,8 +177,16 @@ describe('Time Utilities', () => {
     describe('last_30_days', () => {
       it('should return rolling 30 days', () => {
         const range = getTimeRange('last_30_days');
-        
-        expect(range.start.toISOString()).toBe('2024-12-16T00:00:00.000Z');
+
+        expectDateParts(range.start, {
+          year: 2024,
+          month: 11,
+          day: 16,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
         expect(range.end.toISOString()).toBe('2025-01-15T14:30:00.000Z');
       });
     });
@@ -108,14 +205,25 @@ describe('Time Utilities', () => {
 
       it('should parse YYYY-MM-DD dates', () => {
         const range = getTimeRange('custom', '2025-01-01', '2025-01-31');
-        
-        expect(range.start.getFullYear()).toBe(2025);
-        expect(range.start.getMonth()).toBe(0); // January
-        expect(range.start.getDate()).toBe(1);
-        
-        expect(range.end.getFullYear()).toBe(2025);
-        expect(range.end.getMonth()).toBe(0);
-        expect(range.end.getDate()).toBe(31);
+
+        expectDateParts(range.start, {
+          year: 2025,
+          month: 0,
+          day: 1,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
+        expectDateParts(range.end, {
+          year: 2025,
+          month: 0,
+          day: 31,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          milliseconds: 0,
+        });
       });
 
       it('should throw error if custom_start is missing', () => {
@@ -305,21 +413,45 @@ describe('Time Utilities', () => {
       const date = new Date('2025-01-15T14:30:00Z'); // Wednesday
       const startOfWeek = getStartOfWeek(date);
 
-      expect(startOfWeek.toISOString()).toBe('2025-01-13T00:00:00.000Z'); // Monday
+      expectDateParts(startOfWeek, {
+        year: 2025,
+        month: 0,
+        day: 13,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        milliseconds: 0,
+      });
     });
 
     it('should return Monday for a Monday', () => {
       const date = new Date('2025-01-13T14:30:00Z'); // Monday
       const startOfWeek = getStartOfWeek(date);
 
-      expect(startOfWeek.toISOString()).toBe('2025-01-13T00:00:00.000Z');
+      expectDateParts(startOfWeek, {
+        year: 2025,
+        month: 0,
+        day: 13,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        milliseconds: 0,
+      });
     });
 
     it('should return Monday for a Sunday', () => {
       const date = new Date('2025-01-19T14:30:00Z'); // Sunday
       const startOfWeek = getStartOfWeek(date);
 
-      expect(startOfWeek.toISOString()).toBe('2025-01-13T00:00:00.000Z'); // Previous Monday
+      expectDateParts(startOfWeek, {
+        year: 2025,
+        month: 0,
+        day: 13,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        milliseconds: 0,
+      });
     });
   });
 
@@ -328,7 +460,15 @@ describe('Time Utilities', () => {
       const date = new Date('2025-01-15T14:30:00Z'); // Wednesday
       const endOfWeek = getEndOfWeek(date);
 
-      expect(endOfWeek.toISOString()).toBe('2025-01-19T23:59:59.999Z'); // Sunday
+      expectDateParts(endOfWeek, {
+        year: 2025,
+        month: 0,
+        day: 19,
+        hours: 23,
+        minutes: 59,
+        seconds: 59,
+        milliseconds: 999,
+      });
     });
   });
 
@@ -337,7 +477,15 @@ describe('Time Utilities', () => {
       const date = new Date('2025-01-15T14:30:00Z');
       const startOfMonth = getStartOfMonth(date);
 
-      expect(startOfMonth.toISOString()).toBe('2025-01-01T00:00:00.000Z');
+      expectDateParts(startOfMonth, {
+        year: 2025,
+        month: 0,
+        day: 1,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        milliseconds: 0,
+      });
     });
   });
 
@@ -346,21 +494,37 @@ describe('Time Utilities', () => {
       const date = new Date('2025-01-15T14:30:00Z');
       const endOfMonth = getEndOfMonth(date);
 
-      expect(endOfMonth.toISOString()).toBe('2025-01-31T23:59:59.999Z');
+      expectDateParts(endOfMonth, {
+        year: 2025,
+        month: 0,
+        day: 31,
+        hours: 23,
+        minutes: 59,
+        seconds: 59,
+        milliseconds: 999,
+      });
     });
 
     it('should handle February in non-leap year', () => {
       const date = new Date('2025-02-15T14:30:00Z');
       const endOfMonth = getEndOfMonth(date);
 
-      expect(endOfMonth.toISOString()).toBe('2025-02-28T23:59:59.999Z');
+      expectDateParts(endOfMonth, {
+        year: 2025,
+        month: 1,
+        day: 28,
+        hours: 23,
+        minutes: 59,
+        seconds: 59,
+        milliseconds: 999,
+      });
     });
   });
 
   describe('getDaysBetween', () => {
     it('should return array of dates between start and end', () => {
-      const start = new Date('2025-01-15T00:00:00Z');
-      const end = new Date('2025-01-17T00:00:00Z');
+      const start = new Date(2025, 0, 15, 0, 0, 0, 0);
+      const end = new Date(2025, 0, 17, 0, 0, 0, 0);
 
       const days = getDaysBetween(start, end);
 
@@ -371,8 +535,8 @@ describe('Time Utilities', () => {
     });
 
     it('should return single day for same start and end', () => {
-      const start = new Date('2025-01-15T00:00:00Z');
-      const end = new Date('2025-01-15T23:59:59Z');
+      const start = new Date(2025, 0, 15, 0, 0, 0, 0);
+      const end = new Date(2025, 0, 15, 23, 59, 59, 0);
 
       const days = getDaysBetween(start, end);
 
@@ -383,8 +547,8 @@ describe('Time Utilities', () => {
 
   describe('getWeeksBetween', () => {
     it('should return array of week ranges', () => {
-      const start = new Date('2025-01-13T00:00:00Z'); // Monday
-      const end = new Date('2025-01-26T23:59:59Z'); // Sunday (2 weeks later)
+      const start = new Date(2025, 0, 13, 0, 0, 0, 0); // Monday
+      const end = new Date(2025, 0, 26, 23, 59, 59, 0); // Sunday (2 weeks later)
 
       const weeks = getWeeksBetween(start, end);
 
@@ -396,4 +560,3 @@ describe('Time Utilities', () => {
     });
   });
 });
-

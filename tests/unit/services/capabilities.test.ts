@@ -139,7 +139,7 @@ describe('CapabilitiesService capability detection', () => {
     ]);
   });
 
-  it('does not suggest aw_get_activity without window tracking', async () => {
+  it('does not suggest window-dependent summaries without window tracking', async () => {
     client.setBuckets([
       createMockBucket('aw-watcher-web_test', 'web.tab.current'),
       createMockBucket('aw-watcher-editor_test', 'app.editor.activity'),

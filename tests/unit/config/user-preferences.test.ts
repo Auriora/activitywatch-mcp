@@ -105,4 +105,12 @@ describe('user preferences configuration', () => {
     expect(result.timezone).toBeDefined();
     expect(typeof result.offsetMinutes).toBe('number');
   });
+
+  it('getTimezoneOffset uses the provided reference date for IANA DST offsets', () => {
+    const winterDate = new Date('2025-01-15T12:00:00.000Z');
+    const summerDate = new Date('2025-07-15T12:00:00.000Z');
+
+    expect(getTimezoneOffset('Europe/Dublin', winterDate).offsetMinutes).toBe(0);
+    expect(getTimezoneOffset('Europe/Dublin', summerDate).offsetMinutes).toBe(60);
+  });
 });

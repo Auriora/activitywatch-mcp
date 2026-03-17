@@ -60,14 +60,12 @@ export class PeriodSummaryService {
    * Get comprehensive period summary
    */
   async getPeriodSummary(params: PeriodSummaryParams): Promise<PeriodSummary> {
-    // Get timezone info
-    const { timezone, offsetMinutes } = getTimezoneOffset(params.timezone);
-
     // Parse date (default to today in the specified timezone)
     let dateStr: string;
     if (params.date) {
       dateStr = params.date;
     } else {
+      const { offsetMinutes } = getTimezoneOffset(params.timezone);
       const nowInTimezone = convertToTimezone(new Date(), offsetMinutes);
       dateStr = formatDate(nowInTimezone);
     }
@@ -76,6 +74,10 @@ export class PeriodSummaryService {
     if (isNaN(date.getTime())) {
       throw new Error(`Invalid date: ${dateStr}. Use YYYY-MM-DD format.`);
     }
+
+    // Get timezone info using the requested period's reference date so DST-sensitive
+    // IANA zones resolve to the correct offset for that period.
+    const { timezone, offsetMinutes } = getTimezoneOffset(params.timezone, date);
 
     // Calculate period boundaries based on period type
     const { start, end } = this.getPeriodBoundaries(
