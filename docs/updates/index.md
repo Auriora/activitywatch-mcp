@@ -6,6 +6,7 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2026-03-17 17:10 — [Fix release script to tag the version bump commit](./2026-03-17-1710-release-script-tag-fix.md)
 - 2026-03-17 16:20 — [Address remaining PR 8 review comments](./2026-03-17-1620-pr8-review-comment-fixes.md)
 - 2026-03-17 14:40 — [Align tool docs and schemas with timezone semantics](./2026-03-17-1440-timezone-docs-and-schema-alignment.md)
 - 2026-03-17 14:30 — [Fix custom date parsing and DST-sensitive timezone offsets](./2026-03-17-1430-timezone-followups-fix.md)

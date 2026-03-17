@@ -103,6 +103,15 @@ function createGitTag(tagName, message, cwd, dryRun) {
   runGit(['tag', '-a', tagName, '-m', message], cwd, dryRun);
 }
 
+function commitReleaseChanges(paths, version, cwd, dryRun) {
+  runGit(['add', '--', ...paths], cwd, dryRun);
+  runGit(
+    ['commit', '-m', `chore(release): bump version to ${version}`],
+    cwd,
+    dryRun
+  );
+}
+
 function parseArgs(argv) {
   const options = {
     bump: 'patch',
@@ -220,6 +229,13 @@ async function releaseMain(argv) {
   if (existsSync(lockPath)) {
     console.log(`Updated ${relativeToRoot(lockPath, root)} to version ${targetVersion}.`);
   }
+
+  const releaseFiles = [relativeToRoot(pkgPath, root)];
+  if (existsSync(lockPath)) {
+    releaseFiles.push(relativeToRoot(lockPath, root));
+  }
+  commitReleaseChanges(releaseFiles, targetVersion, root, dryRun);
+  console.log(`Committed release version bump for ${targetVersion}.`);
 
   if (options.skipTag) {
     console.log('Skipping git tag creation by request.');
