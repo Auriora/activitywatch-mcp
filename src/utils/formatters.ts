@@ -302,8 +302,8 @@ export function formatPeriodSummaryConcise(summary: PeriodSummary): string {
       const bar = '█'.repeat(barLength);
       const hours = secondsToHours(hour.active_seconds);
       const hourLabel = `${hour.hour.toString().padStart(2, '0')}:00`;
-      const appInfo = hour.top_app ? ` (${hour.top_app})` : '';
-      lines.push(`  ${hourLabel} ${bar} ${hours}h${appInfo}`);
+      const contextInfo = formatBreakdownContext(hour.top_app, hour.top_category);
+      lines.push(`  ${hourLabel} ${bar} ${hours}h${contextInfo}`);
     }
     lines.push('');
   }
@@ -320,8 +320,8 @@ export function formatPeriodSummaryConcise(summary: PeriodSummary): string {
         : 0;
       const bar = '█'.repeat(barLength);
       const hours = secondsToHours(day.active_seconds);
-      const appInfo = day.top_app ? ` (${day.top_app})` : '';
-      lines.push(`  ${day.date} ${bar} ${hours}h${appInfo}`);
+      const contextInfo = formatBreakdownContext(day.top_app, day.top_category);
+      lines.push(`  ${day.date} ${bar} ${hours}h${contextInfo}`);
     }
     lines.push('');
   }
@@ -338,8 +338,8 @@ export function formatPeriodSummaryConcise(summary: PeriodSummary): string {
         : 0;
       const bar = '█'.repeat(barLength);
       const hours = secondsToHours(week.active_seconds);
-      const appInfo = week.top_app ? ` (${week.top_app})` : '';
-      lines.push(`  ${week.week_start} to ${week.week_end} ${bar} ${hours}h${appInfo}`);
+      const contextInfo = formatBreakdownContext(week.top_app, week.top_category);
+      lines.push(`  ${week.week_start} to ${week.week_end} ${bar} ${hours}h${contextInfo}`);
     }
     lines.push('');
   }
@@ -354,6 +354,11 @@ export function formatPeriodSummaryConcise(summary: PeriodSummary): string {
   }
 
   return lines.join('\n');
+}
+
+function formatBreakdownContext(topApp?: string, topCategory?: string): string {
+  const tags = [topApp, topCategory].filter((value): value is string => Boolean(value));
+  return tags.length > 0 ? ` (${tags.join(', ')})` : '';
 }
 
 /**

@@ -224,6 +224,7 @@ describe('PeriodSummaryService calendar integration', () => {
 
     const categoryService = {
       hasCategories: vi.fn().mockReturnValue(true),
+      categorizeEvent: vi.fn().mockReturnValue('Work > Coding'),
       categorizeEvents: vi.fn().mockReturnValue([
         {
           category_name: 'Work > Coding',
@@ -261,6 +262,7 @@ describe('PeriodSummaryService calendar integration', () => {
     expect(summary.daily_breakdown).toBeDefined();
     expect(summary.daily_breakdown?.[0].top_app).toBe('Editor');
     expect(summary.daily_breakdown?.[0].top_website).toBe('example.com');
+    expect(summary.daily_breakdown?.[0].top_category).toBe('Work > Coding');
     expect(summary.top_categories?.[0].category_name).toBe('Work > Coding');
     expect(summary.notable_calendar_events?.[0].summary).toBe('Retrospective');
     expect(summary.insights.length).toBeGreaterThan(0);

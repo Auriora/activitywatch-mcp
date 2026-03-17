@@ -108,6 +108,7 @@ export class PeriodSummaryService {
     const detailLevel = params.detail_level || this.getDefaultDetailLevel(params.period_type);
     let windowEvents: readonly AWEvent[] = [];
     let browserEventsCache: readonly AWEvent[] | null = null;
+    let allEventsCache: readonly AWEvent[] | null = null;
 
     if (detailLevel !== 'none') {
       const windowEventsResult = await this.queryService.getWindowEventsFiltered(start, end);
@@ -126,6 +127,15 @@ export class PeriodSummaryService {
         browserEventsCache = [];
       }
       return browserEventsCache;
+    };
+
+    const loadAllEvents = async (): Promise<readonly AWEvent[]> => {
+      if (allEventsCache !== null) {
+        return allEventsCache;
+      }
+
+      allEventsCache = await this.queryService.getAllEventsFiltered(start, end);
+      return allEventsCache;
     };
 
     // Extract top applications and websites
@@ -165,7 +175,7 @@ export class PeriodSummaryService {
     let topCategories: CategoryUsage[] | undefined;
     if (this.categoryService && this.categoryService.hasCategories()) {
       try {
-        const allEvents = await this.queryService.getAllEventsFiltered(start, end);
+        const allEvents = await loadAllEvents();
         topCategories = this.categoryService.categorizeEvents(allEvents).slice(0, 5);
       } catch (error) {
         logger.warn('Failed to categorize events', error);
@@ -193,15 +203,34 @@ export class PeriodSummaryService {
     let hourlyBreakdown: HourlyActivity[] | undefined;
     let dailyBreakdown: DailyActivity[] | undefined;
     let weeklyBreakdown: WeeklyActivity[] | undefined;
+    const categoryEvents =
+      this.categoryService && this.categoryService.hasCategories()
+        ? await loadAllEvents()
+        : [];
 
     if (detailLevel === 'hourly') {
-      hourlyBreakdown = await this.getHourlyBreakdown(start, end, windowEvents);
+      hourlyBreakdown = await this.getHourlyBreakdown(start, end, windowEvents, categoryEvents);
     } else if (detailLevel === 'daily') {
       const browserEvents = await loadBrowserEvents();
-      dailyBreakdown = await this.getDailyBreakdown(start, end, offsetMinutes, windowEvents, browserEvents, afkSummary.periods);
+      dailyBreakdown = await this.getDailyBreakdown(
+        start,
+        end,
+        offsetMinutes,
+        windowEvents,
+        browserEvents,
+        categoryEvents,
+        afkSummary.periods
+      );
     } else if (detailLevel === 'weekly') {
       const browserEvents = await loadBrowserEvents();
-      weeklyBreakdown = await this.getWeeklyBreakdown(start, end, windowEvents, browserEvents, afkSummary.periods);
+      weeklyBreakdown = await this.getWeeklyBreakdown(
+        start,
+        end,
+        windowEvents,
+        browserEvents,
+        categoryEvents,
+        afkSummary.periods
+      );
     }
 
     // Generate insights
@@ -314,7 +343,8 @@ export class PeriodSummaryService {
   private async getHourlyBreakdown(
     start: Date,
     end: Date,
-    windowEvents: readonly AWEvent[]
+    windowEvents: readonly AWEvent[],
+    categoryEvents: readonly AWEvent[]
   ): Promise<HourlyActivity[]> {
     const slices = this.buildHourlySlices(start, end);
     if (slices.length === 0) return [];
@@ -325,10 +355,13 @@ export class PeriodSummaryService {
       event => getStringProperty(event.data, 'app')
     );
 
+    const categoryAggregations = this.accumulateCategoryDurations(categoryEvents, slices);
+
     return slices.map((slice, index) => ({
       hour: slice.hour,
       active_seconds: Math.round(aggregations[index].total),
       top_app: this.getTopKey(aggregations[index].byKey),
+      top_category: this.getTopKey(categoryAggregations[index].byKey),
     }));
   }
 
@@ -341,6 +374,7 @@ export class PeriodSummaryService {
     offsetMinutes: number,
     windowEvents: readonly AWEvent[],
     browserEvents: readonly AWEvent[],
+    categoryEvents: readonly AWEvent[],
     afkPeriods: readonly AfkPeriod[]
   ): Promise<DailyActivity[]> {
     const slices = this.buildDailySlices(start, end, offsetMinutes);
@@ -358,6 +392,8 @@ export class PeriodSummaryService {
       event => this.extractBrowserDomain(event)
     );
 
+    const categoryAggregations = this.accumulateCategoryDurations(categoryEvents, slices);
+
     const afkDurations = this.computeAfkDurations(afkPeriods, slices);
 
     return slices.map((slice, index) => ({
@@ -366,6 +402,7 @@ export class PeriodSummaryService {
       afk_seconds: Math.round(afkDurations[index]),
       top_app: this.getTopKey(windowAggregations[index].byKey),
       top_website: this.getTopKey(browserAggregations[index].byKey),
+      top_category: this.getTopKey(categoryAggregations[index].byKey),
     }));
   }
 
@@ -377,6 +414,7 @@ export class PeriodSummaryService {
     end: Date,
     windowEvents: readonly AWEvent[],
     browserEvents: readonly AWEvent[],
+    categoryEvents: readonly AWEvent[],
     afkPeriods: readonly AfkPeriod[]
   ): Promise<WeeklyActivity[]> {
     const slices = this.buildWeeklySlices(start, end);
@@ -394,6 +432,8 @@ export class PeriodSummaryService {
       event => this.extractBrowserDomain(event)
     );
 
+    const categoryAggregations = this.accumulateCategoryDurations(categoryEvents, slices);
+
     const afkDurations = this.computeAfkDurations(afkPeriods, slices);
 
     return slices.map((slice, index) => ({
@@ -403,6 +443,7 @@ export class PeriodSummaryService {
       afk_seconds: Math.round(afkDurations[index]),
       top_app: this.getTopKey(windowAggregations[index].byKey),
       top_website: this.getTopKey(browserAggregations[index].byKey),
+      top_category: this.getTopKey(categoryAggregations[index].byKey),
     }));
   }
 
@@ -713,6 +754,21 @@ export class PeriodSummaryService {
     } catch {
       return null;
     }
+  }
+
+  private accumulateCategoryDurations<TSlice extends { startMs: number; endMs: number }>(
+    events: readonly AWEvent[],
+    slices: readonly TSlice[]
+  ): Array<{ total: number; byKey?: Map<string, number> }> {
+    if (!this.categoryService || !this.categoryService.hasCategories()) {
+      return slices.map(() => ({ total: 0, byKey: new Map<string, number>() }));
+    }
+
+    return this.accumulateEventDurations(
+      events,
+      slices,
+      event => this.categoryService?.categorizeEvent(event) ?? null
+    );
   }
 
   /**

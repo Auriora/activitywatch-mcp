@@ -299,6 +299,40 @@ describe('Server tool handlers', () => {
     expect(response.content[0]?.text).toContain('Weekly Summary');
   });
 
+  it('includes category context in formatted period breakdowns', async () => {
+    const deps = createDeps();
+    deps.periodSummaryService.getPeriodSummary = vi.fn().mockResolvedValue({
+      period_type: 'daily',
+      period_start: '2025-01-01T00:00:00.000Z',
+      period_end: '2025-01-01T23:59:59.000Z',
+      timezone: 'UTC',
+      total_active_time_hours: 8,
+      total_afk_time_hours: 1,
+      top_applications: [],
+      top_websites: [],
+      daily_breakdown: [
+        {
+          date: '2025-01-01',
+          active_seconds: 28800,
+          afk_seconds: 3600,
+          top_app: 'kgx',
+          top_category: 'Work > System Administration > Terminal',
+        },
+      ],
+      insights: [],
+    });
+    const { server } = await createServer(deps);
+
+    const response = await callTool(server, 'aw_get_period_summary', {
+      period_type: 'daily',
+      detail_level: 'daily',
+    });
+
+    expect(response.content[0]?.text).toContain(
+      '(kgx, Work > System Administration > Terminal)'
+    );
+  });
+
   it('surfaces AWError when raw events bucket missing', async () => {
     const deps = createDeps();
     deps.client.getBuckets = vi.fn().mockResolvedValue({});

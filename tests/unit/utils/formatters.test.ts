@@ -177,11 +177,11 @@ describe('formatPeriodSummaryConcise', () => {
       },
     ],
     hourly_breakdown: [
-      { hour: 9, active_seconds: 3600, afk_seconds: 0, top_app: 'VS Code' },
+      { hour: 9, active_seconds: 3600, afk_seconds: 0, top_app: 'VS Code', top_category: 'Work > Coding' },
       { hour: 10, active_seconds: 1800, afk_seconds: 600, top_app: 'Slack' },
     ],
     daily_breakdown: [
-      { date: '2025-01-01', active_seconds: 7200, afk_seconds: 600, top_app: 'VS Code' },
+      { date: '2025-01-01', active_seconds: 7200, afk_seconds: 600, top_app: 'VS Code', top_category: 'Work > Coding' },
     ],
     weekly_breakdown: [
       {
@@ -190,6 +190,7 @@ describe('formatPeriodSummaryConcise', () => {
         active_seconds: 28800,
         afk_seconds: 3600,
         top_app: 'VS Code',
+        top_category: 'Work > Coding',
       },
     ],
     insights: ['Keep focus blocks in the morning', 'Consider shortening meetings'],
@@ -207,6 +208,7 @@ describe('formatPeriodSummaryConcise', () => {
     expect(formatted).toContain('Daily Breakdown:');
     expect(formatted).toContain('Weekly Breakdown:');
     expect(formatted).toContain('Insights:');
+    expect(formatted).toContain('(VS Code, Work > Coding)');
   });
 
   it('falls back to generic label for unknown period types', () => {
