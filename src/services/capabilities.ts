@@ -158,7 +158,6 @@ export class CapabilitiesService {
     const tools: string[] = ['aw_get_capabilities', 'aw_get_raw_events'];
 
     if (capabilities.has_window_tracking) {
-      tools.push('aw_get_activity', 'aw_get_period_summary');
       tools.push('aw_get_activity');
     }
 
