@@ -159,6 +159,16 @@ export class CapabilitiesService {
 
     if (capabilities.has_window_tracking) {
       tools.push('aw_get_activity', 'aw_get_period_summary');
+      tools.push('aw_get_activity');
+    }
+
+    const hasSummaryData =
+      capabilities.has_window_tracking ||
+      capabilities.has_browser_tracking ||
+      capabilities.has_editor_tracking;
+
+    if (hasSummaryData) {
+      tools.push('aw_get_period_summary');
     }
 
     if (capabilities.has_calendar_events) {
