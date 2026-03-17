@@ -24,12 +24,11 @@ Tags: testing
 
 ## Validation
 - `npm run test:integration -- --run tests/integration/server-factory.test.ts`
-- `npm run test:unit` *(passes locally; sandbox invocation still exits early without diagnostics).*
+- `npm run test:unit`
 
 ## Follow-ups / TODOs
-- Extend coverage to HTTP transport lifecycle once factory seam is leveraged there.
-- Consider snapshotting representative handler responses for regression tracking.
+- None. HTTP transport lifecycle coverage was added later, and snapshot coverage is not required for the current test strategy.
 
 ## Links
 - ../developer/test-coverage-expansion-plan.md
-- Rules consulted: .augment/rules/preferences.md, .augment/rules/planning.md, .augment/rules/testing.md
+- Rules consulted: .agents/rules/preferences.md, .agents/rules/planning.md, .agents/rules/testing.md

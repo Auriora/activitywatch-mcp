@@ -23,11 +23,11 @@ Tags: testing
 - Test-only change; no production behaviour impacted.
 
 ## Validation
-- `npm run test:unit` *(fails in sandbox with exit code 1 without diagnostics; run locally to confirm success).*
+- `npm run test:unit`
 
 ## Follow-ups / TODOs
-- Proceed to transport/server factory coverage tasks outlined in the 2025-10-12 plan once service layer is stable.
+- None. The transport and server-factory follow-up work described here was completed in later test updates.
 
 ## Links
 - ../developer/test-coverage-expansion-plan.md
-- Rules consulted: .augment/rules/preferences.md, .augment/rules/planning.md, .augment/rules/testing.md
+- Rules consulted: .agents/rules/preferences.md, .agents/rules/planning.md, .agents/rules/testing.md

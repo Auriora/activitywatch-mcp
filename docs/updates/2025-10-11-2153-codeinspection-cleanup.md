@@ -8,7 +8,7 @@ Tags: general
 ## Summary
 - Removed duplicated stdio server logic by delegating to the shared factory and tightened config/schema parity.
 - Addressed IntelliJ inspection findings (unused exports, redundant awaits, doc TS warnings) and added regression coverage.
-- Documented applied rules: `.augment/rules/preferences.md`, `.augment/rules/documentation.md`.
+- Documented applied rules: `.agents/rules/preferences.md`, `.agents/rules/documentation.md`.
 
 ## Changes
 

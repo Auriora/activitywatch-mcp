@@ -4,8 +4,8 @@ Active forward-looking plans tracked in this repository. Use the template in `_T
 
 ## Latest Plans
 
-- 2025-10-12 — [Coverage Improvement Plan](./2025-10-12-coverage-improvement.md) *(Status: Draft)* — Roadmap for reaching ≥80 % global and ≥75 % per-file coverage.
-- 2025-10-12 — [Test Coverage Expansion Plan](./2025-10-12-test-coverage-expansion.md) *(Status: In Progress)* — Execution plan for staged test suites and supporting tooling.
+- 2025-10-12 — [Coverage Improvement Plan](./2025-10-12-coverage-improvement.md) *(Status: Completed)* — Record of the coverage uplift work and the remaining CI-enforcement alignment gap.
+- 2025-10-12 — [Test Coverage Expansion Plan](./2025-10-12-test-coverage-expansion.md) *(Status: Completed)* — Record of the staged test-suite expansion now present in the repository.
 
 ## Lifecycle
 

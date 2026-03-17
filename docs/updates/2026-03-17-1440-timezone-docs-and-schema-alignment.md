@@ -25,7 +25,7 @@ Tags: docs, schemas, timezone, validation
 - `npm run build`
 
 ## Follow-ups / TODOs
-- Consider adding one or two explicit custom-date examples in `docs/getting-started/quickstart.md` to reinforce inclusive end-of-day guidance.
+- None. The quickstart now includes explicit custom-date examples and inclusive end-of-day guidance.
 
 ## Links
 - Issue: `#6`

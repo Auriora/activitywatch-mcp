@@ -6,6 +6,7 @@ Add new entries to the top of "Latest Updates". Use the `_TEMPLATE.md` as a star
 
 ## Latest Updates
 
+- 2026-03-17 18:45 — [Clean up active docs and add current-state implementation checklist](./2026-03-17-1845-docs-current-state-checklist.md)
 - 2026-03-17 09:00 — [Add category rollups to period summary breakdowns](./2026-03-17-0900-period-summary-category-rollups.md)
 - 2026-03-17 17:35 — [Update Docker release workflow for Node 24 action runtime](./2026-03-17-1735-docker-release-node24-actions.md)
 - 2026-03-17 17:10 — [Fix release script to tag the version bump commit](./2026-03-17-1710-release-script-tag-fix.md)

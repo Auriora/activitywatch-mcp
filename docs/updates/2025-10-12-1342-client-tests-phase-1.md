@@ -8,7 +8,7 @@ Tags: testing
 ## Summary
 - Added first ActivityWatch client unit suite covering success, API error, timeout, and connection failure flows per coverage roadmap.
 - Extended shared mock client helper to generate reusable `AWError` variants and timeout conditions for upcoming services specs.
-- Documented applied repository rules (`preferences.md`, `planning.md`, `testing.md`) and noted test runner behaviour for follow-up tracking.
+- Documented applied repository rules (`preferences.md`, `planning.md`, `testing.md`) and established the helper patterns later reused across the broader coverage expansion.
 
 ## Changes
 
@@ -27,9 +27,8 @@ Tags: testing
 - `vitest run tests/unit`
 
 ## Follow-ups / TODOs
-- Investigate Vitest runner silent failure (exits with code 1) and restore visible diagnostics.
-- Expand coverage to additional plan items once runner reliability confirmed.
+- None. The broader coverage expansion described here was completed in later updates and the current Vitest runs surface normal output in this repository.
 
 ## Links
 - ../developer/test-coverage-expansion-plan.md
-- Rules consulted: .augment/rules/preferences.md, .augment/rules/planning.md, .augment/rules/testing.md
+- Rules consulted: .agents/rules/preferences.md, .agents/rules/planning.md, .agents/rules/testing.md

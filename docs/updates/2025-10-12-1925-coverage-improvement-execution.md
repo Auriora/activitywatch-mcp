@@ -16,7 +16,7 @@ Tags: testing
 - Expanded test suites for utilities (`configurable-title-parser`, `formatters`), configuration loaders (`app-names`, `user-preferences`), ActivityWatch client, Capabilities/QueryBuilder services, and calendar service edge cases.
 - Added new HTTP server integration tests covering streamable HTTP lifecycle, SSE messaging, invalid session handling, and resource logging timer behaviour.
 - Introduced `src/http-server-cli.ts` for CLI bootstrap logic and updated `vitest.config.ts` coverage exclusions plus thresholds (`global` 80%, `each` 75%).
-- Documented plan execution and referenced `.augment/rules/preferences.md` and `.augment/rules/testing.md` in alignment with repository guidance.
+- Documented plan execution and referenced `.agents/rules/preferences.md` and `.agents/rules/testing.md` in alignment with repository guidance.
 
 ## Impact
 - Guarantees every source file meets the ≥75% coverage goal while overall coverage now exceeds 80% (lines/statements 86.8%).
@@ -31,8 +31,8 @@ Tags: testing
 - `npm run test:coverage`
 
 ## Follow-ups / TODOs
-- Monitor future HTTP server changes; new tests provide scaffolding for additional session/transport scenarios.
-- Consider adding focused tests for `server-factory.ts` branch paths if functionality evolves.
+- Keep coverage thresholds and CI behavior aligned. The repository now declares thresholds in `vitest.config.ts`, but CI should run the coverage job if maintainers want those thresholds enforced on pull requests.
+- Add focused tests for specific `server-factory.ts` or `http-server.ts` branches only when new behavior expands those modules.
 
 ## Links
-- Rules consulted: `.augment/rules/preferences.md`, `.augment/rules/testing.md`
+- Rules consulted: `.agents/rules/preferences.md`, `.agents/rules/testing.md`

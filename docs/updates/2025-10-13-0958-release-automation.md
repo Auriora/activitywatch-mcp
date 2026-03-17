@@ -25,7 +25,7 @@ Tags: tooling, release
 - Manual reasoning over `scripts/docker-publish.sh --help` to confirm option surface and tag list output without invoking Docker build in this environment.
 
 ## Follow-ups / TODOs
-- Consider optional commit automation or push support if future release flow requires it.
+- Consider adding automated tests for `scripts/release.mjs` if the repository begins to rely on scripted releases more heavily.
 - Evaluate adding integration tests for Docker publishing once CI environment supports container builds.
 
 ## Links

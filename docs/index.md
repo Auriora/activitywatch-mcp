@@ -1,6 +1,6 @@
 # ActivityWatch MCP Server Documentation
 
-**Last updated:** October 11, 2025
+**Last updated:** March 17, 2026
 
 An MCP (Model Context Protocol) server that provides LLM agents with tools to query and analyze ActivityWatch time tracking data.
 
@@ -19,6 +19,9 @@ An MCP (Model Context Protocol) server that provides LLM agents with tools to qu
 
 ### 🏗️ Architecture
 - [**Implementation Details**](architecture/implementation.md) - Technical architecture and design decisions
+
+### ✅ Checklist
+- [**Prioritized Implementation Checklist**](checklist/prioritized-implementation-checklist.md) - Remaining implementation work ordered by value
 
 ### 👩‍💻 Developer Guide
 - [**Best Practices**](developer/best-practices.md) - MCP tool description best practices
@@ -74,6 +77,7 @@ This MCP server enables LLM agents (like Claude) to help users:
 - **Concepts**: Key ideas like canonical events and categories
 - **Reference**: Tool APIs and integration details
 - **Architecture**: Implementation and design decisions
+- **Checklist**: Prioritized outstanding implementation work
 - **Plans**: Living strategies and multi-phase roadmaps
 - **Developer**: Contribution guidelines and operational docs
 - **Updates**: Task-scoped implementation notes and logs

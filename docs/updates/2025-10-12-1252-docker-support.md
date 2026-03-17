@@ -33,8 +33,7 @@ Tags: docs, infrastructure
 - Development publishing: `./scripts/docker-publish.sh --dry-run` to confirm build
 
 ## Follow-ups / TODOs
-- Automate CI build of the Docker image
-- Add integration test harness that runs inside the container
+- Add integration test coverage that exercises the published container image or a containerised server path if container-specific regressions become a recurring risk.
 
 ## Links
 - `docker/Dockerfile`

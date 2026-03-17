@@ -1,13 +1,13 @@
 # Test Coverage Expansion Plan
 
-Last updated: 2025-10-12  
+Last updated: 2026-03-17  
 Owner(s): Testing Working Group  
-Status: In Progress
+Status: Completed
 
 ## Summary
-- Coordinate staged additions to unit, integration, and HTTP transport suites following the October 2025 coverage review.
-- Lift statement coverage above 60 % immediately, with priority services trending toward 80 %+.
-- Keep documentation and tooling updates aligned so contributors can adopt new patterns consistently.
+- The staged unit, integration, and HTTP transport test expansion described here has been carried out.
+- Coverage is now well beyond the original ≥60% objective, and the repo contains dedicated suites for client, services, transport lifecycle, schemas, formatters, and helpers.
+- This plan remains as a completion record; further test work should be tracked as focused follow-ups rather than as this still-open programme.
 
 ## Scope
 - **In scope**: Tests for ActivityWatch client, services, transport lifecycle, schema validation, formatting utilities, and supporting helpers.
@@ -16,17 +16,21 @@ Status: In Progress
 ## Objectives & Success Criteria
 - Achieve ≥60 % statements coverage across the codebase with targeted service layers above 80 %.
 - Provide reusable mocks/helpers that unblock subsequent test additions without rewriting scaffolding.
-- Update contributor docs (`tests/README.md`, `docs/developer/testing.md`) to reflect new expectations.
+- Update contributor docs and active implementation notes to match the shipped test structure.
 
 ## Milestones
-- [ ] Milestone 1 — ActivityWatch client and helper enhancements ready (target: 2025-10-20).
-- [ ] Milestone 2 — Service-layer suites (Query, Category, Afk) expanded with canonical scenarios (target: 2025-10-24).
-- [ ] Milestone 3 — Transport lifecycle and formatter/schema coverage completed; docs refreshed (target: 2025-10-28).
+- [x] Milestone 1 — ActivityWatch client and helper enhancements ready.
+- [x] Milestone 2 — Service-layer suites (Query, Category, Afk) expanded with canonical scenarios.
+- [x] Milestone 3 — Transport lifecycle and formatter/schema coverage completed; docs refreshed.
+
+## Current State
+- Shared mocks and failure helpers exist in `tests/helpers/`.
+- Client resiliency, service-layer coverage, runtime config, health checks, HTTP lifecycle, server-factory handlers, schemas, and formatter behavior all have active tests.
+- The current remaining testing concerns are incremental and specific, such as optional release-script coverage or container-focused integration tests.
 
 ## Approach
-- Phase workstreams by dependency chain (client → services → transports → docs) to reduce rework.
-- Capture shared setup logic in `tests/helpers/` and update the mock client to emit `AWError`/timeout cases.
-- Update docs alongside code so expectations stay in sync with the testing guide.
+- Keep this plan as a historical record of the completed testing expansion.
+- Use targeted `docs/updates/` entries for any further testing work instead of reopening this plan unless another multi-phase test programme is needed.
 
 ## Risks & Mitigations
 - **Risk**: Sandbox CI instability hides failing suites — *Mitigation*: run targeted commands locally and document known sandbox gaps.*
@@ -38,9 +42,9 @@ Status: In Progress
 - Coordination with maintainers for doc updates and threshold enforcement.
 
 ## Communication
-- Share weekly status in `docs/plans/index.md` (Latest Plans section) and tag maintainers in relevant issues.
-- Note milestone progress in commit/PR descriptions referencing this plan.
+- Reflect completion in `docs/plans/index.md`.
+- Note future test additions in task-scoped updates or PR descriptions instead of treating this plan as active.
 
 ## References
-- Coverage review summary (internal discussion, pending issue link).
+- Coverage review summary from October 2025.
 - Repository testing guidelines (`tests/README.md`).

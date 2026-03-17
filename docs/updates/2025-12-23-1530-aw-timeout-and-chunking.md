@@ -28,7 +28,6 @@ Tags: timeout, chunking, activitywatch, config, tests
 - `npm run test:unit`
 
 ## Follow-ups / TODOs
-- Consider exposing chunk size and timeout settings in a dedicated config doc reference table.
 - Evaluate whether canonical chunking should also apply to other query types if timeouts persist.
 
 ## Links

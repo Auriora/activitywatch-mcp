@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Last updated: October 11, 2025
+Last updated: March 17, 2026
 
 Get up and running with the ActivityWatch MCP Server in 5 minutes.
 
@@ -98,6 +98,16 @@ Claude should call the `aw_get_capabilities` tool and show you:
 "What percentage of time do I spend on development tools?"
 "Give me a breakdown of my browsing activity for yesterday"
 ```
+
+### Custom Date Ranges
+
+Use explicit timestamps when you need an inclusive end-of-day range:
+
+```
+"Show my activity from 2026-03-01T00:00:00+00:00 to 2026-03-02T00:00:00+00:00"
+```
+
+Bare `YYYY-MM-DD` values mean local midnight at the start of that date. For example, `2026-03-01` to `2026-03-02` covers a single local calendar day. If you want "through the end of March 1", prefer an explicit end timestamp rather than another bare date.
 
 ## Common Issues
 

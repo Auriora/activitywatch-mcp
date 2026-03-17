@@ -8,7 +8,7 @@ Tags: tools
 ## Summary
 - Removed the redundant `aw_get_daily_summary` MCP tool now that `aw_get_period_summary` covers daily and multi-day summaries.
 - Updated user- and developer-facing docs so guidance consistently points to `aw_get_period_summary`.
-- Followed project rules from `.augment/rules/preferences.md` (priority 50) and `.augment/rules/planning.md` (priority 30) to plan and document the work.
+- Followed project rules from `.agents/rules/preferences.md` (priority 50) and `.agents/rules/planning.md` (priority 30) to plan and document the work.
 
 ## Changes
 
