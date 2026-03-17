@@ -106,7 +106,7 @@ aw_get_period_summary({
 **Output includes:**
 - Hour-by-hour activity (0-23)
 - Active seconds per hour
-- Top app for each hour
+- Top app and category for each hour when categories are configured
 - Visual bar chart
 
 ### Daily Breakdown
@@ -122,7 +122,7 @@ aw_get_period_summary({
 **Output includes:**
 - Day-by-day activity
 - Active and AFK seconds per day
-- Top app and website for each day
+- Top app, website, and category for each day when categories are configured
 - Visual bar chart
 
 ### Weekly Breakdown
@@ -138,7 +138,7 @@ aw_get_period_summary({
 **Output includes:**
 - Week-by-week activity
 - Active and AFK seconds per week
-- Top app and website for each week
+- Top app, website, and category for each week when categories are configured
 - Visual bar chart
 
 ### No Breakdown

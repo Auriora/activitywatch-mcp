@@ -209,6 +209,7 @@ export interface HourlyActivity {
   readonly active_seconds: number;
   readonly top_app?: string;
   readonly top_website?: string;
+  readonly top_category?: string;
 }
 
 /**

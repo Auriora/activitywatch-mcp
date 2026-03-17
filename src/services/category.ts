@@ -177,7 +177,7 @@ export class CategoryService {
   /**
    * Categorize multiple events and return usage statistics
    */
-  categorizeEvents(events: AWEvent[]): CategoryUsage[] {
+  categorizeEvents(events: readonly AWEvent[]): CategoryUsage[] {
     if (this.categories.length === 0) {
       logger.warn('No categories configured');
       return [];
@@ -392,4 +392,3 @@ export class CategoryService {
     ];
   }
 }
-

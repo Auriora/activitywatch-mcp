@@ -205,6 +205,7 @@ CAPABILITIES:
 - Calculates total active time vs away-from-keyboard time
 - Identifies top 5 applications and websites for the entire period
 - Provides period-appropriate breakdowns (hourly for daily, daily for weekly, etc.)
+- Adds dominant category context to breakdown rows when categories are configured
 - Generates automatic insights including averages and trends
 - Works even if some data sources are missing (gracefully degrades)
 
@@ -238,9 +239,9 @@ RETURNS:
 - top_applications: Top 5 apps with duration and percentage
 - top_websites: Top 5 websites with duration and percentage
 - top_categories: Top 5 categories (if configured)
-- hourly_breakdown: Hour-by-hour data (if detail_level='hourly')
-- daily_breakdown: Day-by-day data (if detail_level='daily')
-- weekly_breakdown: Week-by-week data (if detail_level='weekly')
+- hourly_breakdown: Hour-by-hour data including top app and top category when available (if detail_level='hourly')
+- daily_breakdown: Day-by-day data including top app, top website, and top category when available (if detail_level='daily')
+- weekly_breakdown: Week-by-week data including top app, top website, and top category when available (if detail_level='weekly')
 - insights: Array of auto-generated observations about the period
 
 Always returns human-readable formatted summary optimized for user presentation.`,

@@ -437,12 +437,14 @@ Behind the scenes it assembles a cohesive view by layering multiple sources:
     hour: number;
     active_seconds: number;
     top_app?: string;
+    top_category?: string;
   }>;
   daily_breakdown?: Array<{
     date: string;
     active_seconds: number;
     afk_seconds: number;
     top_app?: string;
+    top_category?: string;
   }>;
   weekly_breakdown?: Array<{
     week_start: string;
@@ -450,6 +452,7 @@ Behind the scenes it assembles a cohesive view by layering multiple sources:
     active_seconds: number;
     afk_seconds: number;
     top_app?: string;
+    top_category?: string;
   }>;
   insights: string[];
 }
