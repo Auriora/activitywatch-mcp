@@ -134,7 +134,12 @@ export class PeriodSummaryService {
         return allEventsCache;
       }
 
-      allEventsCache = await this.queryService.getAllEventsFiltered(start, end);
+      try {
+        allEventsCache = await this.queryService.getAllEventsFiltered(start, end);
+      } catch (error) {
+        logger.debug('All events unavailable for category enrichment', error);
+        allEventsCache = [];
+      }
       return allEventsCache;
     };
 

@@ -267,6 +267,66 @@ describe('PeriodSummaryService calendar integration', () => {
     expect(summary.notable_calendar_events?.[0].summary).toBe('Retrospective');
     expect(summary.insights.length).toBeGreaterThan(0);
   });
+
+  it('falls back to empty category events when all-events loading fails', async () => {
+    const unifiedService = {
+      getActivity: vi.fn().mockResolvedValue({
+        total_time_seconds: 3600,
+        activities: [
+          {
+            app: 'Editor',
+            duration_seconds: 3600,
+            duration_hours: 1,
+            percentage: 100,
+            event_count: 1,
+          },
+        ],
+      }),
+    } as any;
+
+    const windowEvents: AWEvent[] = [
+      {
+        id: 1,
+        timestamp: '2025-01-01T09:00:00.000Z',
+        duration: 3600,
+        data: { app: 'Editor', title: 'Feature Work' },
+      },
+    ];
+
+    const queryService = {
+      getWindowEventsFiltered: vi.fn().mockResolvedValue({ events: windowEvents }),
+      getBrowserEventsFiltered: vi.fn().mockResolvedValue({ events: [] }),
+      getAllEventsFiltered: vi.fn().mockRejectedValue(new Error('aw unavailable')),
+    } as any;
+
+    const afkService = {
+      getAfkStats: vi.fn().mockResolvedValue({ afk_seconds: 0, active_seconds: 3600 }),
+    } as any;
+
+    const categoryService = {
+      hasCategories: vi.fn().mockReturnValue(true),
+      categorizeEvent: vi.fn().mockReturnValue(null),
+      categorizeEvents: vi.fn().mockReturnValue([]),
+    } as any;
+
+    const service = new PeriodSummaryService(
+      unifiedService,
+      queryService,
+      afkService,
+      categoryService
+    );
+
+    const summary = await service.getPeriodSummary({
+      period_type: 'daily',
+      date: '2025-01-01',
+      detail_level: 'daily',
+    });
+
+    expect(summary.daily_breakdown).toBeDefined();
+    expect(summary.daily_breakdown?.[0].top_app).toBe('Editor');
+    expect(summary.top_categories).toEqual([]);
+    expect(categoryService.categorizeEvents).toHaveBeenCalledWith([]);
+  });
 });
 
 afterEach(() => {
